@@ -1,6 +1,12 @@
 #include "MonoSynthAudioProcessor.h"
 #include "MonoSynthAudioProcessorEditor.h"
 
+namespace
+{
+constexpr float outputLevel = 0.15f;
+constexpr double twoPi = juce::MathConstants<double>::twoPi;
+} // namespace
+
 //==============================================================================
 MonoSynthAudioProcessor::MonoSynthAudioProcessor()
      : AudioProcessor (BusesProperties()
@@ -86,9 +92,14 @@ void MonoSynthAudioProcessor::changeProgramName (int index, const juce::String& 
 //==============================================================================
 void MonoSynthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    // Use this method as the place to do any pre-playback
-    // initialisation that you need..
-    juce::ignoreUnused (sampleRate, samplesPerBlock);
+    juce::ignoreUnused (samplesPerBlock);
+
+    currentSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
+    phase = 0.0;
+    gateOpen = false;
+    currentMidiNote = -1;
+    currentFrequencyHz = 440.0;
+    updatePhaseIncrement();
 }
 
 void MonoSynthAudioProcessor::releaseResources()
@@ -124,33 +135,66 @@ bool MonoSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                               juce::MidiBuffer& midiMessages)
 {
-    juce::ignoreUnused (midiMessages);
-
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
     auto totalNumOutputChannels = getTotalNumOutputChannels();
+    const auto numSamples = buffer.getNumSamples();
 
-    // In case we have more outputs than inputs, this code clears any output
-    // channels that didn't contain input data, (because these aren't
-    // guaranteed to be empty - they may contain garbage).
-    // This is here to avoid people getting screaming feedback
-    // when they first compile a plugin, but obviously you don't need to keep
-    // this code if your algorithm always overwrites all the output channels.
+    for (const auto midiMetadata : midiMessages)
+        handleMidiEvent (midiMetadata.getMessage());
+
+    midiMessages.clear();
+
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
-        buffer.clear (i, 0, buffer.getNumSamples());
+        buffer.clear (i, 0, numSamples);
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
-    for (int channel = 0; channel < totalNumInputChannels; ++channel)
+    for (int sample = 0; sample < numSamples; ++sample)
     {
-        auto* channelData = buffer.getWritePointer (channel);
-        juce::ignoreUnused (channelData);
-        // ..do something to the data...
+        float sampleValue = 0.0f;
+
+        if (gateOpen)
+        {
+            sampleValue = outputLevel * std::sin (phase);
+            phase += phaseIncrement;
+
+            if (phase >= twoPi)
+                phase -= twoPi;
+        }
+
+        for (int channel = 0; channel < totalNumOutputChannels; ++channel)
+            buffer.setSample (channel, sample, sampleValue);
     }
+}
+
+void MonoSynthAudioProcessor::handleMidiEvent (const juce::MidiMessage& midiMessage)
+{
+    if (midiMessage.isNoteOn())
+    {
+        // Monophonic retrigger policy: latest note-on always becomes active and
+        // restarts the oscillator phase.
+        currentMidiNote = midiMessage.getNoteNumber();
+        currentFrequencyHz = juce::MidiMessage::getMidiNoteInHertz (currentMidiNote);
+        phase = 0.0;
+        gateOpen = true;
+        updatePhaseIncrement();
+        return;
+    }
+
+    if (midiMessage.isNoteOff())
+    {
+        if (midiMessage.getNoteNumber() == currentMidiNote)
+            gateOpen = false;
+
+        return;
+    }
+
+    if (midiMessage.isAllNotesOff() || midiMessage.isAllSoundOff())
+        gateOpen = false;
+}
+
+void MonoSynthAudioProcessor::updatePhaseIncrement() noexcept
+{
+    phaseIncrement = twoPi * currentFrequencyHz / currentSampleRate;
 }
 
 //==============================================================================
