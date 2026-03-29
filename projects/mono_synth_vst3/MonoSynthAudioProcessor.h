@@ -55,6 +55,13 @@ public:
     Waveform getWaveform() const noexcept;
 
 private:
+    enum class NoteTransitionState
+    {
+        none = 0,
+        rampDownForNoteChange,
+        rampUpAfterNoteChange
+    };
+
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void handleMidiEvent (const juce::MidiMessage& midiMessage);
     void updatePhaseIncrement() noexcept;
@@ -69,15 +76,20 @@ private:
     std::atomic<float>* waveformParameter = nullptr;
 
     int currentMidiNote = -1;
+    int pendingMidiNote = -1;
     double currentFrequencyHz = 440.0;
+    double pendingFrequencyHz = 440.0;
     double currentSampleRate = 44100.0;
     double phase = 0.0;
     double phaseIncrement = 0.0;
     bool gateOpen = false;
+    bool shouldResetPhaseOnNoteChange = false;
+    NoteTransitionState noteTransitionState = NoteTransitionState::none;
     std::atomic<Waveform> waveform { Waveform::sine };
     float currentAmplitude = 0.0f;
     float attackStep = 0.0f;
     float releaseStep = 0.0f;
+    float noteTransitionStep = 0.0f;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MonoSynthAudioProcessor)
