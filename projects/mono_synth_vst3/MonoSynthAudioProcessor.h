@@ -51,13 +51,22 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
-    void setWaveform (Waveform newWaveform) noexcept;
+    juce::AudioProcessorValueTreeState& getValueTreeState() noexcept { return parameters; }
     Waveform getWaveform() const noexcept;
 
 private:
+    static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
     void handleMidiEvent (const juce::MidiMessage& midiMessage);
     void updatePhaseIncrement() noexcept;
-    float getOscillatorSample (double phaseInRadians, Waveform waveform) const noexcept;
+    void updateWaveformFromParameter() noexcept;
+    static Waveform waveformFromParameterValue (float parameterValue) noexcept;
+    static int waveformToChoiceIndex (Waveform waveformType) noexcept;
+    static Waveform waveformFromChoiceIndex (int choiceIndex) noexcept;
+    static const juce::StringArray& getWaveformChoices() noexcept;
+    float getOscillatorSample (double phaseInRadians, Waveform oscillatorWaveform) const noexcept;
+
+    juce::AudioProcessorValueTreeState parameters;
+    std::atomic<float>* waveformParameter = nullptr;
 
     int currentMidiNote = -1;
     double currentFrequencyHz = 440.0;

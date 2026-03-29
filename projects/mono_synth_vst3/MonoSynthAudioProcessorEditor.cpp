@@ -5,9 +5,20 @@
 MonoSynthAudioProcessorEditor::MonoSynthAudioProcessorEditor (MonoSynthAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    juce::ignoreUnused (processorRef);
-    // Make sure that before the constructor has finished, you've set the
-    // editor's size to whatever you need it to be.
+    waveformLabel.setText ("Waveform", juce::dontSendNotification);
+    waveformLabel.attachToComponent (&waveformSelector, true);
+    addAndMakeVisible (waveformLabel);
+
+    waveformSelector.addItem ("Sine", 1);
+    waveformSelector.addItem ("Saw", 2);
+    waveformSelector.addItem ("Square", 3);
+    waveformSelector.addItem ("Triangle", 4);
+    addAndMakeVisible (waveformSelector);
+
+    waveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
+                                                                                                    "waveform",
+                                                                                                    waveformSelector);
+
     setSize (400, 300);
 }
 
@@ -22,12 +33,13 @@ void MonoSynthAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 
     g.setColour (juce::Colours::white);
-    g.setFont (15.0f);
-    g.drawFittedText ("Hello World!", getLocalBounds(), juce::Justification::centred, 1);
+    g.setFont (20.0f);
+    g.drawFittedText ("Mono Synth", getLocalBounds().removeFromTop (80), juce::Justification::centred, 1);
 }
 
 void MonoSynthAudioProcessorEditor::resized()
 {
-    // This is generally where you'll want to lay out the positions of any
-    // subcomponents in your editor..
+    auto bounds = getLocalBounds().reduced (24);
+    bounds.removeFromTop (90);
+    waveformSelector.setBounds (bounds.removeFromTop (26).withTrimmedLeft (120).withWidth (160));
 }
