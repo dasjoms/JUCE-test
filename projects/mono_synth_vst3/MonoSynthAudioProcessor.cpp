@@ -200,11 +200,16 @@ void MonoSynthAudioProcessor::handleMidiEvent (const juce::MidiMessage& midiMess
 {
     if (midiMessage.isNoteOn())
     {
-        // Monophonic retrigger policy: latest note-on always becomes active and
-        // restarts the oscillator phase.
+        // Monophonic legato policy: if a voice is already sounding, keep
+        // oscillator phase continuous. Only reset phase when the previous gate
+        // was closed or the envelope is effectively silent.
+        const auto shouldResetPhase = (! gateOpen) || (currentAmplitude <= minimumEnvelopeValue);
         currentMidiNote = midiMessage.getNoteNumber();
         currentFrequencyHz = juce::MidiMessage::getMidiNoteInHertz (currentMidiNote);
-        phase = 0.0;
+
+        if (shouldResetPhase)
+            phase = 0.0;
+
         gateOpen = true;
         updatePhaseIncrement();
         return;
