@@ -17,6 +17,7 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     MonoSynthAudioProcessor& processorRef;
+    juce::Label titleLabel;
     juce::Label waveformLabel;
     juce::ComboBox waveformSelector;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveformAttachment;
