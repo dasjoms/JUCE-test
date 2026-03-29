@@ -104,7 +104,7 @@ Minimum expected checks for synth feature work include:
 - Static checks/linting if configured
 
 If a check cannot run due to environment limitations, manually modify the environment so tests can be ran and notify the user about what changes to the environment had to be made.
-
+Specifically fix any missing Xrandr.h issues you encounter before running your build. Do not skip builds simply because it fails once but address the issue.
 ---
 
 ## Coding and Collaboration Meta-Instructions
