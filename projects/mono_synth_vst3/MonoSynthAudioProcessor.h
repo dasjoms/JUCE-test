@@ -43,6 +43,16 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
 private:
+    void handleMidiEvent (const juce::MidiMessage& midiMessage);
+    void updatePhaseIncrement() noexcept;
+
+    int currentMidiNote = -1;
+    double currentFrequencyHz = 440.0;
+    double currentSampleRate = 44100.0;
+    double phase = 0.0;
+    double phaseIncrement = 0.0;
+    bool gateOpen = false;
+
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MonoSynthAudioProcessor)
 };
