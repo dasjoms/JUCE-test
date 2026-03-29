@@ -25,6 +25,11 @@ project(MONO_SYNTH_VST3 VERSION 0.0.1)
 # or
 # add_subdirectory(JUCE)                    # If you've put JUCE in a subdirectory called JUCE
 
+# Allow this project to configure standalone from within the JUCE source tree.
+if (NOT COMMAND juce_add_plugin)
+    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../.. ${CMAKE_BINARY_DIR}/juce)
+endif()
+
 # If you are building a VST2 or AAX plugin, CMake needs to be told where to find these SDKs on your
 # system. This setup should be done before calling `juce_add_plugin`.
 
