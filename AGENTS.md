@@ -103,7 +103,7 @@ Minimum expected checks for synth feature work include:
 - Run available tests
 - Static checks/linting if configured
 
-If a check cannot run due to environment limitations, explicitly document why.
+If a check cannot run due to environment limitations, manually modify the environment so tests can be ran and notify the user about what changes to the environment had to be made.
 
 ---
 
