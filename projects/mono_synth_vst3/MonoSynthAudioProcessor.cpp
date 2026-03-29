@@ -9,6 +9,7 @@ constexpr double twoPi = juce::MathConstants<double>::twoPi;
 constexpr double inverseTwoPi = 1.0 / twoPi;
 constexpr float attackTimeSeconds = 0.005f;
 constexpr float releaseTimeSeconds = 0.03f;
+constexpr float noteTransitionRampTimeSeconds = 0.002f;
 constexpr float minimumEnvelopeValue = 1.0e-5f;
 constexpr auto waveformParameterId = "waveform";
 } // namespace
@@ -107,10 +108,15 @@ void MonoSynthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     phase = 0.0;
     gateOpen = false;
     currentMidiNote = -1;
+    pendingMidiNote = -1;
     currentFrequencyHz = 440.0;
+    pendingFrequencyHz = 440.0;
     currentAmplitude = 0.0f;
+    noteTransitionState = NoteTransitionState::none;
+    shouldResetPhaseOnNoteChange = false;
     attackStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * attackTimeSeconds));
     releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
+    noteTransitionStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * noteTransitionRampTimeSeconds));
     updatePhaseIncrement();
 }
 
@@ -166,8 +172,12 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     {
         float sampleValue = 0.0f;
         const auto currentWaveform = waveform.load (std::memory_order_relaxed);
-        const auto targetAmplitude = gateOpen ? 1.0f : 0.0f;
-        const auto envelopeStep = gateOpen ? attackStep : releaseStep;
+        const auto shouldRunTransitionRamp = (noteTransitionState == NoteTransitionState::rampDownForNoteChange)
+                                          || (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange);
+        const auto targetAmplitude = shouldRunTransitionRamp ? (noteTransitionState == NoteTransitionState::rampDownForNoteChange ? 0.0f : 1.0f)
+                                                             : (gateOpen ? 1.0f : 0.0f);
+        const auto envelopeStep = shouldRunTransitionRamp ? noteTransitionStep
+                                                          : (gateOpen ? attackStep : releaseStep);
 
         if (currentAmplitude < targetAmplitude)
         {
@@ -176,6 +186,26 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         else if (currentAmplitude > targetAmplitude)
         {
             currentAmplitude = juce::jmax (targetAmplitude, currentAmplitude - envelopeStep);
+        }
+
+        if (noteTransitionState == NoteTransitionState::rampDownForNoteChange
+            && currentAmplitude <= minimumEnvelopeValue)
+        {
+            currentAmplitude = 0.0f;
+            currentMidiNote = pendingMidiNote;
+            currentFrequencyHz = pendingFrequencyHz;
+
+            if (shouldResetPhaseOnNoteChange)
+                phase = 0.0;
+
+            updatePhaseIncrement();
+            gateOpen = true;
+            noteTransitionState = NoteTransitionState::rampUpAfterNoteChange;
+        }
+        else if (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange
+                 && currentAmplitude >= (1.0f - minimumEnvelopeValue))
+        {
+            noteTransitionState = NoteTransitionState::none;
         }
 
         if (gateOpen || currentAmplitude > minimumEnvelopeValue)
@@ -200,17 +230,33 @@ void MonoSynthAudioProcessor::handleMidiEvent (const juce::MidiMessage& midiMess
 {
     if (midiMessage.isNoteOn())
     {
-        // Monophonic legato policy: if a voice is already sounding, keep
-        // oscillator phase continuous. Only reset phase when the previous gate
-        // was closed or the envelope is effectively silent.
+        const auto incomingNote = midiMessage.getNoteNumber();
+        const auto incomingFrequencyHz = juce::MidiMessage::getMidiNoteInHertz (incomingNote);
+
+        // If a note is already sounding, perform a short ramp-to-zero,
+        // then switch note/frequency near silence, then ramp up.
+        if (gateOpen && currentAmplitude > minimumEnvelopeValue)
+        {
+            pendingMidiNote = incomingNote;
+            pendingFrequencyHz = incomingFrequencyHz;
+            shouldResetPhaseOnNoteChange = true;
+            gateOpen = false;
+            noteTransitionState = NoteTransitionState::rampDownForNoteChange;
+            return;
+        }
+
         const auto shouldResetPhase = (! gateOpen) || (currentAmplitude <= minimumEnvelopeValue);
-        currentMidiNote = midiMessage.getNoteNumber();
-        currentFrequencyHz = juce::MidiMessage::getMidiNoteInHertz (currentMidiNote);
+        currentMidiNote = incomingNote;
+        currentFrequencyHz = incomingFrequencyHz;
 
         if (shouldResetPhase)
             phase = 0.0;
 
         gateOpen = true;
+        noteTransitionState = NoteTransitionState::none;
+        pendingMidiNote = -1;
+        pendingFrequencyHz = currentFrequencyHz;
+        shouldResetPhaseOnNoteChange = false;
         updatePhaseIncrement();
         return;
     }
@@ -218,13 +264,30 @@ void MonoSynthAudioProcessor::handleMidiEvent (const juce::MidiMessage& midiMess
     if (midiMessage.isNoteOff())
     {
         if (midiMessage.getNoteNumber() == currentMidiNote)
+        {
             gateOpen = false;
+
+            if (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange)
+                noteTransitionState = NoteTransitionState::none;
+        }
+
+        if (midiMessage.getNoteNumber() == pendingMidiNote)
+        {
+            pendingMidiNote = -1;
+            pendingFrequencyHz = currentFrequencyHz;
+
+            if (noteTransitionState == NoteTransitionState::rampDownForNoteChange)
+                noteTransitionState = NoteTransitionState::none;
+        }
 
         return;
     }
 
     if (midiMessage.isAllNotesOff() || midiMessage.isAllSoundOff())
+    {
         gateOpen = false;
+        noteTransitionState = NoteTransitionState::none;
+    }
 }
 
 MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::getWaveform() const noexcept
