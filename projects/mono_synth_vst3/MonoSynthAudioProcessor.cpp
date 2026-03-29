@@ -158,72 +158,88 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     auto totalNumOutputChannels = getTotalNumOutputChannels();
     const auto numSamples = buffer.getNumSamples();
 
-    for (const auto midiMetadata : midiMessages)
-        handleMidiEvent (midiMetadata.getMessage());
-
-    midiMessages.clear();
-
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, numSamples);
 
     updateWaveformFromParameter();
 
-    for (int sample = 0; sample < numSamples; ++sample)
+    const auto renderRange = [this, &buffer, totalNumOutputChannels] (int startSample, int endSample)
     {
-        float sampleValue = 0.0f;
-        const auto currentWaveform = waveform.load (std::memory_order_relaxed);
-        const auto shouldRunTransitionRamp = (noteTransitionState == NoteTransitionState::rampDownForNoteChange)
-                                          || (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange);
-        const auto targetAmplitude = shouldRunTransitionRamp ? (noteTransitionState == NoteTransitionState::rampDownForNoteChange ? 0.0f : 1.0f)
-                                                             : (gateOpen ? 1.0f : 0.0f);
-        const auto envelopeStep = shouldRunTransitionRamp ? noteTransitionStep
-                                                          : (gateOpen ? attackStep : releaseStep);
-
-        if (currentAmplitude < targetAmplitude)
+        for (int sample = startSample; sample < endSample; ++sample)
         {
-            currentAmplitude = juce::jmin (targetAmplitude, currentAmplitude + envelopeStep);
-        }
-        else if (currentAmplitude > targetAmplitude)
-        {
-            currentAmplitude = juce::jmax (targetAmplitude, currentAmplitude - envelopeStep);
-        }
+            float sampleValue = 0.0f;
+            const auto currentWaveform = waveform.load (std::memory_order_relaxed);
+            const auto shouldRunTransitionRamp = (noteTransitionState == NoteTransitionState::rampDownForNoteChange)
+                                              || (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange);
+            const auto targetAmplitude = shouldRunTransitionRamp ? (noteTransitionState == NoteTransitionState::rampDownForNoteChange ? 0.0f : 1.0f)
+                                                                 : (gateOpen ? 1.0f : 0.0f);
+            const auto envelopeStep = shouldRunTransitionRamp ? noteTransitionStep
+                                                              : (gateOpen ? attackStep : releaseStep);
 
-        if (noteTransitionState == NoteTransitionState::rampDownForNoteChange
-            && currentAmplitude <= minimumEnvelopeValue)
-        {
-            currentAmplitude = 0.0f;
-            currentMidiNote = pendingMidiNote;
-            currentFrequencyHz = pendingFrequencyHz;
+            if (currentAmplitude < targetAmplitude)
+            {
+                currentAmplitude = juce::jmin (targetAmplitude, currentAmplitude + envelopeStep);
+            }
+            else if (currentAmplitude > targetAmplitude)
+            {
+                currentAmplitude = juce::jmax (targetAmplitude, currentAmplitude - envelopeStep);
+            }
 
-            if (shouldResetPhaseOnNoteChange)
-                phase = 0.0;
+            if (noteTransitionState == NoteTransitionState::rampDownForNoteChange
+                && currentAmplitude <= minimumEnvelopeValue)
+            {
+                currentAmplitude = 0.0f;
+                currentMidiNote = pendingMidiNote;
+                currentFrequencyHz = pendingFrequencyHz;
 
-            updatePhaseIncrement();
-            gateOpen = true;
-            noteTransitionState = NoteTransitionState::rampUpAfterNoteChange;
+                if (shouldResetPhaseOnNoteChange)
+                    phase = 0.0;
+
+                updatePhaseIncrement();
+                gateOpen = true;
+                noteTransitionState = NoteTransitionState::rampUpAfterNoteChange;
+            }
+            else if (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange
+                     && currentAmplitude >= (1.0f - minimumEnvelopeValue))
+            {
+                noteTransitionState = NoteTransitionState::none;
+            }
+
+            if (gateOpen || currentAmplitude > minimumEnvelopeValue)
+            {
+                sampleValue = outputLevel * currentAmplitude * getOscillatorSample (phase, currentWaveform);
+                phase += phaseIncrement;
+
+                if (phase >= twoPi)
+                    phase -= twoPi;
+            }
+            else
+            {
+                currentAmplitude = 0.0f;
+            }
+
+            for (int channel = 0; channel < totalNumOutputChannels; ++channel)
+                buffer.setSample (channel, sample, sampleValue);
         }
-        else if (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange
-                 && currentAmplitude >= (1.0f - minimumEnvelopeValue))
-        {
-            noteTransitionState = NoteTransitionState::none;
-        }
+    };
 
-        if (gateOpen || currentAmplitude > minimumEnvelopeValue)
-        {
-            sampleValue = outputLevel * currentAmplitude * getOscillatorSample (phase, currentWaveform);
-            phase += phaseIncrement;
+    int renderedSamples = 0;
 
-            if (phase >= twoPi)
-                phase -= twoPi;
-        }
-        else
-        {
-            currentAmplitude = 0.0f;
-        }
+    for (const auto midiMetadata : midiMessages)
+    {
+        const auto eventOffset = juce::jlimit (0, numSamples, midiMetadata.samplePosition);
 
-        for (int channel = 0; channel < totalNumOutputChannels; ++channel)
-            buffer.setSample (channel, sample, sampleValue);
+        if (eventOffset > renderedSamples)
+            renderRange (renderedSamples, eventOffset);
+
+        handleMidiEvent (midiMetadata.getMessage());
+        renderedSamples = eventOffset;
     }
+
+    if (renderedSamples < numSamples)
+        renderRange (renderedSamples, numSamples);
+
+    midiMessages.clear();
 }
 
 void MonoSynthAudioProcessor::handleMidiEvent (const juce::MidiMessage& midiMessage)
