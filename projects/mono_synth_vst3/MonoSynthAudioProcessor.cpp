@@ -1,10 +1,15 @@
 #include "MonoSynthAudioProcessor.h"
 #include "MonoSynthAudioProcessorEditor.h"
+#include <cmath>
 
 namespace
 {
-constexpr float outputLevel = 0.15f;
+constexpr float outputLevel = 0.12f;
 constexpr double twoPi = juce::MathConstants<double>::twoPi;
+constexpr double inverseTwoPi = 1.0 / twoPi;
+constexpr float attackTimeSeconds = 0.005f;
+constexpr float releaseTimeSeconds = 0.03f;
+constexpr float minimumEnvelopeValue = 1.0e-5f;
 } // namespace
 
 //==============================================================================
@@ -99,6 +104,9 @@ void MonoSynthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBl
     gateOpen = false;
     currentMidiNote = -1;
     currentFrequencyHz = 440.0;
+    currentAmplitude = 0.0f;
+    attackStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * attackTimeSeconds));
+    releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
     updatePhaseIncrement();
 }
 
@@ -151,14 +159,30 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     for (int sample = 0; sample < numSamples; ++sample)
     {
         float sampleValue = 0.0f;
+        const auto currentWaveform = waveform.load (std::memory_order_relaxed);
+        const auto targetAmplitude = gateOpen ? 1.0f : 0.0f;
+        const auto envelopeStep = gateOpen ? attackStep : releaseStep;
 
-        if (gateOpen)
+        if (currentAmplitude < targetAmplitude)
         {
-            sampleValue = outputLevel * std::sin (phase);
+            currentAmplitude = juce::jmin (targetAmplitude, currentAmplitude + envelopeStep);
+        }
+        else if (currentAmplitude > targetAmplitude)
+        {
+            currentAmplitude = juce::jmax (targetAmplitude, currentAmplitude - envelopeStep);
+        }
+
+        if (gateOpen || currentAmplitude > minimumEnvelopeValue)
+        {
+            sampleValue = outputLevel * currentAmplitude * getOscillatorSample (phase, currentWaveform);
             phase += phaseIncrement;
 
             if (phase >= twoPi)
                 phase -= twoPi;
+        }
+        else
+        {
+            currentAmplitude = 0.0f;
         }
 
         for (int channel = 0; channel < totalNumOutputChannels; ++channel)
@@ -190,6 +214,37 @@ void MonoSynthAudioProcessor::handleMidiEvent (const juce::MidiMessage& midiMess
 
     if (midiMessage.isAllNotesOff() || midiMessage.isAllSoundOff())
         gateOpen = false;
+}
+
+void MonoSynthAudioProcessor::setWaveform (Waveform newWaveform) noexcept
+{
+    waveform.store (newWaveform, std::memory_order_relaxed);
+}
+
+MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::getWaveform() const noexcept
+{
+    return waveform.load (std::memory_order_relaxed);
+}
+
+float MonoSynthAudioProcessor::getOscillatorSample (double phaseInRadians, Waveform waveformType) const noexcept
+{
+    switch (waveformType)
+    {
+        case Waveform::sine:
+            return std::sin (phaseInRadians);
+        case Waveform::saw:
+            return static_cast<float> ((phaseInRadians * inverseTwoPi * 2.0) - 1.0);
+        case Waveform::square:
+            return phaseInRadians < juce::MathConstants<double>::pi ? 1.0f : -1.0f;
+        case Waveform::triangle:
+        {
+            const auto normalizedPhase = phaseInRadians * inverseTwoPi;
+            return static_cast<float> (1.0 - 4.0 * std::abs (normalizedPhase - 0.5));
+        }
+    }
+
+    jassertfalse;
+    return 0.0f;
 }
 
 void MonoSynthAudioProcessor::updatePhaseIncrement() noexcept
