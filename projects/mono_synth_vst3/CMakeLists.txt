@@ -115,3 +115,13 @@ target_link_libraries(MonoSynthPlugin
         juce::juce_recommended_config_flags
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
+
+
+add_executable(MonoSynthProcessBlockTest
+    tests/ProcessBlockMidiOffsetsTest.cpp)
+
+target_link_libraries(MonoSynthProcessBlockTest
+    PRIVATE
+        MonoSynthPlugin
+        juce::juce_audio_processors
+        juce::juce_audio_utils)
