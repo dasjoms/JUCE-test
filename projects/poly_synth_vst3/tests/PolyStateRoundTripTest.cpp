@@ -11,6 +11,7 @@ constexpr auto sustainParameterId = "sustain";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
 constexpr auto modulationDestinationParameterId = "modDestination";
+constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 
 float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
 {
@@ -41,6 +42,7 @@ bool validatePolyParametersRoundTrip()
         || ! setRawParameterValue (source, sustainParameterId, 0.45f)
         || ! setRawParameterValue (source, modulationDepthParameterId, 0.75f)
         || ! setRawParameterValue (source, modulationRateParameterId, 6.5f)
+        || ! setRawParameterValue (source, velocitySensitivityParameterId, 0.85f)
         || ! setRawParameterValue (source, modulationDestinationParameterId, 1.0f))
     {
         std::cerr << "unable to configure source processor for round-trip test" << '\n';
@@ -80,6 +82,12 @@ bool validatePolyParametersRoundTrip()
     if (juce::roundToInt (getRawParameterValue (restored, modulationDestinationParameterId)) != 1)
     {
         std::cerr << "modulation destination mismatch after round-trip" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual (getRawParameterValue (restored, velocitySensitivityParameterId), 0.85f))
+    {
+        std::cerr << "velocity sensitivity mismatch after round-trip" << '\n';
         return false;
     }
 

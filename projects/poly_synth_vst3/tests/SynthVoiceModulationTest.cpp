@@ -16,7 +16,7 @@ std::vector<float> renderVoice (float modulationDepth,
     voice.setWaveform (SynthVoice::Waveform::sine);
     voice.setEnvelopeTimes (0.001f, 0.04f, 0.9f, 0.05f);
     voice.setModulationParameters (modulationDepth, modulationRateHz, destination);
-    voice.noteOn (60);
+    voice.noteOn (60, 1.0f);
 
     std::vector<float> rendered (static_cast<size_t> (sampleCount));
 

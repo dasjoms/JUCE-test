@@ -21,6 +21,7 @@ constexpr auto sustainParameterId = "sustain";
 constexpr auto releaseParameterId = "release";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
+constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
 
@@ -123,6 +124,7 @@ bool validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds()
         && expectFloatParameter (processor, releaseParameterId, 0.03f, "legacy migration default")
         && expectFloatParameter (processor, modulationDepthParameterId, 0.0f, "legacy migration default")
         && expectFloatParameter (processor, modulationRateParameterId, 2.0f, "legacy migration default")
+        && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "legacy migration default")
         && expectIntParameter (processor, modulationDestinationParameterId, 0, "legacy migration default");
 }
 
@@ -139,6 +141,7 @@ bool validateCurrentVersionRoundTrip()
         || ! setRawParameterValue (sourceProcessor, releaseParameterId, 0.21f)
         || ! setRawParameterValue (sourceProcessor, modulationDepthParameterId, 0.77f)
         || ! setRawParameterValue (sourceProcessor, modulationRateParameterId, 7.25f)
+        || ! setRawParameterValue (sourceProcessor, velocitySensitivityParameterId, 0.63f)
         || ! setRawParameterValue (sourceProcessor, modulationDestinationParameterId, 2.0f))
     {
         std::cerr << "unable to set one or more parameters on source processor" << '\n';
@@ -163,6 +166,7 @@ bool validateCurrentVersionRoundTrip()
         && expectFloatParameter (restoredProcessor, releaseParameterId, 0.21f, "current-version restore")
         && expectFloatParameter (restoredProcessor, modulationDepthParameterId, 0.77f, "current-version restore")
         && expectFloatParameter (restoredProcessor, modulationRateParameterId, 7.25f, "current-version restore")
+        && expectFloatParameter (restoredProcessor, velocitySensitivityParameterId, 0.63f, "current-version restore")
         && expectIntParameter (restoredProcessor, modulationDestinationParameterId, 2, "current-version restore");
 }
 
@@ -209,6 +213,7 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
         && expectFloatParameter (processor, decayParameterId, 0.08f, "future fixture missing-param default")
         && expectFloatParameter (processor, releaseParameterId, 0.03f, "future fixture missing-param default")
         && expectFloatParameter (processor, modulationRateParameterId, 2.0f, "future fixture missing-param default")
+        && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "future fixture missing-param default")
         && expectIntParameter (processor, modulationDestinationParameterId, 0, "future fixture missing-param default");
 }
 
