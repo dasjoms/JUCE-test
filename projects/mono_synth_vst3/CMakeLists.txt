@@ -16,6 +16,8 @@ cmake_minimum_required(VERSION 3.22)
 
 project(MONO_SYNTH_VST3 VERSION 0.0.1)
 
+include(CTest)
+
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
 # target), you'll need to tell this project that it depends on the installed copy of JUCE. If you've
 # included JUCE directly in your source tree (perhaps as a submodule), you'll need to tell CMake to
@@ -125,3 +127,6 @@ target_link_libraries(MonoSynthProcessBlockTest
         MonoSynthPlugin
         juce::juce_audio_processors
         juce::juce_audio_utils)
+
+
+add_test(NAME MonoSynthProcessBlockMidiOffsetsTest COMMAND MonoSynthProcessBlockTest)
