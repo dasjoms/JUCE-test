@@ -23,16 +23,22 @@ private:
     juce::Label stealPolicyLabel;
     juce::Label attackLabel;
     juce::Label releaseLabel;
+    juce::Label modDepthLabel;
+    juce::Label modRateLabel;
     juce::ComboBox waveformSelector;
     juce::ComboBox stealPolicySelector;
     juce::Slider maxVoicesSlider;
     juce::Slider attackSlider;
     juce::Slider releaseSlider;
+    juce::Slider modDepthSlider;
+    juce::Slider modRateSlider;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveformAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> stealPolicyAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> maxVoicesAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> modDepthAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> modRateAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };
