@@ -26,6 +26,20 @@ void SynthVoice::setWaveform (Waveform newWaveform) noexcept
     waveform = newWaveform;
 }
 
+void SynthVoice::setEnvelopeTimes (float attackSeconds, float releaseSeconds) noexcept
+{
+    attackTimeSeconds = juce::jmax (0.001f, attackSeconds);
+    releaseTimeSeconds = juce::jmax (0.001f, releaseSeconds);
+    attackStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * attackTimeSeconds));
+    releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
+}
+
+void SynthVoice::setModulationParameters (float depth, float rateHz) noexcept
+{
+    modulationDepth = juce::jlimit (0.0f, 1.0f, depth);
+    modulationRateHz = juce::jmax (0.0f, rateHz);
+}
+
 void SynthVoice::setStartOrder (uint64_t newStartOrder) noexcept
 {
     startOrder = newStartOrder;

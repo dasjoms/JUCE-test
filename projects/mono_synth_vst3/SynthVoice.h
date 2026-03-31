@@ -25,6 +25,8 @@ public:
 
     void prepare (double sampleRate) noexcept;
     void setWaveform (Waveform newWaveform) noexcept;
+    void setEnvelopeTimes (float attackSeconds, float releaseSeconds) noexcept;
+    void setModulationParameters (float depth, float rateHz) noexcept;
     void setStartOrder (uint64_t newStartOrder) noexcept;
 
     void noteOn (int midiNoteNumber) noexcept;
@@ -49,8 +51,6 @@ private:
     static constexpr float outputLevel = 0.12f;
     static constexpr double twoPi = juce::MathConstants<double>::twoPi;
     static constexpr double inverseTwoPi = 1.0 / twoPi;
-    static constexpr float attackTimeSeconds = 0.005f;
-    static constexpr float releaseTimeSeconds = 0.03f;
     static constexpr float noteTransitionRampTimeSeconds = 0.002f;
     static constexpr float minimumEnvelopeValue = 1.0e-5f;
 
@@ -65,6 +65,10 @@ private:
     bool shouldResetPhaseOnNoteChange = false;
     NoteTransitionState noteTransitionState = NoteTransitionState::none;
     Waveform waveform = Waveform::sine;
+    float attackTimeSeconds = 0.005f;
+    float releaseTimeSeconds = 0.03f;
+    float modulationDepth = 0.0f;
+    float modulationRateHz = 0.0f;
     float currentAmplitude = 0.0f;
     float attackStep = 0.0f;
     float releaseStep = 0.0f;

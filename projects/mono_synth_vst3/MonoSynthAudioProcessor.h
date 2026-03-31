@@ -51,16 +51,46 @@ public:
     Waveform getWaveform() const noexcept;
 
 private:
+    enum class StealPolicyParameterChoice
+    {
+        releasedFirst = 0,
+        oldest,
+        quietest
+    };
+
+    struct EngineParameterSnapshot
+    {
+        Waveform waveform = Waveform::sine;
+        int maxVoices = 1;
+        SynthEngine::VoiceStealPolicy stealPolicy = SynthEngine::VoiceStealPolicy::releasedFirst;
+        float attackSeconds = 0.005f;
+        float releaseSeconds = 0.03f;
+        float modulationDepth = 0.0f;
+        float modulationRateHz = 0.0f;
+    };
+
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
-    void updateWaveformFromParameter() noexcept;
+    void updateParameterSnapshotFromAPVTS() noexcept;
+    void applyParameterSnapshotToEngine() noexcept;
     static Waveform waveformFromParameterValue (float parameterValue) noexcept;
     static int waveformToChoiceIndex (Waveform waveformType) noexcept;
     static Waveform waveformFromChoiceIndex (int choiceIndex) noexcept;
+    static SynthEngine::VoiceStealPolicy stealPolicyFromParameterValue (float parameterValue) noexcept;
+    static int stealPolicyToChoiceIndex (SynthEngine::VoiceStealPolicy policy) noexcept;
+    static SynthEngine::VoiceStealPolicy stealPolicyFromChoiceIndex (int choiceIndex) noexcept;
     static const juce::StringArray& getWaveformChoices() noexcept;
+    static const juce::StringArray& getStealPolicyChoices() noexcept;
 
     juce::AudioProcessorValueTreeState parameters;
     std::atomic<float>* waveformParameter = nullptr;
+    std::atomic<float>* maxVoicesParameter = nullptr;
+    std::atomic<float>* stealPolicyParameter = nullptr;
+    std::atomic<float>* attackParameter = nullptr;
+    std::atomic<float>* releaseParameter = nullptr;
+    std::atomic<float>* modulationDepthParameter = nullptr;
+    std::atomic<float>* modulationRateParameter = nullptr;
     std::atomic<Waveform> waveform { Waveform::sine };
+    EngineParameterSnapshot parameterSnapshot;
     SynthEngine synthEngine;
 
     //==============================================================================
