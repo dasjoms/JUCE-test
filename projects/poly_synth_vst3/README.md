@@ -14,6 +14,7 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 - [x] `SynthVoice` encapsulates oscillator/envelope/note runtime metadata used by allocator policies. (`SynthVoice.h`, `SynthVoice.cpp`)
 - [ ] Introduce modulation routing expansion points beyond current depth/rate parameters. (planned: `SynthEngine.*`, `SynthVoice.*`)
 - [x] Current modulation semantics: per-voice, note-retriggered sine LFO driving unipolar amplitude tremolo (`modDepth` blends dry level to fully modulated, `modRate` controls LFO Hz). (`SynthVoice.h`, `SynthVoice.cpp`)
+- [x] ADSR envelope semantics are active per voice: Attack ramps from 0→1, Decay ramps 1→Sustain while note is held, Sustain holds constant until note-off, and Release ramps to idle. Defaults are `attack=0.005s`, `decay=0.08s`, `sustain=0.8`, `release=0.03s`. (`PolySynthAudioProcessor.cpp`, `SynthEngine.cpp`, `SynthVoice.cpp`)
 
 ### Allocator behaviour
 - [x] Core allocator policies covered by tests (idle-first, released-first, oldest, quietest). (`tests/SynthEngineVoiceAllocatorTest.cpp`)

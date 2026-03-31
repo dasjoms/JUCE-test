@@ -65,6 +65,8 @@ private:
         int maxVoices = 1;
         SynthEngine::VoiceStealPolicy stealPolicy = SynthEngine::VoiceStealPolicy::releasedFirst;
         float attackSeconds = 0.005f;
+        float decaySeconds = 0.08f;
+        float sustainLevel = 0.8f;
         float releaseSeconds = 0.03f;
         float modulationDepth = 0.0f;
         float modulationRateHz = 0.0f;
@@ -90,6 +92,8 @@ private:
     std::atomic<float>* maxVoicesParameter = nullptr;
     std::atomic<float>* stealPolicyParameter = nullptr;
     std::atomic<float>* attackParameter = nullptr;
+    std::atomic<float>* decayParameter = nullptr;
+    std::atomic<float>* sustainParameter = nullptr;
     std::atomic<float>* releaseParameter = nullptr;
     std::atomic<float>* modulationDepthParameter = nullptr;
     std::atomic<float>* modulationRateParameter = nullptr;

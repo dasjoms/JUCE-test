@@ -8,6 +8,8 @@ constexpr auto waveformParameterId = "waveform";
 constexpr auto maxVoicesParameterId = "maxVoices";
 constexpr auto stealPolicyParameterId = "stealPolicy";
 constexpr auto attackParameterId = "attack";
+constexpr auto decayParameterId = "decay";
+constexpr auto sustainParameterId = "sustain";
 constexpr auto releaseParameterId = "release";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
@@ -31,6 +33,8 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
     maxVoicesParameter = parameters.getRawParameterValue (maxVoicesParameterId);
     stealPolicyParameter = parameters.getRawParameterValue (stealPolicyParameterId);
     attackParameter = parameters.getRawParameterValue (attackParameterId);
+    decayParameter = parameters.getRawParameterValue (decayParameterId);
+    sustainParameter = parameters.getRawParameterValue (sustainParameterId);
     releaseParameter = parameters.getRawParameterValue (releaseParameterId);
     modulationDepthParameter = parameters.getRawParameterValue (modulationDepthParameterId);
     modulationRateParameter = parameters.getRawParameterValue (modulationRateParameterId);
@@ -178,6 +182,15 @@ juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::cre
                                                                     juce::NormalisableRange<float> (0.001f, 5.0f, 0.001f, 0.35f),
                                                                     0.005f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("s")));
+    layout.push_back (std::make_unique<juce::AudioParameterFloat> (decayParameterId,
+                                                                    "Decay",
+                                                                    juce::NormalisableRange<float> (0.001f, 5.0f, 0.001f, 0.35f),
+                                                                    0.08f,
+                                                                    juce::AudioParameterFloatAttributes().withLabel ("s")));
+    layout.push_back (std::make_unique<juce::AudioParameterFloat> (sustainParameterId,
+                                                                    "Sustain",
+                                                                    juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f),
+                                                                    0.8f));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (releaseParameterId,
                                                                     "Release",
                                                                     juce::NormalisableRange<float> (0.005f, 5.0f, 0.001f, 0.35f),
@@ -213,6 +226,12 @@ void PolySynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
     if (attackParameter != nullptr)
         parameterSnapshot.attackSeconds = attackParameter->load (std::memory_order_relaxed);
 
+    if (decayParameter != nullptr)
+        parameterSnapshot.decaySeconds = decayParameter->load (std::memory_order_relaxed);
+
+    if (sustainParameter != nullptr)
+        parameterSnapshot.sustainLevel = sustainParameter->load (std::memory_order_relaxed);
+
     if (releaseParameter != nullptr)
         parameterSnapshot.releaseSeconds = releaseParameter->load (std::memory_order_relaxed);
 
@@ -228,7 +247,10 @@ void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
     synthEngine.setActiveVoiceCount (parameterSnapshot.maxVoices);
     synthEngine.setVoiceStealPolicy (parameterSnapshot.stealPolicy);
     synthEngine.setWaveform (parameterSnapshot.waveform);
-    synthEngine.setEnvelopeTimes (parameterSnapshot.attackSeconds, parameterSnapshot.releaseSeconds);
+    synthEngine.setEnvelopeTimes (parameterSnapshot.attackSeconds,
+                                  parameterSnapshot.decaySeconds,
+                                  parameterSnapshot.sustainLevel,
+                                  parameterSnapshot.releaseSeconds);
     synthEngine.setModulationParameters (parameterSnapshot.modulationDepth, parameterSnapshot.modulationRateHz);
 }
 
@@ -353,6 +375,8 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
                                      maxVoicesParameterId,
                                      stealPolicyParameterId,
                                      attackParameterId,
+                                     decayParameterId,
+                                     sustainParameterId,
                                      releaseParameterId,
                                      modulationDepthParameterId,
                                      modulationRateParameterId })
@@ -367,6 +391,8 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
                                      maxVoicesParameterId,
                                      stealPolicyParameterId,
                                      attackParameterId,
+                                     decayParameterId,
+                                     sustainParameterId,
                                      releaseParameterId,
                                      modulationDepthParameterId,
                                      modulationRateParameterId })

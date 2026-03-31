@@ -21,7 +21,7 @@ public:
     void setWaveform (SynthVoice::Waveform waveformType) noexcept;
     void setActiveVoiceCount (int voiceCount) noexcept;
     void setVoiceStealPolicy (VoiceStealPolicy newPolicy) noexcept;
-    void setEnvelopeTimes (float attackSeconds, float releaseSeconds) noexcept;
+    void setEnvelopeTimes (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept;
     void setModulationParameters (float depth, float rateHz) noexcept;
     VoiceStealPolicy getVoiceStealPolicy() const noexcept;
 
@@ -44,6 +44,8 @@ private:
     SynthVoice::Waveform currentWaveform = SynthVoice::Waveform::sine;
     VoiceStealPolicy voiceStealPolicy = VoiceStealPolicy::releasedFirst;
     float currentAttackSeconds = 0.005f;
+    float currentDecaySeconds = 0.08f;
+    float currentSustainLevel = 0.8f;
     float currentReleaseSeconds = 0.03f;
     float currentModulationDepth = 0.0f;
     float currentModulationRateHz = 0.0f;
