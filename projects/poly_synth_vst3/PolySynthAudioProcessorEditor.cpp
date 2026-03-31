@@ -52,6 +52,28 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     releaseSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
     addAndMakeVisible (releaseSlider);
 
+    modDepthLabel.setText ("Mod Depth", juce::dontSendNotification);
+    modDepthLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (modDepthLabel);
+
+    modDepthSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    modDepthSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
+    modDepthSlider.setRange (0.0, 1.0, 0.001);
+    modDepthSlider.setTextValueSuffix ("");
+    modDepthSlider.setNumDecimalPlacesToDisplay (3);
+    addAndMakeVisible (modDepthSlider);
+
+    modRateLabel.setText ("Mod Rate", juce::dontSendNotification);
+    modRateLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (modRateLabel);
+
+    modRateSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    modRateSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
+    modRateSlider.setRange (0.05, 20.0, 0.01);
+    modRateSlider.setTextValueSuffix (" Hz");
+    modRateSlider.setNumDecimalPlacesToDisplay (2);
+    addAndMakeVisible (modRateSlider);
+
     waveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
                                                                                                     "waveform",
                                                                                                     waveformSelector);
@@ -67,10 +89,16 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     releaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
                                                                                                  "release",
                                                                                                  releaseSlider);
+    modDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
+                                                                                                  "modDepth",
+                                                                                                  modDepthSlider);
+    modRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
+                                                                                                 "modRate",
+                                                                                                 modRateSlider);
 
     setResizable (true, false);
-    setResizeLimits (360, 220, 700, 320);
-    setSize (440, 240);
+    setResizeLimits (360, 300, 700, 420);
+    setSize (460, 320);
 }
 
 PolySynthAudioProcessorEditor::~PolySynthAudioProcessorEditor()
@@ -107,4 +135,6 @@ void PolySynthAudioProcessorEditor::resized()
     placeRow (stealPolicyLabel, stealPolicySelector);
     placeRow (attackLabel, attackSlider);
     placeRow (releaseLabel, releaseSlider);
+    placeRow (modDepthLabel, modDepthSlider);
+    placeRow (modRateLabel, modRateSlider);
 }

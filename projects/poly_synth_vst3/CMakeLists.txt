@@ -202,3 +202,14 @@ target_link_libraries(PolyStateRoundTripTest
         juce::juce_audio_utils)
 
 add_test(NAME PolyStateRoundTripTest COMMAND PolyStateRoundTripTest)
+
+add_executable(PolyModParametersApvtsTest
+    tests/PolyModParametersApvtsTest.cpp)
+
+target_link_libraries(PolyModParametersApvtsTest
+    PRIVATE
+        PolySynthPlugin
+        juce::juce_audio_processors
+        juce::juce_audio_utils)
+
+add_test(NAME PolyModParametersApvtsTest COMMAND PolyModParametersApvtsTest)
