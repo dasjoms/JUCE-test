@@ -1,16 +1,8 @@
 #include "MonoSynthAudioProcessor.h"
 #include "MonoSynthAudioProcessorEditor.h"
-#include <cmath>
 
 namespace
 {
-constexpr float outputLevel = 0.12f;
-constexpr double twoPi = juce::MathConstants<double>::twoPi;
-constexpr double inverseTwoPi = 1.0 / twoPi;
-constexpr float attackTimeSeconds = 0.005f;
-constexpr float releaseTimeSeconds = 0.03f;
-constexpr float noteTransitionRampTimeSeconds = 0.002f;
-constexpr float minimumEnvelopeValue = 1.0e-5f;
 constexpr auto waveformParameterId = "waveform";
 } // namespace
 
@@ -28,6 +20,7 @@ MonoSynthAudioProcessor::MonoSynthAudioProcessor()
 {
     waveformParameter = parameters.getRawParameterValue (waveformParameterId);
     updateWaveformFromParameter();
+    voice.setWaveform (waveform.load (std::memory_order_relaxed));
 }
 
 MonoSynthAudioProcessor::~MonoSynthAudioProcessor()
@@ -74,8 +67,7 @@ double MonoSynthAudioProcessor::getTailLengthSeconds() const
 
 int MonoSynthAudioProcessor::getNumPrograms()
 {
-    return 1;   // NB: some hosts don't cope very well if you tell them there are 0 programs,
-                // so this should be at least 1, even if you're not really implementing programs.
+    return 1;
 }
 
 int MonoSynthAudioProcessor::getCurrentProgram()
@@ -103,27 +95,11 @@ void MonoSynthAudioProcessor::changeProgramName (int index, const juce::String& 
 void MonoSynthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     juce::ignoreUnused (samplesPerBlock);
-
-    currentSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
-    phase = 0.0;
-    gateOpen = false;
-    currentMidiNote = -1;
-    pendingMidiNote = -1;
-    currentFrequencyHz = 440.0;
-    pendingFrequencyHz = 440.0;
-    currentAmplitude = 0.0f;
-    noteTransitionState = NoteTransitionState::none;
-    shouldResetPhaseOnNoteChange = false;
-    attackStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * attackTimeSeconds));
-    releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
-    noteTransitionStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * noteTransitionRampTimeSeconds));
-    updatePhaseIncrement();
+    voice.prepare (sampleRate);
 }
 
 void MonoSynthAudioProcessor::releaseResources()
 {
-    // When playback stops, you can use this as an opportunity to free up any
-    // spare memory, etc.
 }
 
 bool MonoSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -132,15 +108,10 @@ bool MonoSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
     juce::ignoreUnused (layouts);
     return true;
   #else
-    // This is the place where you check if the layout is supported.
-    // In this template code we only support mono or stereo.
-    // Some plugin hosts, such as certain GarageBand versions, will only
-    // load plugins that support stereo bus layouts.
     if (layouts.getMainOutputChannelSet() != juce::AudioChannelSet::mono()
      && layouts.getMainOutputChannelSet() != juce::AudioChannelSet::stereo())
         return false;
 
-    // This checks if the input layout matches the output layout
    #if ! JucePlugin_IsSynth
     if (layouts.getMainOutputChannelSet() != layouts.getMainInputChannelSet())
         return false;
@@ -151,7 +122,7 @@ bool MonoSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
 }
 
 void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
-                                              juce::MidiBuffer& midiMessages)
+                                            juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
     auto totalNumInputChannels  = getTotalNumInputChannels();
@@ -162,61 +133,13 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         buffer.clear (i, 0, numSamples);
 
     updateWaveformFromParameter();
+    voice.setWaveform (waveform.load (std::memory_order_relaxed));
 
     const auto renderRange = [this, &buffer, totalNumOutputChannels] (int startSample, int endSample)
     {
         for (int sample = startSample; sample < endSample; ++sample)
         {
-            float sampleValue = 0.0f;
-            const auto currentWaveform = waveform.load (std::memory_order_relaxed);
-            const auto shouldRunTransitionRamp = (noteTransitionState == NoteTransitionState::rampDownForNoteChange)
-                                              || (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange);
-            const auto targetAmplitude = shouldRunTransitionRamp ? (noteTransitionState == NoteTransitionState::rampDownForNoteChange ? 0.0f : 1.0f)
-                                                                 : (gateOpen ? 1.0f : 0.0f);
-            const auto envelopeStep = shouldRunTransitionRamp ? noteTransitionStep
-                                                              : (gateOpen ? attackStep : releaseStep);
-
-            if (currentAmplitude < targetAmplitude)
-            {
-                currentAmplitude = juce::jmin (targetAmplitude, currentAmplitude + envelopeStep);
-            }
-            else if (currentAmplitude > targetAmplitude)
-            {
-                currentAmplitude = juce::jmax (targetAmplitude, currentAmplitude - envelopeStep);
-            }
-
-            if (noteTransitionState == NoteTransitionState::rampDownForNoteChange
-                && currentAmplitude <= minimumEnvelopeValue)
-            {
-                currentAmplitude = 0.0f;
-                currentMidiNote = pendingMidiNote;
-                currentFrequencyHz = pendingFrequencyHz;
-
-                if (shouldResetPhaseOnNoteChange)
-                    phase = 0.0;
-
-                updatePhaseIncrement();
-                gateOpen = true;
-                noteTransitionState = NoteTransitionState::rampUpAfterNoteChange;
-            }
-            else if (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange
-                     && currentAmplitude >= (1.0f - minimumEnvelopeValue))
-            {
-                noteTransitionState = NoteTransitionState::none;
-            }
-
-            if (gateOpen || currentAmplitude > minimumEnvelopeValue)
-            {
-                sampleValue = outputLevel * currentAmplitude * getOscillatorSample (phase, currentWaveform);
-                phase += phaseIncrement;
-
-                if (phase >= twoPi)
-                    phase -= twoPi;
-            }
-            else
-            {
-                currentAmplitude = 0.0f;
-            }
+            const auto sampleValue = voice.renderSample();
 
             for (int channel = 0; channel < totalNumOutputChannels; ++channel)
                 buffer.setSample (channel, sample, sampleValue);
@@ -232,7 +155,7 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         if (eventOffset > renderedSamples)
             renderRange (renderedSamples, eventOffset);
 
-        handleMidiEvent (midiMetadata.getMessage());
+        voice.handleMidiEvent (midiMetadata.getMessage());
         renderedSamples = eventOffset;
     }
 
@@ -240,71 +163,6 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         renderRange (renderedSamples, numSamples);
 
     midiMessages.clear();
-}
-
-void MonoSynthAudioProcessor::handleMidiEvent (const juce::MidiMessage& midiMessage)
-{
-    if (midiMessage.isNoteOn())
-    {
-        const auto incomingNote = midiMessage.getNoteNumber();
-        const auto incomingFrequencyHz = juce::MidiMessage::getMidiNoteInHertz (incomingNote);
-
-        // If any audible tail is still present, perform a short ramp-to-zero,
-        // then switch note/frequency near silence, then ramp up.
-        // This also handles note-off/note-on pairs at the same sample offset.
-        if (currentAmplitude > minimumEnvelopeValue)
-        {
-            pendingMidiNote = incomingNote;
-            pendingFrequencyHz = incomingFrequencyHz;
-            shouldResetPhaseOnNoteChange = true;
-            gateOpen = false;
-            noteTransitionState = NoteTransitionState::rampDownForNoteChange;
-            return;
-        }
-
-        const auto shouldResetPhase = (! gateOpen) || (currentAmplitude <= minimumEnvelopeValue);
-        currentMidiNote = incomingNote;
-        currentFrequencyHz = incomingFrequencyHz;
-
-        if (shouldResetPhase)
-            phase = 0.0;
-
-        gateOpen = true;
-        noteTransitionState = NoteTransitionState::none;
-        pendingMidiNote = -1;
-        pendingFrequencyHz = currentFrequencyHz;
-        shouldResetPhaseOnNoteChange = false;
-        updatePhaseIncrement();
-        return;
-    }
-
-    if (midiMessage.isNoteOff())
-    {
-        if (midiMessage.getNoteNumber() == currentMidiNote)
-        {
-            gateOpen = false;
-
-            if (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange)
-                noteTransitionState = NoteTransitionState::none;
-        }
-
-        if (midiMessage.getNoteNumber() == pendingMidiNote)
-        {
-            pendingMidiNote = -1;
-            pendingFrequencyHz = currentFrequencyHz;
-
-            if (noteTransitionState == NoteTransitionState::rampDownForNoteChange)
-                noteTransitionState = NoteTransitionState::none;
-        }
-
-        return;
-    }
-
-    if (midiMessage.isAllNotesOff() || midiMessage.isAllSoundOff())
-    {
-        gateOpen = false;
-        noteTransitionState = NoteTransitionState::none;
-    }
 }
 
 MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::getWaveform() const noexcept
@@ -361,36 +219,10 @@ const juce::StringArray& MonoSynthAudioProcessor::getWaveformChoices() noexcept
     return choices;
 }
 
-float MonoSynthAudioProcessor::getOscillatorSample (double phaseInRadians, Waveform waveformType) const noexcept
-{
-    switch (waveformType)
-    {
-        case Waveform::sine:
-            return std::sin (phaseInRadians);
-        case Waveform::saw:
-            return static_cast<float> ((phaseInRadians * inverseTwoPi * 2.0) - 1.0);
-        case Waveform::square:
-            return phaseInRadians < juce::MathConstants<double>::pi ? 1.0f : -1.0f;
-        case Waveform::triangle:
-        {
-            const auto normalizedPhase = phaseInRadians * inverseTwoPi;
-            return static_cast<float> (1.0 - 4.0 * std::abs (normalizedPhase - 0.5));
-        }
-    }
-
-    jassertfalse;
-    return 0.0f;
-}
-
-void MonoSynthAudioProcessor::updatePhaseIncrement() noexcept
-{
-    phaseIncrement = twoPi * currentFrequencyHz / currentSampleRate;
-}
-
 //==============================================================================
 bool MonoSynthAudioProcessor::hasEditor() const
 {
-    return true; // (change this to false if you choose to not supply an editor)
+    return true;
 }
 
 juce::AudioProcessorEditor* MonoSynthAudioProcessor::createEditor()
@@ -417,7 +249,6 @@ void MonoSynthAudioProcessor::setStateInformation (const void* data, int sizeInB
 }
 
 //==============================================================================
-// This creates new instances of the plugin..
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new MonoSynthAudioProcessor();
