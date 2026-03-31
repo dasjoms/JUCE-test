@@ -9,6 +9,7 @@ Create a **polyphonic synthesizer plugin** for use in DAWs, targeting **VST3** f
 - Voice stealing strategy
 - Modulation system (e.g., envelopes/LFO/routing)
 - Preset save/load management
+- Preset sharing market place where users can share their presets and find new ones
 
 ### Immediate First Goal
 Create a **simple monophonic synthesizer plugin** for DAWs in **VST3** format that:
