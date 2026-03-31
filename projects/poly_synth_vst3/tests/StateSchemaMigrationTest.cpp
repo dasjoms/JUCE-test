@@ -1,4 +1,4 @@
-#include "../MonoSynthAudioProcessor.h"
+#include "../PolySynthAudioProcessor.h"
 
 #include <iostream>
 
@@ -10,7 +10,7 @@ constexpr auto attackParameterId = "attack";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
 constexpr int currentStateSchemaVersion = 1;
 
-float getRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef parameterId)
+float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
 {
     if (auto* raw = processor.getValueTreeState().getRawParameterValue (parameterId))
         return raw->load();
@@ -18,7 +18,7 @@ float getRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef 
     return -1.0f;
 }
 
-bool setRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
+bool setRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
 {
     if (auto* parameter = processor.getValueTreeState().getParameter (parameterId))
     {
@@ -31,7 +31,7 @@ bool setRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef p
 
 bool validateLegacyMonoStateMigrationPreservesWaveform()
 {
-    MonoSynthAudioProcessor processor;
+    PolySynthAudioProcessor processor;
 
     auto legacyXml = juce::parseXML (R"xml(
 <PARAMETERS>
@@ -45,7 +45,7 @@ bool validateLegacyMonoStateMigrationPreservesWaveform()
     }
 
     juce::MemoryBlock serializedLegacyState;
-    MonoSynthAudioProcessor::copyXmlToBinary (*legacyXml, serializedLegacyState);
+    PolySynthAudioProcessor::copyXmlToBinary (*legacyXml, serializedLegacyState);
 
     processor.setStateInformation (serializedLegacyState.getData(), static_cast<int> (serializedLegacyState.getSize()));
 
@@ -69,7 +69,7 @@ bool validateLegacyMonoStateMigrationPreservesWaveform()
 
 bool validateCurrentVersionRoundTrip()
 {
-    MonoSynthAudioProcessor sourceProcessor;
+    PolySynthAudioProcessor sourceProcessor;
 
     if (! setRawParameterValue (sourceProcessor, waveformParameterId, 2.0f)
         || ! setRawParameterValue (sourceProcessor, maxVoicesParameterId, 8.0f)
@@ -82,7 +82,7 @@ bool validateCurrentVersionRoundTrip()
     juce::MemoryBlock serializedState;
     sourceProcessor.getStateInformation (serializedState);
 
-    if (auto xml = MonoSynthAudioProcessor::getXmlFromBinary (serializedState.getData(), static_cast<int> (serializedState.getSize())); xml == nullptr)
+    if (auto xml = PolySynthAudioProcessor::getXmlFromBinary (serializedState.getData(), static_cast<int> (serializedState.getSize())); xml == nullptr)
     {
         std::cerr << "unable to parse serialized current-version state" << '\n';
         return false;
@@ -93,7 +93,7 @@ bool validateCurrentVersionRoundTrip()
         return false;
     }
 
-    MonoSynthAudioProcessor restoredProcessor;
+    PolySynthAudioProcessor restoredProcessor;
     restoredProcessor.setStateInformation (serializedState.getData(), static_cast<int> (serializedState.getSize()));
 
     const auto waveform = getRawParameterValue (restoredProcessor, waveformParameterId);

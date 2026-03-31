@@ -7,14 +7,14 @@
 #include <optional>
 
 //==============================================================================
-class MonoSynthAudioProcessor final : public juce::AudioProcessor
+class PolySynthAudioProcessor final : public juce::AudioProcessor
 {
 public:
     using Waveform = SynthVoice::Waveform;
 
     //==============================================================================
-    MonoSynthAudioProcessor();
-    ~MonoSynthAudioProcessor() override;
+    PolySynthAudioProcessor();
+    ~PolySynthAudioProcessor() override;
 
     //==============================================================================
     void prepareToPlay (double sampleRate, int samplesPerBlock) override;
@@ -98,5 +98,5 @@ private:
     SynthEngine synthEngine;
 
     //==============================================================================
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MonoSynthAudioProcessor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessor)
 };

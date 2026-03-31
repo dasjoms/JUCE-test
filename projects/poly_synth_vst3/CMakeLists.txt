@@ -77,8 +77,8 @@ juce_add_plugin(PolySynthPlugin
 
 target_sources(PolySynthPlugin
     PRIVATE
-        MonoSynthAudioProcessorEditor.cpp
-        MonoSynthAudioProcessor.cpp
+        PolySynthAudioProcessorEditor.cpp
+        PolySynthAudioProcessor.cpp
         SynthEngine.cpp
         SynthVoice.cpp)
 

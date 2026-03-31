@@ -1,11 +1,11 @@
-#include "MonoSynthAudioProcessor.h"
-#include "MonoSynthAudioProcessorEditor.h"
+#include "PolySynthAudioProcessor.h"
+#include "PolySynthAudioProcessorEditor.h"
 
 //==============================================================================
-MonoSynthAudioProcessorEditor::MonoSynthAudioProcessorEditor (MonoSynthAudioProcessor& p)
+PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    titleLabel.setText ("Mono Synth", juce::dontSendNotification);
+    titleLabel.setText ("Poly Synth", juce::dontSendNotification);
     titleLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (titleLabel);
 
@@ -73,18 +73,18 @@ MonoSynthAudioProcessorEditor::MonoSynthAudioProcessorEditor (MonoSynthAudioProc
     setSize (440, 240);
 }
 
-MonoSynthAudioProcessorEditor::~MonoSynthAudioProcessorEditor()
+PolySynthAudioProcessorEditor::~PolySynthAudioProcessorEditor()
 {
 }
 
 //==============================================================================
-void MonoSynthAudioProcessorEditor::paint (juce::Graphics& g)
+void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 }
 
-void MonoSynthAudioProcessorEditor::resized()
+void PolySynthAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced (16);
 
