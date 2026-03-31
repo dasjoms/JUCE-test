@@ -16,7 +16,9 @@ constexpr auto modulationRateParameterId = "modRate";
 constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
-constexpr int currentStateSchemaVersion = 2;
+constexpr auto unisonVoicesParameterId = "unisonVoices";
+constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
+constexpr int currentStateSchemaVersion = 3;
 } // namespace
 
 //==============================================================================
@@ -42,6 +44,8 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
     modulationRateParameter = parameters.getRawParameterValue (modulationRateParameterId);
     velocitySensitivityParameter = parameters.getRawParameterValue (velocitySensitivityParameterId);
     modulationDestinationParameter = parameters.getRawParameterValue (modulationDestinationParameterId);
+    unisonVoicesParameter = parameters.getRawParameterValue (unisonVoicesParameterId);
+    unisonDetuneCentsParameter = parameters.getRawParameterValue (unisonDetuneCentsParameterId);
     updateParameterSnapshotFromAPVTS();
     applyParameterSnapshotToEngine();
 }
@@ -217,6 +221,16 @@ juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::cre
                                                                      "Mod Destination",
                                                                      getModDestinationChoices(),
                                                                      modDestinationToChoiceIndex (SynthVoice::ModulationDestination::amplitude)));
+    layout.push_back (std::make_unique<juce::AudioParameterInt> (unisonVoicesParameterId,
+                                                                  "Unison Voices",
+                                                                  1,
+                                                                  8,
+                                                                  1));
+    layout.push_back (std::make_unique<juce::AudioParameterFloat> (unisonDetuneCentsParameterId,
+                                                                    "Unison Detune",
+                                                                    juce::NormalisableRange<float> (0.0f, 50.0f, 0.01f),
+                                                                    0.0f,
+                                                                    juce::AudioParameterFloatAttributes().withLabel ("cents")));
     return { layout.begin(), layout.end() };
 }
 
@@ -259,6 +273,12 @@ void PolySynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
     if (modulationDestinationParameter != nullptr)
         parameterSnapshot.modulationDestination = modDestinationFromChoiceIndex (
             juce::roundToInt (modulationDestinationParameter->load (std::memory_order_relaxed)));
+
+    if (unisonVoicesParameter != nullptr)
+        parameterSnapshot.unisonVoices = juce::roundToInt (unisonVoicesParameter->load (std::memory_order_relaxed));
+
+    if (unisonDetuneCentsParameter != nullptr)
+        parameterSnapshot.unisonDetuneCents = unisonDetuneCentsParameter->load (std::memory_order_relaxed);
 }
 
 void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
@@ -272,6 +292,8 @@ void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
                                   parameterSnapshot.releaseSeconds);
     synthEngine.setModulationParameters (parameterSnapshot.modulationDepth, parameterSnapshot.modulationRateHz, parameterSnapshot.modulationDestination);
     synthEngine.setVelocitySensitivity (parameterSnapshot.velocitySensitivity);
+    synthEngine.setUnisonVoices (parameterSnapshot.unisonVoices);
+    synthEngine.setUnisonDetuneCents (parameterSnapshot.unisonDetuneCents);
 }
 
 PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::waveformFromParameterValue (float parameterValue) noexcept
@@ -425,7 +447,9 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
                                      modulationDepthParameterId,
                                      modulationRateParameterId,
                                      velocitySensitivityParameterId,
-                                     modulationDestinationParameterId })
+                                     modulationDestinationParameterId,
+                                     unisonVoicesParameterId,
+                                     unisonDetuneCentsParameterId })
     {
         if (auto* parameter = parameters.getParameter (parameterId))
             parameter->setValueNotifyingHost (parameter->getDefaultValue());
@@ -443,7 +467,9 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
                                      modulationDepthParameterId,
                                      modulationRateParameterId,
                                      velocitySensitivityParameterId,
-                                     modulationDestinationParameterId })
+                                     modulationDestinationParameterId,
+                                     unisonVoicesParameterId,
+                                     unisonDetuneCentsParameterId })
     {
         if (const auto value = findLegacyParameterValue (legacyState, parameterId); value.has_value())
         {

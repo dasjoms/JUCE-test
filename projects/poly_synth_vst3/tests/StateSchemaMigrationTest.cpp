@@ -6,8 +6,8 @@ namespace
 {
 struct SchemaExpectation
 {
-    int currentSchemaVersion = 2;
-    int futureExpansionFixtureVersion = 3;
+    int currentSchemaVersion = 3;
+    int futureExpansionFixtureVersion = 4;
 };
 
 constexpr SchemaExpectation expectedSchema {};
@@ -23,6 +23,8 @@ constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
 constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto modulationDestinationParameterId = "modDestination";
+constexpr auto unisonVoicesParameterId = "unisonVoices";
+constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
 
 float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
@@ -125,7 +127,9 @@ bool validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds()
         && expectFloatParameter (processor, modulationDepthParameterId, 0.0f, "legacy migration default")
         && expectFloatParameter (processor, modulationRateParameterId, 2.0f, "legacy migration default")
         && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "legacy migration default")
-        && expectIntParameter (processor, modulationDestinationParameterId, 0, "legacy migration default");
+        && expectIntParameter (processor, modulationDestinationParameterId, 0, "legacy migration default")
+        && expectIntParameter (processor, unisonVoicesParameterId, 1, "legacy migration default")
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "legacy migration default");
 }
 
 bool validateCurrentVersionRoundTrip()
@@ -142,7 +146,9 @@ bool validateCurrentVersionRoundTrip()
         || ! setRawParameterValue (sourceProcessor, modulationDepthParameterId, 0.77f)
         || ! setRawParameterValue (sourceProcessor, modulationRateParameterId, 7.25f)
         || ! setRawParameterValue (sourceProcessor, velocitySensitivityParameterId, 0.63f)
-        || ! setRawParameterValue (sourceProcessor, modulationDestinationParameterId, 2.0f))
+        || ! setRawParameterValue (sourceProcessor, modulationDestinationParameterId, 2.0f)
+        || ! setRawParameterValue (sourceProcessor, unisonVoicesParameterId, 4.0f)
+        || ! setRawParameterValue (sourceProcessor, unisonDetuneCentsParameterId, 16.5f))
     {
         std::cerr << "unable to set one or more parameters on source processor" << '\n';
         return false;
@@ -167,7 +173,9 @@ bool validateCurrentVersionRoundTrip()
         && expectFloatParameter (restoredProcessor, modulationDepthParameterId, 0.77f, "current-version restore")
         && expectFloatParameter (restoredProcessor, modulationRateParameterId, 7.25f, "current-version restore")
         && expectFloatParameter (restoredProcessor, velocitySensitivityParameterId, 0.63f, "current-version restore")
-        && expectIntParameter (restoredProcessor, modulationDestinationParameterId, 2, "current-version restore");
+        && expectIntParameter (restoredProcessor, modulationDestinationParameterId, 2, "current-version restore")
+        && expectIntParameter (restoredProcessor, unisonVoicesParameterId, 4, "current-version restore")
+        && expectFloatParameter (restoredProcessor, unisonDetuneCentsParameterId, 16.5f, "current-version restore");
 }
 
 bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
@@ -175,7 +183,7 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
     PolySynthAudioProcessor processor;
 
     auto futureFixtureXml = juce::parseXML (R"xml(
-<PARAMETERS schemaVersion="3">
+<PARAMETERS schemaVersion="4">
   <PARAM id="waveform" value="1"/>
   <PARAM id="maxVoices" value="12"/>
   <PARAM id="stealPolicy" value="1"/>
@@ -214,7 +222,9 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
         && expectFloatParameter (processor, releaseParameterId, 0.03f, "future fixture missing-param default")
         && expectFloatParameter (processor, modulationRateParameterId, 2.0f, "future fixture missing-param default")
         && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "future fixture missing-param default")
-        && expectIntParameter (processor, modulationDestinationParameterId, 0, "future fixture missing-param default");
+        && expectIntParameter (processor, modulationDestinationParameterId, 0, "future fixture missing-param default")
+        && expectIntParameter (processor, unisonVoicesParameterId, 1, "future fixture missing-param default")
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "future fixture missing-param default");
 }
 
 } // namespace

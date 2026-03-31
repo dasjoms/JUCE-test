@@ -10,6 +10,7 @@ void SynthVoice::prepare (double sampleRate) noexcept
     lfoPhase = 0.0;
     currentMidiNote = -1;
     pendingMidiNote = -1;
+    voiceGroupId = 0;
     currentFrequencyHz = 440.0;
     pendingFrequencyHz = 440.0;
     currentNoteOnVelocity = 1.0f;
@@ -59,6 +60,17 @@ void SynthVoice::setVelocitySensitivity (float sensitivity) noexcept
 void SynthVoice::setStartOrder (uint64_t newStartOrder) noexcept
 {
     startOrder = newStartOrder;
+}
+
+void SynthVoice::setVoiceGroupId (int newVoiceGroupId) noexcept
+{
+    voiceGroupId = juce::jmax (0, newVoiceGroupId);
+}
+
+void SynthVoice::setDetuneCents (float cents) noexcept
+{
+    detuneCents = juce::jlimit (-2400.0f, 2400.0f, cents);
+    updatePhaseIncrement();
 }
 
 void SynthVoice::noteOn (int midiNoteNumber, float velocity) noexcept
@@ -121,6 +133,7 @@ void SynthVoice::allNotesOff() noexcept
     gateOpen = false;
     noteTransitionState = NoteTransitionState::none;
     envelopeStage = EnvelopeStage::release;
+    voiceGroupId = 0;
 }
 
 void SynthVoice::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcept
@@ -260,6 +273,7 @@ float SynthVoice::renderSample() noexcept
     currentAmplitude = 0.0f;
     currentMidiNote = -1;
     pendingMidiNote = -1;
+    voiceGroupId = 0;
     currentNoteOnVelocity = 1.0f;
     pendingNoteOnVelocity = 1.0f;
     shouldResetPhaseOnNoteChange = false;
@@ -277,12 +291,14 @@ SynthVoice::RuntimeMetadata SynthVoice::getRuntimeMetadata() const noexcept
     metadata.amplitudeEstimate = currentAmplitude;
     metadata.noteOnVelocity = currentNoteOnVelocity;
     metadata.midiNote = currentMidiNote;
+    metadata.voiceGroupId = voiceGroupId;
+    metadata.detuneCents = detuneCents;
     return metadata;
 }
 
 void SynthVoice::updatePhaseIncrement() noexcept
 {
-    phaseIncrement = twoPi * currentFrequencyHz / currentSampleRate;
+    phaseIncrement = twoPi * getDetunedFrequencyHz (currentFrequencyHz) / currentSampleRate;
 }
 
 void SynthVoice::updateLfoIncrement() noexcept
@@ -309,4 +325,11 @@ float SynthVoice::getOscillatorSample (double phaseInRadians, Waveform waveformT
 
     jassertfalse;
     return 0.0f;
+}
+
+
+double SynthVoice::getDetunedFrequencyHz (double baseFrequencyHz) const noexcept
+{
+    const auto detuneRatio = std::pow (2.0, static_cast<double> (detuneCents) / 1200.0);
+    return baseFrequencyHz * detuneRatio;
 }

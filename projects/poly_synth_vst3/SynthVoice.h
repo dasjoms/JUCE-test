@@ -29,6 +29,8 @@ public:
         float amplitudeEstimate = 0.0f;
         float noteOnVelocity = 1.0f;
         int midiNote = -1;
+        int voiceGroupId = 0;
+        float detuneCents = 0.0f;
     };
 
     void prepare (double sampleRate) noexcept;
@@ -37,6 +39,8 @@ public:
     void setModulationParameters (float depth, float rateHz, ModulationDestination destination) noexcept;
     void setVelocitySensitivity (float sensitivity) noexcept;
     void setStartOrder (uint64_t newStartOrder) noexcept;
+    void setVoiceGroupId (int newVoiceGroupId) noexcept;
+    void setDetuneCents (float cents) noexcept;
 
     void noteOn (int midiNoteNumber, float velocity) noexcept;
     void noteOff (int midiNoteNumber) noexcept;
@@ -63,6 +67,7 @@ private:
     };
 
     void updatePhaseIncrement() noexcept;
+    double getDetunedFrequencyHz (double baseFrequencyHz) const noexcept;
     void updateLfoIncrement() noexcept;
     static float getOscillatorSample (double phaseInRadians, Waveform waveformType) noexcept;
 
@@ -102,4 +107,6 @@ private:
     float releaseStep = 0.0f;
     float noteTransitionStep = 0.0f;
     uint64_t startOrder = 0;
+    int voiceGroupId = 0;
+    float detuneCents = 0.0f;
 };

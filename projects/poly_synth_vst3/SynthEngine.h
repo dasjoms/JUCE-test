@@ -24,19 +24,29 @@ public:
     void setEnvelopeTimes (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept;
     void setModulationParameters (float depth, float rateHz, SynthVoice::ModulationDestination destination) noexcept;
     void setVelocitySensitivity (float sensitivity) noexcept;
+    void setUnisonVoices (int voicesPerNote) noexcept;
+    void setUnisonDetuneCents (float cents) noexcept;
     VoiceStealPolicy getVoiceStealPolicy() const noexcept;
 
     void renderBlock (juce::AudioBuffer<float>& buffer, const juce::MidiBuffer& midiMessages) noexcept;
     SynthVoice::RuntimeMetadata getVoiceMetadata (int voiceIndex) const noexcept;
 
 private:
+    struct VoiceGroupCandidate
+    {
+        int groupId = 0;
+        std::vector<int> voiceIndices;
+        bool hasReleasingVoice = false;
+        uint64_t oldestStartOrder = 0;
+        float amplitudeEstimate = 0.0f;
+    };
+
     void renderRange (juce::AudioBuffer<float>& buffer, int startSample, int endSample) noexcept;
     void handleMidiEvent (const juce::MidiMessage& midiMessage) noexcept;
-    int pickVoiceForNoteOn() noexcept;
-    int selectVoiceByPolicy() const noexcept;
-    int selectOldestVoice() const noexcept;
-    int selectQuietestVoice() const noexcept;
-    int findIdleVoice() const noexcept;
+    std::vector<int> pickVoicesForNoteOn() noexcept;
+    std::vector<VoiceGroupCandidate> buildActiveGroupCandidates() const noexcept;
+    void fillStealOrder (std::vector<VoiceGroupCandidate>& groups) const noexcept;
+    float getDetuneOffsetForStackIndex (int stackIndex, int stackSize) const noexcept;
 
     std::vector<SynthVoice> voices;
     int activeVoiceCount = 1;
@@ -53,4 +63,7 @@ private:
     float currentVelocitySensitivity = 0.0f;
     SynthVoice::ModulationDestination currentModulationDestination = SynthVoice::ModulationDestination::amplitude;
     uint64_t noteStartCounter = 0;
+    int nextVoiceGroupId = 1;
+    int currentUnisonVoices = 1;
+    float currentUnisonDetuneCents = 0.0f;
 };

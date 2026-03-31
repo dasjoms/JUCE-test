@@ -79,6 +79,8 @@ private:
         float modulationRateHz = 0.0f;
         float velocitySensitivity = 0.0f;
         SynthVoice::ModulationDestination modulationDestination = SynthVoice::ModulationDestination::amplitude;
+        int unisonVoices = 1;
+        float unisonDetuneCents = 0.0f;
     };
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -111,6 +113,8 @@ private:
     std::atomic<float>* modulationRateParameter = nullptr;
     std::atomic<float>* velocitySensitivityParameter = nullptr;
     std::atomic<float>* modulationDestinationParameter = nullptr;
+    std::atomic<float>* unisonVoicesParameter = nullptr;
+    std::atomic<float>* unisonDetuneCentsParameter = nullptr;
     std::atomic<Waveform> waveform { Waveform::sine };
     EngineParameterSnapshot parameterSnapshot;
     SynthEngine synthEngine;
