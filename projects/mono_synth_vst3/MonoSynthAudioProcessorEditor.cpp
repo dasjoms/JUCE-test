@@ -19,7 +19,7 @@ MonoSynthAudioProcessorEditor::MonoSynthAudioProcessorEditor (MonoSynthAudioProc
     waveformSelector.addItem ("Triangle", 4);
     addAndMakeVisible (waveformSelector);
 
-    maxVoicesLabel.setText ("Max Voices", juce::dontSendNotification);
+    maxVoicesLabel.setText ("Voice Count", juce::dontSendNotification);
     maxVoicesLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (maxVoicesLabel);
 
@@ -27,7 +27,7 @@ MonoSynthAudioProcessorEditor::MonoSynthAudioProcessorEditor (MonoSynthAudioProc
     maxVoicesSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
     addAndMakeVisible (maxVoicesSlider);
 
-    stealPolicyLabel.setText ("Steal", juce::dontSendNotification);
+    stealPolicyLabel.setText ("Steal Policy", juce::dontSendNotification);
     stealPolicyLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (stealPolicyLabel);
 
@@ -69,8 +69,8 @@ MonoSynthAudioProcessorEditor::MonoSynthAudioProcessorEditor (MonoSynthAudioProc
                                                                                                  releaseSlider);
 
     setResizable (true, false);
-    setResizeLimits (360, 220, 760, 320);
-    setSize (460, 240);
+    setResizeLimits (360, 220, 700, 320);
+    setSize (440, 240);
 }
 
 MonoSynthAudioProcessorEditor::~MonoSynthAudioProcessorEditor()
@@ -96,9 +96,9 @@ void MonoSynthAudioProcessorEditor::resized()
 
     auto placeRow = [&content] (juce::Label& label, juce::Component& control)
     {
-        auto row = content.removeFromTop (30);
-        row.removeFromBottom (4);
-        label.setBounds (row.removeFromLeft (100));
+        auto row = content.removeFromTop (32);
+        row.removeFromBottom (6);
+        label.setBounds (row.removeFromLeft (112));
         control.setBounds (row.reduced (4, 0));
     };
 
