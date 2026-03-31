@@ -4,6 +4,12 @@
 namespace
 {
 constexpr auto waveformParameterId = "waveform";
+constexpr auto maxVoicesParameterId = "maxVoices";
+constexpr auto stealPolicyParameterId = "stealPolicy";
+constexpr auto attackParameterId = "attack";
+constexpr auto releaseParameterId = "release";
+constexpr auto modulationDepthParameterId = "modDepth";
+constexpr auto modulationRateParameterId = "modRate";
 } // namespace
 
 //==============================================================================
@@ -19,9 +25,14 @@ MonoSynthAudioProcessor::MonoSynthAudioProcessor()
      , parameters (*this, nullptr, "PARAMETERS", createParameterLayout())
 {
     waveformParameter = parameters.getRawParameterValue (waveformParameterId);
-    updateWaveformFromParameter();
-    synthEngine.setActiveVoiceCount (1);
-    synthEngine.setWaveform (waveform.load (std::memory_order_relaxed));
+    maxVoicesParameter = parameters.getRawParameterValue (maxVoicesParameterId);
+    stealPolicyParameter = parameters.getRawParameterValue (stealPolicyParameterId);
+    attackParameter = parameters.getRawParameterValue (attackParameterId);
+    releaseParameter = parameters.getRawParameterValue (releaseParameterId);
+    modulationDepthParameter = parameters.getRawParameterValue (modulationDepthParameterId);
+    modulationRateParameter = parameters.getRawParameterValue (modulationRateParameterId);
+    updateParameterSnapshotFromAPVTS();
+    applyParameterSnapshotToEngine();
 }
 
 MonoSynthAudioProcessor::~MonoSynthAudioProcessor()
@@ -132,9 +143,8 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, numSamples);
 
-    updateWaveformFromParameter();
-    synthEngine.setActiveVoiceCount (1);
-    synthEngine.setWaveform (waveform.load (std::memory_order_relaxed));
+    updateParameterSnapshotFromAPVTS();
+    applyParameterSnapshotToEngine();
     synthEngine.renderBlock (buffer, midiMessages);
     midiMessages.clear();
 }
@@ -151,16 +161,72 @@ juce::AudioProcessorValueTreeState::ParameterLayout MonoSynthAudioProcessor::cre
                                                                      "Waveform",
                                                                      getWaveformChoices(),
                                                                      waveformToChoiceIndex (Waveform::sine)));
+    layout.push_back (std::make_unique<juce::AudioParameterInt> (maxVoicesParameterId,
+                                                                  "Max Voices",
+                                                                  1,
+                                                                  16,
+                                                                  1));
+    layout.push_back (std::make_unique<juce::AudioParameterChoice> (stealPolicyParameterId,
+                                                                     "Steal Policy",
+                                                                     getStealPolicyChoices(),
+                                                                     stealPolicyToChoiceIndex (SynthEngine::VoiceStealPolicy::releasedFirst)));
+    layout.push_back (std::make_unique<juce::AudioParameterFloat> (attackParameterId,
+                                                                    "Attack",
+                                                                    juce::NormalisableRange<float> (0.001f, 5.0f, 0.001f, 0.35f),
+                                                                    0.005f,
+                                                                    juce::AudioParameterFloatAttributes().withLabel ("s")));
+    layout.push_back (std::make_unique<juce::AudioParameterFloat> (releaseParameterId,
+                                                                    "Release",
+                                                                    juce::NormalisableRange<float> (0.005f, 5.0f, 0.001f, 0.35f),
+                                                                    0.03f,
+                                                                    juce::AudioParameterFloatAttributes().withLabel ("s")));
+    layout.push_back (std::make_unique<juce::AudioParameterFloat> (modulationDepthParameterId,
+                                                                    "Mod Depth",
+                                                                    juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f),
+                                                                    0.0f));
+    layout.push_back (std::make_unique<juce::AudioParameterFloat> (modulationRateParameterId,
+                                                                    "Mod Rate",
+                                                                    juce::NormalisableRange<float> (0.05f, 20.0f, 0.01f, 0.3f),
+                                                                    2.0f,
+                                                                    juce::AudioParameterFloatAttributes().withLabel ("Hz")));
     return { layout.begin(), layout.end() };
 }
 
-void MonoSynthAudioProcessor::updateWaveformFromParameter() noexcept
+void MonoSynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
 {
-    if (waveformParameter == nullptr)
-        return;
+    if (waveformParameter != nullptr)
+    {
+        const auto waveformValue = waveformFromParameterValue (waveformParameter->load (std::memory_order_relaxed));
+        waveform.store (waveformValue, std::memory_order_relaxed);
+        parameterSnapshot.waveform = waveformValue;
+    }
 
-    waveform.store (waveformFromParameterValue (waveformParameter->load (std::memory_order_relaxed)),
-                    std::memory_order_relaxed);
+    if (maxVoicesParameter != nullptr)
+        parameterSnapshot.maxVoices = juce::roundToInt (maxVoicesParameter->load (std::memory_order_relaxed));
+
+    if (stealPolicyParameter != nullptr)
+        parameterSnapshot.stealPolicy = stealPolicyFromParameterValue (stealPolicyParameter->load (std::memory_order_relaxed));
+
+    if (attackParameter != nullptr)
+        parameterSnapshot.attackSeconds = attackParameter->load (std::memory_order_relaxed);
+
+    if (releaseParameter != nullptr)
+        parameterSnapshot.releaseSeconds = releaseParameter->load (std::memory_order_relaxed);
+
+    if (modulationDepthParameter != nullptr)
+        parameterSnapshot.modulationDepth = modulationDepthParameter->load (std::memory_order_relaxed);
+
+    if (modulationRateParameter != nullptr)
+        parameterSnapshot.modulationRateHz = modulationRateParameter->load (std::memory_order_relaxed);
+}
+
+void MonoSynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
+{
+    synthEngine.setActiveVoiceCount (parameterSnapshot.maxVoices);
+    synthEngine.setVoiceStealPolicy (parameterSnapshot.stealPolicy);
+    synthEngine.setWaveform (parameterSnapshot.waveform);
+    synthEngine.setEnvelopeTimes (parameterSnapshot.attackSeconds, parameterSnapshot.releaseSeconds);
+    synthEngine.setModulationParameters (parameterSnapshot.modulationDepth, parameterSnapshot.modulationRateHz);
 }
 
 MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::waveformFromParameterValue (float parameterValue) noexcept
@@ -187,9 +253,45 @@ MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::waveformFromChoiceInd
     return Waveform::sine;
 }
 
+SynthEngine::VoiceStealPolicy MonoSynthAudioProcessor::stealPolicyFromParameterValue (float parameterValue) noexcept
+{
+    return stealPolicyFromChoiceIndex (juce::roundToInt (parameterValue));
+}
+
+int MonoSynthAudioProcessor::stealPolicyToChoiceIndex (SynthEngine::VoiceStealPolicy policy) noexcept
+{
+    switch (policy)
+    {
+        case SynthEngine::VoiceStealPolicy::releasedFirst: return 0;
+        case SynthEngine::VoiceStealPolicy::oldest: return 1;
+        case SynthEngine::VoiceStealPolicy::quietest: return 2;
+    }
+
+    return 0;
+}
+
+SynthEngine::VoiceStealPolicy MonoSynthAudioProcessor::stealPolicyFromChoiceIndex (int choiceIndex) noexcept
+{
+    switch (choiceIndex)
+    {
+        case static_cast<int> (StealPolicyParameterChoice::releasedFirst): return SynthEngine::VoiceStealPolicy::releasedFirst;
+        case static_cast<int> (StealPolicyParameterChoice::oldest): return SynthEngine::VoiceStealPolicy::oldest;
+        case static_cast<int> (StealPolicyParameterChoice::quietest): return SynthEngine::VoiceStealPolicy::quietest;
+        default: break;
+    }
+
+    return SynthEngine::VoiceStealPolicy::releasedFirst;
+}
+
 const juce::StringArray& MonoSynthAudioProcessor::getWaveformChoices() noexcept
 {
     static const juce::StringArray choices { "Sine", "Saw", "Square", "Triangle" };
+    return choices;
+}
+
+const juce::StringArray& MonoSynthAudioProcessor::getStealPolicyChoices() noexcept
+{
+    static const juce::StringArray choices { "Released First", "Oldest", "Quietest" };
     return choices;
 }
 
@@ -219,7 +321,8 @@ void MonoSynthAudioProcessor::setStateInformation (const void* data, int sizeInB
             parameters.replaceState (juce::ValueTree::fromXml (*xml));
     }
 
-    updateWaveformFromParameter();
+    updateParameterSnapshotFromAPVTS();
+    applyParameterSnapshotToEngine();
 }
 
 //==============================================================================

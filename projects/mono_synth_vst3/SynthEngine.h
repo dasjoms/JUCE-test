@@ -21,6 +21,8 @@ public:
     void setWaveform (SynthVoice::Waveform waveformType) noexcept;
     void setActiveVoiceCount (int voiceCount) noexcept;
     void setVoiceStealPolicy (VoiceStealPolicy newPolicy) noexcept;
+    void setEnvelopeTimes (float attackSeconds, float releaseSeconds) noexcept;
+    void setModulationParameters (float depth, float rateHz) noexcept;
     VoiceStealPolicy getVoiceStealPolicy() const noexcept;
 
     void renderBlock (juce::AudioBuffer<float>& buffer, const juce::MidiBuffer& midiMessages) noexcept;
@@ -41,5 +43,9 @@ private:
     int currentBlockSize = 0;
     SynthVoice::Waveform currentWaveform = SynthVoice::Waveform::sine;
     VoiceStealPolicy voiceStealPolicy = VoiceStealPolicy::releasedFirst;
+    float currentAttackSeconds = 0.005f;
+    float currentReleaseSeconds = 0.03f;
+    float currentModulationDepth = 0.0f;
+    float currentModulationRateHz = 0.0f;
     uint64_t noteStartCounter = 0;
 };
