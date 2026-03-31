@@ -28,9 +28,8 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 
 ### UI/parameter parity with mono baseline
 - [x] Waveform selection parity maintained with mono baseline (`Sine`, `Saw`, `Square`, `Triangle`). (`PolySynthAudioProcessorEditor.*`, `PolySynthAudioProcessor.*`)
-- [ ] Poly-focused UI affordances (voice count, steal policy, modulation controls) exposed in editor.
+- [x] Poly-focused UI affordances (voice count, steal policy, modulation controls) exposed in editor. (`PolySynthAudioProcessorEditor.h`, `PolySynthAudioProcessorEditor.cpp`)
 
 ## Immediate next steps
-1. Rename processor/editor classes from mono-prefixed names to poly-specific names once target-level churn settles.
-2. Add modulation matrix scaffolding and parameterized routing tests.
-3. Keep the centralized schema constants in `tests/StateSchemaMigrationTest.cpp` updated first whenever `currentStateSchemaVersion` changes, then adjust migration fixtures/expectations.
+1. Add modulation matrix scaffolding and parameterized routing tests.
+2. Keep the centralized schema constants in `tests/StateSchemaMigrationTest.cpp` updated first whenever `currentStateSchemaVersion` changes, then adjust migration fixtures/expectations.
