@@ -13,7 +13,7 @@ struct TimedMidiEvent
     juce::MidiMessage message;
 };
 
-std::vector<TimedMidiEvent> createTestEvents()
+std::vector<TimedMidiEvent> createReferenceEvents()
 {
     return {
         { 0,  juce::MidiMessage::noteOn  (1, 60, (juce::uint8) 100) },
@@ -117,50 +117,13 @@ bool buffersMatch (const juce::AudioBuffer<float>& actual,
     return true;
 }
 
-bool validateNoLargeRetriggerDiscontinuity()
+bool validateEventSubrangeEquivalence (const std::vector<TimedMidiEvent>& events,
+                                       const char* scenario,
+                                       double sampleRate,
+                                       int blockSize,
+                                       int numChannels,
+                                       float tolerance)
 {
-    constexpr double sampleRate = 48000.0;
-    constexpr int blockSize = 128;
-    constexpr int numChannels = 2;
-    constexpr int retriggerOffset = 32;
-    constexpr float maxAllowedJump = 0.05f;
-
-    MonoSynthAudioProcessor processor;
-    processor.prepareToPlay (sampleRate, blockSize);
-
-    juce::MidiBuffer midi;
-    midi.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0);
-    midi.addEvent (juce::MidiMessage::noteOff (1, 60), retriggerOffset);
-    midi.addEvent (juce::MidiMessage::noteOn (1, 67, (juce::uint8) 100), retriggerOffset);
-
-    juce::AudioBuffer<float> buffer (numChannels, blockSize);
-    buffer.clear();
-    processor.processBlock (buffer, midi);
-
-    const auto previousSample = buffer.getSample (0, retriggerOffset - 1);
-    const auto retriggerSample = buffer.getSample (0, retriggerOffset);
-    const auto jump = std::abs (retriggerSample - previousSample);
-
-    if (jump > maxAllowedJump)
-    {
-        std::cerr << "Large retrigger discontinuity detected. jump=" << jump
-                  << " threshold=" << maxAllowedJump << '\n';
-        return false;
-    }
-
-    return true;
-}
-} // namespace
-
-int main()
-{
-    constexpr double sampleRate = 48000.0;
-    constexpr int blockSize = 128;
-    constexpr int numChannels = 2;
-    constexpr float tolerance = 1.0e-6f;
-
-    auto events = createTestEvents();
-
     MonoSynthAudioProcessor singleBlockProcessor;
     singleBlockProcessor.prepareToPlay (sampleRate, blockSize);
 
@@ -174,15 +137,233 @@ int main()
 
     if (! buffersMatch (singleBlockOutput, segmentedOutput, tolerance, maxDifference))
     {
-        std::cerr << "processBlock mismatch for multi-event offsets. Max diff: "
+        std::cerr << scenario << " mismatch between single block and event subrange rendering. Max diff: "
                   << maxDifference << '\n';
-        return 1;
+        return false;
     }
 
-    if (! validateNoLargeRetriggerDiscontinuity())
+    return true;
+}
+
+bool validateNoLargeRetriggerDiscontinuity (const std::vector<TimedMidiEvent>& events,
+                                            int retriggerOffset,
+                                            float maxAllowedJump,
+                                            const char* scenario,
+                                            double sampleRate,
+                                            int blockSize,
+                                            int numChannels)
+{
+    MonoSynthAudioProcessor processor;
+    processor.prepareToPlay (sampleRate, blockSize);
+
+    juce::AudioBuffer<float> buffer (numChannels, blockSize);
+    buffer.clear();
+
+    auto midi = createMidiBuffer (events);
+    processor.processBlock (buffer, midi);
+
+    const auto previousSample = buffer.getSample (0, retriggerOffset - 1);
+    const auto retriggerSample = buffer.getSample (0, retriggerOffset);
+    const auto jump = std::abs (retriggerSample - previousSample);
+
+    if (jump > maxAllowedJump)
+    {
+        std::cerr << scenario << " large retrigger discontinuity detected. jump=" << jump
+                  << " threshold=" << maxAllowedJump << '\n';
+        return false;
+    }
+
+    return true;
+}
+
+bool validateLatestNoteWinsRetrigger (double sampleRate, int blockSize, int numChannels, float tolerance)
+{
+    constexpr int overlapOffset = 48;
+
+    const std::vector<TimedMidiEvent> events {
+        { 0, juce::MidiMessage::noteOn (1, 60, (juce::uint8) 110) },
+        { overlapOffset, juce::MidiMessage::noteOn (1, 64, (juce::uint8) 110) },
+        { overlapOffset, juce::MidiMessage::noteOn (1, 67, (juce::uint8) 110) },
+        { 96, juce::MidiMessage::noteOff (1, 67) }
+    };
+
+    if (! validateEventSubrangeEquivalence (events,
+                                            "latest note wins",
+                                            sampleRate,
+                                            blockSize,
+                                            numChannels,
+                                            tolerance))
+        return false;
+
+    return validateNoLargeRetriggerDiscontinuity (events,
+                                                  overlapOffset,
+                                                  0.05f,
+                                                  "latest note wins",
+                                                  sampleRate,
+                                                  blockSize,
+                                                  numChannels);
+}
+
+bool validateNoteOffOnlyClosesCurrentGate (double sampleRate, int blockSize, int numChannels, float tolerance)
+{
+    constexpr int noteSwapOffset = 40;
+
+    const std::vector<TimedMidiEvent> noteOffCurrentFirst {
+        { 0, juce::MidiMessage::noteOn (1, 60, (juce::uint8) 110) },
+        { noteSwapOffset, juce::MidiMessage::noteOff (1, 60) },
+        { noteSwapOffset, juce::MidiMessage::noteOn (1, 67, (juce::uint8) 110) },
+        { 88, juce::MidiMessage::noteOff (1, 67) },
+        { 100, juce::MidiMessage::noteOff (1, 60) }
+    };
+
+    const std::vector<TimedMidiEvent> noteOffOldNoteFirst {
+        { 0, juce::MidiMessage::noteOn (1, 60, (juce::uint8) 110) },
+        { noteSwapOffset, juce::MidiMessage::noteOn (1, 67, (juce::uint8) 110) },
+        { noteSwapOffset, juce::MidiMessage::noteOff (1, 60) },
+        { 88, juce::MidiMessage::noteOff (1, 67) },
+        { 100, juce::MidiMessage::noteOff (1, 60) }
+    };
+
+    float maxDifference = 0.0f;
+
+    MonoSynthAudioProcessor processorA;
+    processorA.prepareToPlay (sampleRate, blockSize);
+
+    MonoSynthAudioProcessor processorB;
+    processorB.prepareToPlay (sampleRate, blockSize);
+
+    const auto outputA = processAsSingleBlock (processorA, numChannels, blockSize, noteOffCurrentFirst);
+    const auto outputB = processAsSingleBlock (processorB, numChannels, blockSize, noteOffOldNoteFirst);
+
+    if (! buffersMatch (outputA, outputB, tolerance, maxDifference))
+    {
+        std::cerr << "note-off gate closure mismatch between same-offset note ordering. Max diff: "
+                  << maxDifference << '\n';
+        return false;
+    }
+
+    if (! validateEventSubrangeEquivalence (noteOffCurrentFirst,
+                                            "note-off current note ordering A",
+                                            sampleRate,
+                                            blockSize,
+                                            numChannels,
+                                            tolerance))
+        return false;
+
+    return validateEventSubrangeEquivalence (noteOffOldNoteFirst,
+                                             "note-off current note ordering B",
+                                             sampleRate,
+                                             blockSize,
+                                             numChannels,
+                                             tolerance);
+}
+
+bool validateAllNotesAndSoundOffCloseGate (double sampleRate, int blockSize, int numChannels, float tolerance)
+{
+    const std::vector<TimedMidiEvent> allNotesOffEvents {
+        { 0, juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100) },
+        { 36, juce::MidiMessage::allNotesOff (1) }
+    };
+
+    const std::vector<TimedMidiEvent> allSoundOffEvents {
+        { 0, juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100) },
+        { 36, juce::MidiMessage::allSoundOff (1) }
+    };
+
+    MonoSynthAudioProcessor processorNotesOff;
+    processorNotesOff.prepareToPlay (sampleRate, blockSize);
+
+    MonoSynthAudioProcessor processorSoundOff;
+    processorSoundOff.prepareToPlay (sampleRate, blockSize);
+
+    const auto notesOffOutput = processAsSingleBlock (processorNotesOff, numChannels, blockSize, allNotesOffEvents);
+    const auto soundOffOutput = processAsSingleBlock (processorSoundOff, numChannels, blockSize, allSoundOffEvents);
+
+    float maxDifference = 0.0f;
+
+    if (! buffersMatch (notesOffOutput, soundOffOutput, tolerance, maxDifference))
+    {
+        std::cerr << "all-notes-off/all-sound-off behavior mismatch. Max diff: "
+                  << maxDifference << '\n';
+        return false;
+    }
+
+    if (! validateEventSubrangeEquivalence (allNotesOffEvents,
+                                            "all notes off",
+                                            sampleRate,
+                                            blockSize,
+                                            numChannels,
+                                            tolerance))
+        return false;
+
+    return validateEventSubrangeEquivalence (allSoundOffEvents,
+                                             "all sound off",
+                                             sampleRate,
+                                             blockSize,
+                                             numChannels,
+                                             tolerance);
+}
+
+bool validateNoLargeDiscontinuityAcrossNoteTransitions (double sampleRate,
+                                                        int blockSize,
+                                                        int numChannels,
+                                                        float tolerance)
+{
+    constexpr int retriggerOffset = 32;
+
+    const std::vector<TimedMidiEvent> events {
+        { 0, juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100) },
+        { retriggerOffset, juce::MidiMessage::noteOff (1, 60) },
+        { retriggerOffset, juce::MidiMessage::noteOn (1, 67, (juce::uint8) 100) },
+        { 86, juce::MidiMessage::noteOff (1, 67) }
+    };
+
+    if (! validateEventSubrangeEquivalence (events,
+                                            "retrigger discontinuity reference",
+                                            sampleRate,
+                                            blockSize,
+                                            numChannels,
+                                            tolerance))
+        return false;
+
+    return validateNoLargeRetriggerDiscontinuity (events,
+                                                  retriggerOffset,
+                                                  0.05f,
+                                                  "retrigger discontinuity reference",
+                                                  sampleRate,
+                                                  blockSize,
+                                                  numChannels);
+}
+
+} // namespace
+
+int main()
+{
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 128;
+    constexpr int numChannels = 2;
+    constexpr float tolerance = 1.0e-6f;
+
+    if (! validateEventSubrangeEquivalence (createReferenceEvents(),
+                                            "reference scenario",
+                                            sampleRate,
+                                            blockSize,
+                                            numChannels,
+                                            tolerance))
         return 1;
 
-    std::cout << "processBlock MIDI offset validation passed. Max diff: "
-              << maxDifference << '\n';
+    if (! validateLatestNoteWinsRetrigger (sampleRate, blockSize, numChannels, tolerance))
+        return 1;
+
+    if (! validateNoteOffOnlyClosesCurrentGate (sampleRate, blockSize, numChannels, tolerance))
+        return 1;
+
+    if (! validateAllNotesAndSoundOffCloseGate (sampleRate, blockSize, numChannels, tolerance))
+        return 1;
+
+    if (! validateNoLargeDiscontinuityAcrossNoteTransitions (sampleRate, blockSize, numChannels, tolerance))
+        return 1;
+
+    std::cout << "processBlock MIDI offset and transition validation passed." << '\n';
     return 0;
 }
