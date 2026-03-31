@@ -116,6 +116,40 @@ bool buffersMatch (const juce::AudioBuffer<float>& actual,
 
     return true;
 }
+
+bool validateNoLargeRetriggerDiscontinuity()
+{
+    constexpr double sampleRate = 48000.0;
+    constexpr int blockSize = 128;
+    constexpr int numChannels = 2;
+    constexpr int retriggerOffset = 32;
+    constexpr float maxAllowedJump = 0.05f;
+
+    MonoSynthAudioProcessor processor;
+    processor.prepareToPlay (sampleRate, blockSize);
+
+    juce::MidiBuffer midi;
+    midi.addEvent (juce::MidiMessage::noteOn (1, 60, (juce::uint8) 100), 0);
+    midi.addEvent (juce::MidiMessage::noteOff (1, 60), retriggerOffset);
+    midi.addEvent (juce::MidiMessage::noteOn (1, 67, (juce::uint8) 100), retriggerOffset);
+
+    juce::AudioBuffer<float> buffer (numChannels, blockSize);
+    buffer.clear();
+    processor.processBlock (buffer, midi);
+
+    const auto previousSample = buffer.getSample (0, retriggerOffset - 1);
+    const auto retriggerSample = buffer.getSample (0, retriggerOffset);
+    const auto jump = std::abs (retriggerSample - previousSample);
+
+    if (jump > maxAllowedJump)
+    {
+        std::cerr << "Large retrigger discontinuity detected. jump=" << jump
+                  << " threshold=" << maxAllowedJump << '\n';
+        return false;
+    }
+
+    return true;
+}
 } // namespace
 
 int main()
@@ -144,6 +178,9 @@ int main()
                   << maxDifference << '\n';
         return 1;
     }
+
+    if (! validateNoLargeRetriggerDiscontinuity())
+        return 1;
 
     std::cout << "processBlock MIDI offset validation passed. Max diff: "
               << maxDifference << '\n';

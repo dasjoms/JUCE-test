@@ -249,9 +249,10 @@ void MonoSynthAudioProcessor::handleMidiEvent (const juce::MidiMessage& midiMess
         const auto incomingNote = midiMessage.getNoteNumber();
         const auto incomingFrequencyHz = juce::MidiMessage::getMidiNoteInHertz (incomingNote);
 
-        // If a note is already sounding, perform a short ramp-to-zero,
+        // If any audible tail is still present, perform a short ramp-to-zero,
         // then switch note/frequency near silence, then ramp up.
-        if (gateOpen && currentAmplitude > minimumEnvelopeValue)
+        // This also handles note-off/note-on pairs at the same sample offset.
+        if (currentAmplitude > minimumEnvelopeValue)
         {
             pendingMidiNote = incomingNote;
             pendingFrequencyHz = incomingFrequencyHz;
