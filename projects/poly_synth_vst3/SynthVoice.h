@@ -46,6 +46,7 @@ private:
     };
 
     void updatePhaseIncrement() noexcept;
+    void updateLfoIncrement() noexcept;
     static float getOscillatorSample (double phaseInRadians, Waveform waveformType) noexcept;
 
     static constexpr float outputLevel = 0.12f;
@@ -69,6 +70,8 @@ private:
     float releaseTimeSeconds = 0.03f;
     float modulationDepth = 0.0f;
     float modulationRateHz = 0.0f;
+    double lfoPhase = 0.0;
+    double lfoPhaseIncrement = 0.0;
     float currentAmplitude = 0.0f;
     float attackStep = 0.0f;
     float releaseStep = 0.0f;

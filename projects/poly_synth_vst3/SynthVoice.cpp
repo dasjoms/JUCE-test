@@ -7,6 +7,7 @@ void SynthVoice::prepare (double sampleRate) noexcept
     currentSampleRate = sampleRate > 0.0 ? sampleRate : 44100.0;
     phase = 0.0;
     gateOpen = false;
+    lfoPhase = 0.0;
     currentMidiNote = -1;
     pendingMidiNote = -1;
     currentFrequencyHz = 440.0;
@@ -19,6 +20,7 @@ void SynthVoice::prepare (double sampleRate) noexcept
     releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
     noteTransitionStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * noteTransitionRampTimeSeconds));
     updatePhaseIncrement();
+    updateLfoIncrement();
 }
 
 void SynthVoice::setWaveform (Waveform newWaveform) noexcept
@@ -37,7 +39,8 @@ void SynthVoice::setEnvelopeTimes (float attackSeconds, float releaseSeconds) no
 void SynthVoice::setModulationParameters (float depth, float rateHz) noexcept
 {
     modulationDepth = juce::jlimit (0.0f, 1.0f, depth);
-    modulationRateHz = juce::jmax (0.0f, rateHz);
+    modulationRateHz = juce::jlimit (0.0f, 20.0f, rateHz);
+    updateLfoIncrement();
 }
 
 void SynthVoice::setStartOrder (uint64_t newStartOrder) noexcept
@@ -67,6 +70,7 @@ void SynthVoice::noteOn (int midiNoteNumber) noexcept
         phase = 0.0;
 
     gateOpen = true;
+    lfoPhase = 0.0;
     noteTransitionState = NoteTransitionState::none;
     pendingMidiNote = -1;
     pendingFrequencyHz = currentFrequencyHz;
@@ -143,6 +147,7 @@ float SynthVoice::renderSample() noexcept
             phase = 0.0;
 
         updatePhaseIncrement();
+        lfoPhase = 0.0;
         gateOpen = true;
         noteTransitionState = NoteTransitionState::rampUpAfterNoteChange;
     }
@@ -154,11 +159,18 @@ float SynthVoice::renderSample() noexcept
 
     if (gateOpen || currentAmplitude > minimumEnvelopeValue)
     {
-        const auto sampleValue = outputLevel * currentAmplitude * getOscillatorSample (phase, waveform);
-        phase += phaseIncrement;
+        const auto lfoSample = std::sin (lfoPhase);
+        const auto unipolarLfo = 0.5f * (1.0f + static_cast<float> (lfoSample));
+        const auto tremoloGain = (1.0f - modulationDepth) + (modulationDepth * unipolarLfo);
+        const auto sampleValue = outputLevel * currentAmplitude * tremoloGain * getOscillatorSample (phase, waveform);
 
+        phase += phaseIncrement;
         if (phase >= twoPi)
             phase -= twoPi;
+
+        lfoPhase += lfoPhaseIncrement;
+        if (lfoPhase >= twoPi)
+            lfoPhase -= twoPi;
 
         return sampleValue;
     }
@@ -185,6 +197,11 @@ SynthVoice::RuntimeMetadata SynthVoice::getRuntimeMetadata() const noexcept
 void SynthVoice::updatePhaseIncrement() noexcept
 {
     phaseIncrement = twoPi * currentFrequencyHz / currentSampleRate;
+}
+
+void SynthVoice::updateLfoIncrement() noexcept
+{
+    lfoPhaseIncrement = twoPi * modulationRateHz / currentSampleRate;
 }
 
 float SynthVoice::getOscillatorSample (double phaseInRadians, Waveform waveformType) noexcept

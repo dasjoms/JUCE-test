@@ -7,6 +7,7 @@ namespace
 constexpr auto maxVoicesParameterId = "maxVoices";
 constexpr auto stealPolicyParameterId = "stealPolicy";
 constexpr auto modulationDepthParameterId = "modDepth";
+constexpr auto modulationRateParameterId = "modRate";
 
 float getRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef parameterId)
 {
@@ -33,7 +34,8 @@ bool validatePolyParametersRoundTrip()
 
     if (! setRawParameterValue (source, maxVoicesParameterId, 12.0f)
         || ! setRawParameterValue (source, stealPolicyParameterId, 2.0f)
-        || ! setRawParameterValue (source, modulationDepthParameterId, 0.75f))
+        || ! setRawParameterValue (source, modulationDepthParameterId, 0.75f)
+        || ! setRawParameterValue (source, modulationRateParameterId, 6.5f))
     {
         std::cerr << "unable to configure source processor for round-trip test" << '\n';
         return false;
@@ -60,6 +62,12 @@ bool validatePolyParametersRoundTrip()
     if (! juce::approximatelyEqual (getRawParameterValue (restored, modulationDepthParameterId), 0.75f))
     {
         std::cerr << "modulation depth mismatch after round-trip" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual (getRawParameterValue (restored, modulationRateParameterId), 6.5f))
+    {
+        std::cerr << "modulation rate mismatch after round-trip" << '\n';
         return false;
     }
 

@@ -177,6 +177,21 @@ target_compile_definitions(PolyAllocatorBehaviorTest
 
 add_test(NAME PolyAllocatorBehaviorTest COMMAND PolyAllocatorBehaviorTest)
 
+add_executable(SynthVoiceModulationTest
+    tests/SynthVoiceModulationTest.cpp
+    SynthVoice.cpp)
+
+target_link_libraries(SynthVoiceModulationTest
+    PRIVATE
+        juce::juce_audio_basics)
+
+target_compile_definitions(SynthVoiceModulationTest
+    PRIVATE
+        JUCE_USE_CURL=0
+        JUCE_WEB_BROWSER=0)
+
+add_test(NAME SynthVoiceModulationTest COMMAND SynthVoiceModulationTest)
+
 add_executable(PolyStateRoundTripTest
     tests/PolyStateRoundTripTest.cpp)
 
