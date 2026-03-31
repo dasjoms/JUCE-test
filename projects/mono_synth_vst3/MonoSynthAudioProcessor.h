@@ -1,6 +1,6 @@
 #pragma once
 
-#include "SynthVoice.h"
+#include "SynthEngine.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
@@ -61,7 +61,7 @@ private:
     juce::AudioProcessorValueTreeState parameters;
     std::atomic<float>* waveformParameter = nullptr;
     std::atomic<Waveform> waveform { Waveform::sine };
-    SynthVoice voice;
+    SynthEngine synthEngine;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MonoSynthAudioProcessor)

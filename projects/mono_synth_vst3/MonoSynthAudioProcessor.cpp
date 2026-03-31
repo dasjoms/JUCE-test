@@ -20,7 +20,8 @@ MonoSynthAudioProcessor::MonoSynthAudioProcessor()
 {
     waveformParameter = parameters.getRawParameterValue (waveformParameterId);
     updateWaveformFromParameter();
-    voice.setWaveform (waveform.load (std::memory_order_relaxed));
+    synthEngine.setActiveVoiceCount (1);
+    synthEngine.setWaveform (waveform.load (std::memory_order_relaxed));
 }
 
 MonoSynthAudioProcessor::~MonoSynthAudioProcessor()
@@ -94,8 +95,7 @@ void MonoSynthAudioProcessor::changeProgramName (int index, const juce::String& 
 //==============================================================================
 void MonoSynthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    juce::ignoreUnused (samplesPerBlock);
-    voice.prepare (sampleRate);
+    synthEngine.prepare (sampleRate, samplesPerBlock);
 }
 
 void MonoSynthAudioProcessor::releaseResources()
@@ -133,35 +133,9 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         buffer.clear (i, 0, numSamples);
 
     updateWaveformFromParameter();
-    voice.setWaveform (waveform.load (std::memory_order_relaxed));
-
-    const auto renderRange = [this, &buffer, totalNumOutputChannels] (int startSample, int endSample)
-    {
-        for (int sample = startSample; sample < endSample; ++sample)
-        {
-            const auto sampleValue = voice.renderSample();
-
-            for (int channel = 0; channel < totalNumOutputChannels; ++channel)
-                buffer.setSample (channel, sample, sampleValue);
-        }
-    };
-
-    int renderedSamples = 0;
-
-    for (const auto midiMetadata : midiMessages)
-    {
-        const auto eventOffset = juce::jlimit (0, numSamples, midiMetadata.samplePosition);
-
-        if (eventOffset > renderedSamples)
-            renderRange (renderedSamples, eventOffset);
-
-        voice.handleMidiEvent (midiMetadata.getMessage());
-        renderedSamples = eventOffset;
-    }
-
-    if (renderedSamples < numSamples)
-        renderRange (renderedSamples, numSamples);
-
+    synthEngine.setActiveVoiceCount (1);
+    synthEngine.setWaveform (waveform.load (std::memory_order_relaxed));
+    synthEngine.renderBlock (buffer, midiMessages);
     midiMessages.clear();
 }
 
