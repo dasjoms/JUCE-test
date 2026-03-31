@@ -1,0 +1,78 @@
+#include "../MonoSynthAudioProcessor.h"
+
+#include <iostream>
+
+namespace
+{
+constexpr auto maxVoicesParameterId = "maxVoices";
+constexpr auto stealPolicyParameterId = "stealPolicy";
+constexpr auto modulationDepthParameterId = "modDepth";
+
+float getRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef parameterId)
+{
+    if (auto* raw = processor.getValueTreeState().getRawParameterValue (parameterId))
+        return raw->load();
+
+    return -1.0f;
+}
+
+bool setRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
+{
+    if (auto* parameter = processor.getValueTreeState().getParameter (parameterId))
+    {
+        parameter->setValueNotifyingHost (parameter->convertTo0to1 (rawValue));
+        return true;
+    }
+
+    return false;
+}
+
+bool validatePolyParametersRoundTrip()
+{
+    MonoSynthAudioProcessor source;
+
+    if (! setRawParameterValue (source, maxVoicesParameterId, 12.0f)
+        || ! setRawParameterValue (source, stealPolicyParameterId, 2.0f)
+        || ! setRawParameterValue (source, modulationDepthParameterId, 0.75f))
+    {
+        std::cerr << "unable to configure source processor for round-trip test" << '\n';
+        return false;
+    }
+
+    juce::MemoryBlock state;
+    source.getStateInformation (state);
+
+    MonoSynthAudioProcessor restored;
+    restored.setStateInformation (state.getData(), static_cast<int> (state.getSize()));
+
+    if (juce::roundToInt (getRawParameterValue (restored, maxVoicesParameterId)) != 12)
+    {
+        std::cerr << "maxVoices mismatch after round-trip" << '\n';
+        return false;
+    }
+
+    if (juce::roundToInt (getRawParameterValue (restored, stealPolicyParameterId)) != 2)
+    {
+        std::cerr << "stealPolicy mismatch after round-trip" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual (getRawParameterValue (restored, modulationDepthParameterId), 0.75f))
+    {
+        std::cerr << "modulation depth mismatch after round-trip" << '\n';
+        return false;
+    }
+
+    return true;
+}
+
+} // namespace
+
+int main()
+{
+    if (! validatePolyParametersRoundTrip())
+        return 1;
+
+    std::cout << "poly state round-trip validation passed." << '\n';
+    return 0;
+}
