@@ -38,6 +38,21 @@ Evolve `projects/mono_synth_vst3` into a polyphonic VST3 synth with predictable 
 - On `setStateInformation`, branch migrations by version to keep backward compatibility.
 - Preserve existing parameter IDs where possible (especially `waveform`) to avoid automation breakage.
 
+#### Migration rules (current baseline)
+- **Schema marker**: persist `schemaVersion` on the root APVTS state tree.
+- **`schemaVersion >= 1` (current poly-capable schema)**:
+  - Restore APVTS state directly.
+  - Trust parameter IDs/values as authoritative.
+- **No `schemaVersion` (legacy mono sessions)**:
+  - Start from current schema defaults, then map known legacy fields over them.
+  - Always map legacy `waveform` so existing mono projects keep oscillator selection.
+  - Accept legacy `waveform` values in both numeric index form and string form (`Sine`, `Saw`, `Square`, `Triangle`).
+  - Unknown/missing legacy fields remain at current defaults.
+- **Forward safety for new parameters**:
+  - Add new parameters with safe defaults so older sessions still load deterministically.
+  - Keep existing IDs stable; if semantics must change, add a new ID and migrate old values explicitly.
+  - Increment schema version only when migration logic changes, and add a fixture-based round-trip test for each new migration path.
+
 ## Architecture Targets
 
 ### Proposed runtime ownership

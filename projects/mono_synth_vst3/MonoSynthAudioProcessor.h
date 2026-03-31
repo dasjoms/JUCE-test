@@ -4,6 +4,7 @@
 
 #include <juce_audio_processors/juce_audio_processors.h>
 #include <atomic>
+#include <optional>
 
 //==============================================================================
 class MonoSynthAudioProcessor final : public juce::AudioProcessor
@@ -78,6 +79,9 @@ private:
     static SynthEngine::VoiceStealPolicy stealPolicyFromParameterValue (float parameterValue) noexcept;
     static int stealPolicyToChoiceIndex (SynthEngine::VoiceStealPolicy policy) noexcept;
     static SynthEngine::VoiceStealPolicy stealPolicyFromChoiceIndex (int choiceIndex) noexcept;
+    void restoreLegacyState (const juce::ValueTree& legacyState);
+    static std::optional<float> findLegacyParameterValue (const juce::ValueTree& tree, juce::StringRef parameterId);
+    static std::optional<float> parseWaveformLegacyValue (const juce::var& value);
     static const juce::StringArray& getWaveformChoices() noexcept;
     static const juce::StringArray& getStealPolicyChoices() noexcept;
 
