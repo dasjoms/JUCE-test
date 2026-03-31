@@ -1,5 +1,6 @@
 #include "MonoSynthAudioProcessor.h"
 #include "MonoSynthAudioProcessorEditor.h"
+#include <cmath>
 
 namespace
 {
@@ -10,6 +11,8 @@ constexpr auto attackParameterId = "attack";
 constexpr auto releaseParameterId = "release";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
+constexpr auto schemaVersionPropertyId = "schemaVersion";
+constexpr int currentStateSchemaVersion = 1;
 } // namespace
 
 //==============================================================================
@@ -309,7 +312,10 @@ juce::AudioProcessorEditor* MonoSynthAudioProcessor::createEditor()
 //==============================================================================
 void MonoSynthAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
-    if (const auto xml = parameters.copyState().createXml())
+    auto stateToSave = parameters.copyState();
+    stateToSave.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
+
+    if (const auto xml = stateToSave.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
@@ -317,12 +323,144 @@ void MonoSynthAudioProcessor::setStateInformation (const void* data, int sizeInB
 {
     if (const auto xml = getXmlFromBinary (data, sizeInBytes); xml != nullptr)
     {
-        if (xml->hasTagName (parameters.state.getType()))
-            parameters.replaceState (juce::ValueTree::fromXml (*xml));
+        const auto stateTree = juce::ValueTree::fromXml (*xml);
+
+        if (stateTree.isValid())
+        {
+            const auto schemaVersion = static_cast<int> (stateTree.getProperty (schemaVersionPropertyId, 0));
+
+            if (schemaVersion >= currentStateSchemaVersion
+                && stateTree.hasType (parameters.state.getType()))
+            {
+                parameters.replaceState (stateTree);
+            }
+            else
+            {
+                restoreLegacyState (stateTree);
+            }
+        }
     }
 
     updateParameterSnapshotFromAPVTS();
     applyParameterSnapshotToEngine();
+}
+
+void MonoSynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyState)
+{
+    auto migratedState = parameters.copyState();
+
+    for (const auto* parameterId : { waveformParameterId,
+                                     maxVoicesParameterId,
+                                     stealPolicyParameterId,
+                                     attackParameterId,
+                                     releaseParameterId,
+                                     modulationDepthParameterId,
+                                     modulationRateParameterId })
+    {
+        if (auto* parameter = parameters.getParameter (parameterId))
+            parameter->setValueNotifyingHost (parameter->getDefaultValue());
+    }
+
+    migratedState = parameters.copyState();
+
+    for (const auto* parameterId : { waveformParameterId,
+                                     maxVoicesParameterId,
+                                     stealPolicyParameterId,
+                                     attackParameterId,
+                                     releaseParameterId,
+                                     modulationDepthParameterId,
+                                     modulationRateParameterId })
+    {
+        if (const auto value = findLegacyParameterValue (legacyState, parameterId); value.has_value())
+        {
+            int childIndex = -1;
+            for (int i = 0; i < migratedState.getNumChildren(); ++i)
+            {
+                const auto node = migratedState.getChild (i);
+                if (node.hasType ("PARAM") && node.getProperty ("id").toString() == juce::String (parameterId))
+                {
+                    childIndex = i;
+                    break;
+                }
+            }
+
+            if (childIndex >= 0)
+                migratedState.getChild (childIndex).setProperty ("value", *value, nullptr);
+        }
+    }
+
+    migratedState.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
+    parameters.replaceState (migratedState);
+}
+
+std::optional<float> MonoSynthAudioProcessor::findLegacyParameterValue (const juce::ValueTree& tree,
+                                                                        juce::StringRef parameterId)
+{
+    if (! tree.isValid())
+        return std::nullopt;
+
+    const juce::Identifier propertyId { juce::String (parameterId) };
+
+    if (tree.hasProperty (propertyId))
+    {
+        const auto propertyValue = tree.getProperty (propertyId);
+        if (parameterId == juce::StringRef (waveformParameterId))
+            return parseWaveformLegacyValue (propertyValue);
+
+        if (propertyValue.isDouble() || propertyValue.isInt() || propertyValue.isInt64() || propertyValue.isBool())
+            return static_cast<float> (propertyValue);
+
+        const auto numeric = propertyValue.toString().getFloatValue();
+        if (! std::isnan (numeric))
+            return numeric;
+    }
+
+    for (int i = 0; i < tree.getNumChildren(); ++i)
+    {
+        const auto node = tree.getChild (i);
+        if (! node.hasType ("PARAM") || ! node.hasProperty ("id")
+            || node.getProperty ("id").toString() != juce::String (parameterId))
+            continue;
+
+        const auto parameterValue = node.getProperty ("value");
+
+        if (parameterId == juce::StringRef (waveformParameterId))
+            return parseWaveformLegacyValue (parameterValue);
+
+        if (parameterValue.isDouble() || parameterValue.isInt() || parameterValue.isInt64() || parameterValue.isBool())
+            return static_cast<float> (parameterValue);
+
+        const auto numeric = parameterValue.toString().getFloatValue();
+        if (! std::isnan (numeric))
+            return numeric;
+    }
+
+    if (const auto legacyMonoNode = tree.getChildWithName ("LegacyMonoState"); legacyMonoNode.isValid())
+        return findLegacyParameterValue (legacyMonoNode, parameterId);
+
+    return std::nullopt;
+}
+
+std::optional<float> MonoSynthAudioProcessor::parseWaveformLegacyValue (const juce::var& value)
+{
+    if (value.isInt() || value.isInt64() || value.isDouble() || value.isBool())
+        return static_cast<float> (value);
+
+    const auto normalized = value.toString().trim().toLowerCase();
+
+    if (normalized.containsOnly ("0123456789.-"))
+        return normalized.getFloatValue();
+
+    if (normalized == "sine")
+        return static_cast<float> (waveformToChoiceIndex (Waveform::sine));
+    if (normalized == "saw")
+        return static_cast<float> (waveformToChoiceIndex (Waveform::saw));
+    if (normalized == "square")
+        return static_cast<float> (waveformToChoiceIndex (Waveform::square));
+    if (normalized == "triangle")
+        return static_cast<float> (waveformToChoiceIndex (Waveform::triangle));
+
+    return std::nullopt;
 }
 
 //==============================================================================

@@ -148,3 +148,14 @@ target_compile_definitions(SynthEngineVoiceAllocatorTest
         JUCE_WEB_BROWSER=0)
 
 add_test(NAME SynthEngineVoiceAllocatorPolicyTest COMMAND SynthEngineVoiceAllocatorTest)
+
+add_executable(MonoSynthStateSchemaMigrationTest
+    tests/StateSchemaMigrationTest.cpp)
+
+target_link_libraries(MonoSynthStateSchemaMigrationTest
+    PRIVATE
+        MonoSynthPlugin
+        juce::juce_audio_processors
+        juce::juce_audio_utils)
+
+add_test(NAME MonoSynthStateSchemaMigrationTest COMMAND MonoSynthStateSchemaMigrationTest)
