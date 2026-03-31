@@ -14,6 +14,7 @@ void SynthVoice::prepare (double sampleRate) noexcept
     currentAmplitude = 0.0f;
     noteTransitionState = NoteTransitionState::none;
     shouldResetPhaseOnNoteChange = false;
+    startOrder = 0;
     attackStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * attackTimeSeconds));
     releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
     noteTransitionStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * noteTransitionRampTimeSeconds));
@@ -23,6 +24,11 @@ void SynthVoice::prepare (double sampleRate) noexcept
 void SynthVoice::setWaveform (Waveform newWaveform) noexcept
 {
     waveform = newWaveform;
+}
+
+void SynthVoice::setStartOrder (uint64_t newStartOrder) noexcept
+{
+    startOrder = newStartOrder;
 }
 
 void SynthVoice::noteOn (int midiNoteNumber) noexcept
@@ -144,7 +150,22 @@ float SynthVoice::renderSample() noexcept
     }
 
     currentAmplitude = 0.0f;
+    currentMidiNote = -1;
+    pendingMidiNote = -1;
+    shouldResetPhaseOnNoteChange = false;
+    noteTransitionState = NoteTransitionState::none;
     return 0.0f;
+}
+
+SynthVoice::RuntimeMetadata SynthVoice::getRuntimeMetadata() const noexcept
+{
+    RuntimeMetadata metadata;
+    metadata.isActive = gateOpen || currentAmplitude > minimumEnvelopeValue || noteTransitionState != NoteTransitionState::none;
+    metadata.isReleasing = metadata.isActive && ! gateOpen;
+    metadata.startOrder = startOrder;
+    metadata.amplitudeEstimate = currentAmplitude;
+    metadata.midiNote = currentMidiNote;
+    return metadata;
 }
 
 void SynthVoice::updatePhaseIncrement() noexcept

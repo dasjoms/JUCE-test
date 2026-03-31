@@ -132,3 +132,19 @@ target_link_libraries(MonoSynthProcessBlockTest
 
 
 add_test(NAME MonoSynthProcessBlockMidiOffsetsTest COMMAND MonoSynthProcessBlockTest)
+
+add_executable(SynthEngineVoiceAllocatorTest
+    tests/SynthEngineVoiceAllocatorTest.cpp
+    SynthEngine.cpp
+    SynthVoice.cpp)
+
+target_link_libraries(SynthEngineVoiceAllocatorTest
+    PRIVATE
+        juce::juce_audio_basics)
+
+target_compile_definitions(SynthEngineVoiceAllocatorTest
+    PRIVATE
+        JUCE_USE_CURL=0
+        JUCE_WEB_BROWSER=0)
+
+add_test(NAME SynthEngineVoiceAllocatorPolicyTest COMMAND SynthEngineVoiceAllocatorTest)
