@@ -10,6 +10,8 @@ constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto decayParameterId = "decay";
 constexpr auto sustainParameterId = "sustain";
+constexpr auto unisonVoicesParameterId = "unisonVoices";
+constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 
 bool setRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
 {
@@ -31,8 +33,11 @@ bool validateModulationParametersPresentAndWritable()
     auto* rateRaw = apvts.getRawParameterValue (modulationRateParameterId);
     auto* destinationRaw = apvts.getRawParameterValue (modulationDestinationParameterId);
     auto* velocitySensitivityRaw = apvts.getRawParameterValue (velocitySensitivityParameterId);
+    auto* unisonVoicesRaw = apvts.getRawParameterValue (unisonVoicesParameterId);
+    auto* unisonDetuneRaw = apvts.getRawParameterValue (unisonDetuneCentsParameterId);
 
-    if (depthRaw == nullptr || rateRaw == nullptr || destinationRaw == nullptr || velocitySensitivityRaw == nullptr)
+    if (depthRaw == nullptr || rateRaw == nullptr || destinationRaw == nullptr || velocitySensitivityRaw == nullptr
+        || unisonVoicesRaw == nullptr || unisonDetuneRaw == nullptr)
     {
         std::cerr << "missing one or more modulation parameters in APVTS" << '\n';
         return false;
@@ -42,11 +47,15 @@ bool validateModulationParametersPresentAndWritable()
     constexpr auto rateTarget = 7.25f;
     constexpr auto destinationTarget = 1.0f;
     constexpr auto velocitySensitivityTarget = 0.74f;
+    constexpr auto unisonVoicesTarget = 4.0f;
+    constexpr auto unisonDetuneTarget = 12.5f;
 
     if (! setRawParameterValue (processor, modulationDepthParameterId, depthTarget)
         || ! setRawParameterValue (processor, modulationRateParameterId, rateTarget)
         || ! setRawParameterValue (processor, modulationDestinationParameterId, destinationTarget)
-        || ! setRawParameterValue (processor, velocitySensitivityParameterId, velocitySensitivityTarget))
+        || ! setRawParameterValue (processor, velocitySensitivityParameterId, velocitySensitivityTarget)
+        || ! setRawParameterValue (processor, unisonVoicesParameterId, unisonVoicesTarget)
+        || ! setRawParameterValue (processor, unisonDetuneCentsParameterId, unisonDetuneTarget))
     {
         std::cerr << "unable to write modulation parameters through APVTS" << '\n';
         return false;
@@ -73,6 +82,18 @@ bool validateModulationParametersPresentAndWritable()
     if (! juce::approximatelyEqual (velocitySensitivityRaw->load(), velocitySensitivityTarget))
     {
         std::cerr << "velocitySensitivity write mismatch" << '\n';
+        return false;
+    }
+
+    if (juce::roundToInt (unisonVoicesRaw->load()) != static_cast<int> (unisonVoicesTarget))
+    {
+        std::cerr << "unisonVoices write mismatch" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual (unisonDetuneRaw->load(), unisonDetuneTarget))
+    {
+        std::cerr << "unisonDetuneCents write mismatch" << '\n';
         return false;
     }
 

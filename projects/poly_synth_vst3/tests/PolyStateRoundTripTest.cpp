@@ -12,6 +12,8 @@ constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
 constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
+constexpr auto unisonVoicesParameterId = "unisonVoices";
+constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 
 float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
 {
@@ -43,7 +45,9 @@ bool validatePolyParametersRoundTrip()
         || ! setRawParameterValue (source, modulationDepthParameterId, 0.75f)
         || ! setRawParameterValue (source, modulationRateParameterId, 6.5f)
         || ! setRawParameterValue (source, velocitySensitivityParameterId, 0.85f)
-        || ! setRawParameterValue (source, modulationDestinationParameterId, 1.0f))
+        || ! setRawParameterValue (source, modulationDestinationParameterId, 1.0f)
+        || ! setRawParameterValue (source, unisonVoicesParameterId, 5.0f)
+        || ! setRawParameterValue (source, unisonDetuneCentsParameterId, 22.0f))
     {
         std::cerr << "unable to configure source processor for round-trip test" << '\n';
         return false;
@@ -100,6 +104,18 @@ bool validatePolyParametersRoundTrip()
     if (! juce::approximatelyEqual (getRawParameterValue (restored, sustainParameterId), 0.45f))
     {
         std::cerr << "sustain mismatch after round-trip" << '\n';
+        return false;
+    }
+
+    if (juce::roundToInt (getRawParameterValue (restored, unisonVoicesParameterId)) != 5)
+    {
+        std::cerr << "unisonVoices mismatch after round-trip" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual (getRawParameterValue (restored, unisonDetuneCentsParameterId), 22.0f))
+    {
+        std::cerr << "unisonDetuneCents mismatch after round-trip" << '\n';
         return false;
     }
 

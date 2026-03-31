@@ -243,3 +243,20 @@ target_link_libraries(PolyModParametersApvtsTest
         juce::juce_audio_utils)
 
 add_test(NAME PolyModParametersApvtsTest COMMAND PolyModParametersApvtsTest)
+
+
+add_executable(SynthEngineUnisonTest
+    tests/SynthEngineUnisonTest.cpp
+    SynthEngine.cpp
+    SynthVoice.cpp)
+
+target_link_libraries(SynthEngineUnisonTest
+    PRIVATE
+        juce::juce_audio_basics)
+
+target_compile_definitions(SynthEngineUnisonTest
+    PRIVATE
+        JUCE_USE_CURL=0
+        JUCE_WEB_BROWSER=0)
+
+add_test(NAME SynthEngineUnisonTest COMMAND SynthEngineUnisonTest)

@@ -1,5 +1,6 @@
 #include "SynthEngine.h"
 
+#include <algorithm>
 #include <cmath>
 
 SynthEngine::SynthEngine (int maxVoices)
@@ -23,6 +24,7 @@ void SynthEngine::prepare (double sampleRate, int blockSize) noexcept
     }
 
     noteStartCounter = 0;
+    nextVoiceGroupId = 1;
 }
 
 void SynthEngine::setWaveform (SynthVoice::Waveform waveformType) noexcept
@@ -77,6 +79,16 @@ void SynthEngine::setVelocitySensitivity (float sensitivity) noexcept
         voices[static_cast<size_t> (index)].setVelocitySensitivity (currentVelocitySensitivity);
 }
 
+void SynthEngine::setUnisonVoices (int voicesPerNote) noexcept
+{
+    currentUnisonVoices = juce::jlimit (1, activeVoiceCount, voicesPerNote);
+}
+
+void SynthEngine::setUnisonDetuneCents (float cents) noexcept
+{
+    currentUnisonDetuneCents = juce::jlimit (0.0f, 120.0f, cents);
+}
+
 SynthEngine::VoiceStealPolicy SynthEngine::getVoiceStealPolicy() const noexcept
 {
     return voiceStealPolicy;
@@ -105,6 +117,7 @@ void SynthEngine::renderBlock (juce::AudioBuffer<float>& buffer, const juce::Mid
 void SynthEngine::renderRange (juce::AudioBuffer<float>& buffer, int startSample, int endSample) noexcept
 {
     const auto numChannels = buffer.getNumChannels();
+    const auto gainCompensation = 1.0f / std::sqrt (static_cast<float> (juce::jmax (1, currentUnisonVoices)));
 
     for (int sample = startSample; sample < endSample; ++sample)
     {
@@ -112,6 +125,8 @@ void SynthEngine::renderRange (juce::AudioBuffer<float>& buffer, int startSample
 
         for (auto voiceIndex = 0; voiceIndex < activeVoiceCount; ++voiceIndex)
             sampleValue += voices[static_cast<size_t> (voiceIndex)].renderSample();
+
+        sampleValue *= gainCompensation;
 
         for (int channel = 0; channel < numChannels; ++channel)
             buffer.setSample (channel, sample, sampleValue);
@@ -122,9 +137,18 @@ void SynthEngine::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcep
 {
     if (midiMessage.isNoteOn())
     {
-        const auto voiceIndex = pickVoiceForNoteOn();
-        voices[static_cast<size_t> (voiceIndex)].setStartOrder (noteStartCounter++);
-        voices[static_cast<size_t> (voiceIndex)].noteOn (midiMessage.getNoteNumber(), midiMessage.getFloatVelocity());
+        const auto selectedVoices = pickVoicesForNoteOn();
+        const auto groupId = nextVoiceGroupId++;
+
+        for (auto stackIndex = 0; stackIndex < static_cast<int> (selectedVoices.size()); ++stackIndex)
+        {
+            const auto voiceIndex = selectedVoices[static_cast<size_t> (stackIndex)];
+            auto& voice = voices[static_cast<size_t> (voiceIndex)];
+            voice.setStartOrder (noteStartCounter++);
+            voice.setVoiceGroupId (groupId);
+            voice.setDetuneCents (getDetuneOffsetForStackIndex (stackIndex, static_cast<int> (selectedVoices.size())));
+            voice.noteOn (midiMessage.getNoteNumber(), midiMessage.getFloatVelocity());
+        }
         return;
     }
 
@@ -143,97 +167,122 @@ void SynthEngine::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcep
     }
 }
 
-int SynthEngine::pickVoiceForNoteOn() noexcept
+std::vector<int> SynthEngine::pickVoicesForNoteOn() noexcept
 {
-    const auto idleVoiceIndex = findIdleVoice();
+    const auto requiredVoices = juce::jlimit (1, activeVoiceCount, currentUnisonVoices);
+    std::vector<int> selected;
+    selected.reserve (static_cast<size_t> (requiredVoices));
 
-    if (idleVoiceIndex >= 0)
-        return idleVoiceIndex;
+    for (auto voiceIndex = 0; voiceIndex < activeVoiceCount && static_cast<int> (selected.size()) < requiredVoices; ++voiceIndex)
+    {
+        const auto metadata = voices[static_cast<size_t> (voiceIndex)].getRuntimeMetadata();
+        if (! metadata.isActive)
+            selected.push_back (voiceIndex);
+    }
 
-    return selectVoiceByPolicy();
+    if (static_cast<int> (selected.size()) >= requiredVoices)
+        return selected;
+
+    auto groups = buildActiveGroupCandidates();
+    fillStealOrder (groups);
+
+    for (const auto& group : groups)
+    {
+        if (static_cast<int> (selected.size()) >= requiredVoices)
+            break;
+
+        for (const auto voiceIndex : group.voiceIndices)
+            selected.push_back (voiceIndex);
+    }
+
+    if (static_cast<int> (selected.size()) > requiredVoices)
+        selected.resize (static_cast<size_t> (requiredVoices));
+
+    return selected;
+}
+
+std::vector<SynthEngine::VoiceGroupCandidate> SynthEngine::buildActiveGroupCandidates() const noexcept
+{
+    std::vector<VoiceGroupCandidate> groups;
+
+    for (auto voiceIndex = 0; voiceIndex < activeVoiceCount; ++voiceIndex)
+    {
+        const auto metadata = voices[static_cast<size_t> (voiceIndex)].getRuntimeMetadata();
+        if (! metadata.isActive)
+            continue;
+
+        const auto existing = std::find_if (groups.begin(), groups.end(), [metadata] (const VoiceGroupCandidate& candidate)
+        {
+            return candidate.groupId == metadata.voiceGroupId;
+        });
+
+        if (existing == groups.end())
+        {
+            VoiceGroupCandidate candidate;
+            candidate.groupId = metadata.voiceGroupId;
+            candidate.oldestStartOrder = metadata.startOrder;
+            candidate.amplitudeEstimate = metadata.amplitudeEstimate;
+            candidate.hasReleasingVoice = metadata.isReleasing;
+            candidate.voiceIndices.push_back (voiceIndex);
+            groups.push_back (std::move (candidate));
+        }
+        else
+        {
+            existing->voiceIndices.push_back (voiceIndex);
+            existing->hasReleasingVoice = existing->hasReleasingVoice || metadata.isReleasing;
+            existing->oldestStartOrder = juce::jmin (existing->oldestStartOrder, metadata.startOrder);
+            existing->amplitudeEstimate = juce::jmin (existing->amplitudeEstimate, metadata.amplitudeEstimate);
+        }
+    }
+
+    return groups;
+}
+
+void SynthEngine::fillStealOrder (std::vector<VoiceGroupCandidate>& groups) const noexcept
+{
+    switch (voiceStealPolicy)
+    {
+        case VoiceStealPolicy::releasedFirst:
+            std::sort (groups.begin(), groups.end(), [] (const VoiceGroupCandidate& left, const VoiceGroupCandidate& right)
+            {
+                if (left.hasReleasingVoice != right.hasReleasingVoice)
+                    return left.hasReleasingVoice;
+                return left.oldestStartOrder < right.oldestStartOrder;
+            });
+            break;
+
+        case VoiceStealPolicy::oldest:
+            std::sort (groups.begin(), groups.end(), [] (const VoiceGroupCandidate& left, const VoiceGroupCandidate& right)
+            {
+                return left.oldestStartOrder < right.oldestStartOrder;
+            });
+            break;
+
+        case VoiceStealPolicy::quietest:
+            std::sort (groups.begin(), groups.end(), [] (const VoiceGroupCandidate& left, const VoiceGroupCandidate& right)
+            {
+                const auto amplitudeDelta = std::abs (left.amplitudeEstimate - right.amplitudeEstimate);
+                if (amplitudeDelta > 1.0e-6f)
+                    return left.amplitudeEstimate < right.amplitudeEstimate;
+
+                return left.oldestStartOrder < right.oldestStartOrder;
+            });
+            break;
+    }
+}
+
+float SynthEngine::getDetuneOffsetForStackIndex (int stackIndex, int stackSize) const noexcept
+{
+    if (stackSize <= 1)
+        return 0.0f;
+
+    const auto center = 0.5f * static_cast<float> (stackSize - 1);
+    const auto normalizedPosition = (static_cast<float> (stackIndex) - center) / juce::jmax (0.5f, center);
+    return normalizedPosition * currentUnisonDetuneCents;
 }
 
 SynthVoice::RuntimeMetadata SynthEngine::getVoiceMetadata (int voiceIndex) const noexcept
 {
     const auto boundedIndex = juce::jlimit (0, activeVoiceCount - 1, voiceIndex);
     return voices[static_cast<size_t> (boundedIndex)].getRuntimeMetadata();
-}
-
-int SynthEngine::selectVoiceByPolicy() const noexcept
-{
-    switch (voiceStealPolicy)
-    {
-        case VoiceStealPolicy::releasedFirst:
-        {
-            for (auto voiceIndex = 0; voiceIndex < activeVoiceCount; ++voiceIndex)
-            {
-                if (voices[static_cast<size_t> (voiceIndex)].getRuntimeMetadata().isReleasing)
-                    return voiceIndex;
-            }
-
-            return selectOldestVoice();
-        }
-
-        case VoiceStealPolicy::oldest:
-            return selectOldestVoice();
-
-        case VoiceStealPolicy::quietest:
-            return selectQuietestVoice();
-    }
-
-    jassertfalse;
-    return 0;
-}
-
-int SynthEngine::selectOldestVoice() const noexcept
-{
-    auto selectedIndex = 0;
-    auto selectedOrder = voices[0].getRuntimeMetadata().startOrder;
-
-    for (auto voiceIndex = 1; voiceIndex < activeVoiceCount; ++voiceIndex)
-    {
-        const auto voiceOrder = voices[static_cast<size_t> (voiceIndex)].getRuntimeMetadata().startOrder;
-
-        if (voiceOrder < selectedOrder)
-        {
-            selectedOrder = voiceOrder;
-            selectedIndex = voiceIndex;
-        }
-    }
-
-    return selectedIndex;
-}
-
-int SynthEngine::selectQuietestVoice() const noexcept
-{
-    auto selectedIndex = 0;
-    auto selectedMetadata = voices[0].getRuntimeMetadata();
-
-    for (auto voiceIndex = 1; voiceIndex < activeVoiceCount; ++voiceIndex)
-    {
-        const auto metadata = voices[static_cast<size_t> (voiceIndex)].getRuntimeMetadata();
-        const auto lowerAmplitude = metadata.amplitudeEstimate < selectedMetadata.amplitudeEstimate;
-        const auto amplitudesAreEqual = std::abs (metadata.amplitudeEstimate - selectedMetadata.amplitudeEstimate) < 1.0e-6f;
-        const auto tieBreakByAge = amplitudesAreEqual
-                                && metadata.startOrder < selectedMetadata.startOrder;
-
-        if (lowerAmplitude || tieBreakByAge)
-        {
-            selectedMetadata = metadata;
-            selectedIndex = voiceIndex;
-        }
-    }
-
-    return selectedIndex;
-}
-
-int SynthEngine::findIdleVoice() const noexcept
-{
-    for (auto voiceIndex = 0; voiceIndex < activeVoiceCount; ++voiceIndex)
-    {
-        if (! voices[static_cast<size_t> (voiceIndex)].getRuntimeMetadata().isActive)
-            return voiceIndex;
-    }
-
-    return -1;
 }
