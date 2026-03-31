@@ -14,6 +14,13 @@ public:
         triangle
     };
 
+    enum class ModulationDestination
+    {
+        amplitude = 0,
+        pitch,
+        pulseWidth
+    };
+
     struct RuntimeMetadata
     {
         bool isActive = false;
@@ -26,7 +33,7 @@ public:
     void prepare (double sampleRate) noexcept;
     void setWaveform (Waveform newWaveform) noexcept;
     void setEnvelopeTimes (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept;
-    void setModulationParameters (float depth, float rateHz) noexcept;
+    void setModulationParameters (float depth, float rateHz, ModulationDestination destination) noexcept;
     void setStartOrder (uint64_t newStartOrder) noexcept;
 
     void noteOn (int midiNoteNumber) noexcept;
@@ -80,6 +87,7 @@ private:
     float releaseTimeSeconds = 0.03f;
     float modulationDepth = 0.0f;
     float modulationRateHz = 0.0f;
+    ModulationDestination modulationDestination = ModulationDestination::amplitude;
     double lfoPhase = 0.0;
     double lfoPhaseIncrement = 0.0;
     float currentAmplitude = 0.0f;
