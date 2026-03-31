@@ -6,6 +6,7 @@ namespace
 {
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
+constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto decayParameterId = "decay";
 constexpr auto sustainParameterId = "sustain";
 
@@ -27,8 +28,9 @@ bool validateModulationParametersPresentAndWritable()
 
     auto* depthRaw = apvts.getRawParameterValue (modulationDepthParameterId);
     auto* rateRaw = apvts.getRawParameterValue (modulationRateParameterId);
+    auto* destinationRaw = apvts.getRawParameterValue (modulationDestinationParameterId);
 
-    if (depthRaw == nullptr || rateRaw == nullptr)
+    if (depthRaw == nullptr || rateRaw == nullptr || destinationRaw == nullptr)
     {
         std::cerr << "missing one or more modulation parameters in APVTS" << '\n';
         return false;
@@ -36,9 +38,11 @@ bool validateModulationParametersPresentAndWritable()
 
     constexpr auto depthTarget = 0.67f;
     constexpr auto rateTarget = 7.25f;
+    constexpr auto destinationTarget = 1.0f;
 
     if (! setRawParameterValue (processor, modulationDepthParameterId, depthTarget)
-        || ! setRawParameterValue (processor, modulationRateParameterId, rateTarget))
+        || ! setRawParameterValue (processor, modulationRateParameterId, rateTarget)
+        || ! setRawParameterValue (processor, modulationDestinationParameterId, destinationTarget))
     {
         std::cerr << "unable to write modulation parameters through APVTS" << '\n';
         return false;
@@ -53,6 +57,12 @@ bool validateModulationParametersPresentAndWritable()
     if (! juce::approximatelyEqual (rateRaw->load(), rateTarget))
     {
         std::cerr << "modRate write mismatch" << '\n';
+        return false;
+    }
+
+    if (juce::roundToInt (destinationRaw->load()) != static_cast<int> (destinationTarget))
+    {
+        std::cerr << "modDestination write mismatch" << '\n';
         return false;
     }
 

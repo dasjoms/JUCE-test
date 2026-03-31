@@ -6,8 +6,8 @@ namespace
 {
 struct SchemaExpectation
 {
-    int currentSchemaVersion = 1;
-    int futureExpansionFixtureVersion = 2;
+    int currentSchemaVersion = 2;
+    int futureExpansionFixtureVersion = 3;
 };
 
 constexpr SchemaExpectation expectedSchema {};
@@ -21,6 +21,7 @@ constexpr auto sustainParameterId = "sustain";
 constexpr auto releaseParameterId = "release";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
+constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
 
 float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
@@ -121,7 +122,8 @@ bool validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds()
         && expectFloatParameter (processor, sustainParameterId, 0.8f, "legacy migration default")
         && expectFloatParameter (processor, releaseParameterId, 0.03f, "legacy migration default")
         && expectFloatParameter (processor, modulationDepthParameterId, 0.0f, "legacy migration default")
-        && expectFloatParameter (processor, modulationRateParameterId, 2.0f, "legacy migration default");
+        && expectFloatParameter (processor, modulationRateParameterId, 2.0f, "legacy migration default")
+        && expectIntParameter (processor, modulationDestinationParameterId, 0, "legacy migration default");
 }
 
 bool validateCurrentVersionRoundTrip()
@@ -136,7 +138,8 @@ bool validateCurrentVersionRoundTrip()
         || ! setRawParameterValue (sourceProcessor, sustainParameterId, 0.61f)
         || ! setRawParameterValue (sourceProcessor, releaseParameterId, 0.21f)
         || ! setRawParameterValue (sourceProcessor, modulationDepthParameterId, 0.77f)
-        || ! setRawParameterValue (sourceProcessor, modulationRateParameterId, 7.25f))
+        || ! setRawParameterValue (sourceProcessor, modulationRateParameterId, 7.25f)
+        || ! setRawParameterValue (sourceProcessor, modulationDestinationParameterId, 2.0f))
     {
         std::cerr << "unable to set one or more parameters on source processor" << '\n';
         return false;
@@ -159,7 +162,8 @@ bool validateCurrentVersionRoundTrip()
         && expectFloatParameter (restoredProcessor, sustainParameterId, 0.61f, "current-version restore")
         && expectFloatParameter (restoredProcessor, releaseParameterId, 0.21f, "current-version restore")
         && expectFloatParameter (restoredProcessor, modulationDepthParameterId, 0.77f, "current-version restore")
-        && expectFloatParameter (restoredProcessor, modulationRateParameterId, 7.25f, "current-version restore");
+        && expectFloatParameter (restoredProcessor, modulationRateParameterId, 7.25f, "current-version restore")
+        && expectIntParameter (restoredProcessor, modulationDestinationParameterId, 2, "current-version restore");
 }
 
 bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
@@ -167,7 +171,7 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
     PolySynthAudioProcessor processor;
 
     auto futureFixtureXml = juce::parseXML (R"xml(
-<PARAMETERS schemaVersion="2">
+<PARAMETERS schemaVersion="3">
   <PARAM id="waveform" value="1"/>
   <PARAM id="maxVoices" value="12"/>
   <PARAM id="stealPolicy" value="1"/>
@@ -204,7 +208,8 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
         && expectFloatParameter (processor, modulationDepthParameterId, 0.25f, "future fixture restore")
         && expectFloatParameter (processor, decayParameterId, 0.08f, "future fixture missing-param default")
         && expectFloatParameter (processor, releaseParameterId, 0.03f, "future fixture missing-param default")
-        && expectFloatParameter (processor, modulationRateParameterId, 2.0f, "future fixture missing-param default");
+        && expectFloatParameter (processor, modulationRateParameterId, 2.0f, "future fixture missing-param default")
+        && expectIntParameter (processor, modulationDestinationParameterId, 0, "future fixture missing-param default");
 }
 
 } // namespace

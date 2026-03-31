@@ -41,10 +41,11 @@ void SynthVoice::setEnvelopeTimes (float attackSeconds, float decaySeconds, floa
     releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
 }
 
-void SynthVoice::setModulationParameters (float depth, float rateHz) noexcept
+void SynthVoice::setModulationParameters (float depth, float rateHz, ModulationDestination destination) noexcept
 {
     modulationDepth = juce::jlimit (0.0f, 1.0f, depth);
     modulationRateHz = juce::jlimit (0.0f, 20.0f, rateHz);
+    modulationDestination = destination;
     updateLfoIncrement();
 }
 
@@ -204,12 +205,34 @@ float SynthVoice::renderSample() noexcept
 
     if (gateOpen || currentAmplitude > minimumEnvelopeValue)
     {
-        const auto lfoSample = std::sin (lfoPhase);
-        const auto unipolarLfo = 0.5f * (1.0f + static_cast<float> (lfoSample));
-        const auto tremoloGain = (1.0f - modulationDepth) + (modulationDepth * unipolarLfo);
-        const auto sampleValue = outputLevel * currentAmplitude * tremoloGain * getOscillatorSample (phase, waveform);
+        const auto lfoSample = static_cast<float> (std::sin (lfoPhase));
+        const auto unipolarLfo = 0.5f * (1.0f + lfoSample);
 
-        phase += phaseIncrement;
+        auto oscillatorPhaseIncrement = phaseIncrement;
+        auto modulationGain = 1.0f;
+
+        switch (modulationDestination)
+        {
+            case ModulationDestination::amplitude:
+                modulationGain = (1.0f - modulationDepth) + (modulationDepth * unipolarLfo);
+                break;
+
+            case ModulationDestination::pitch:
+            {
+                constexpr auto pitchDepthInSemitones = 12.0f;
+                const auto semitoneOffset = pitchDepthInSemitones * modulationDepth * lfoSample;
+                const auto pitchRatio = std::pow (2.0, static_cast<double> (semitoneOffset) / 12.0);
+                oscillatorPhaseIncrement = phaseIncrement * pitchRatio;
+                break;
+            }
+
+            case ModulationDestination::pulseWidth:
+                break;
+        }
+
+        const auto sampleValue = outputLevel * currentAmplitude * modulationGain * getOscillatorSample (phase, waveform);
+
+        phase += oscillatorPhaseIncrement;
         if (phase >= twoPi)
             phase -= twoPi;
 

@@ -13,8 +13,9 @@ constexpr auto sustainParameterId = "sustain";
 constexpr auto releaseParameterId = "release";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
+constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
-constexpr int currentStateSchemaVersion = 1;
+constexpr int currentStateSchemaVersion = 2;
 } // namespace
 
 //==============================================================================
@@ -38,6 +39,7 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
     releaseParameter = parameters.getRawParameterValue (releaseParameterId);
     modulationDepthParameter = parameters.getRawParameterValue (modulationDepthParameterId);
     modulationRateParameter = parameters.getRawParameterValue (modulationRateParameterId);
+    modulationDestinationParameter = parameters.getRawParameterValue (modulationDestinationParameterId);
     updateParameterSnapshotFromAPVTS();
     applyParameterSnapshotToEngine();
 }
@@ -205,6 +207,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::cre
                                                                     juce::NormalisableRange<float> (0.05f, 20.0f, 0.01f, 0.3f),
                                                                     2.0f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+    layout.push_back (std::make_unique<juce::AudioParameterChoice> (modulationDestinationParameterId,
+                                                                     "Mod Destination",
+                                                                     getModDestinationChoices(),
+                                                                     modDestinationToChoiceIndex (SynthVoice::ModulationDestination::amplitude)));
     return { layout.begin(), layout.end() };
 }
 
@@ -240,6 +246,10 @@ void PolySynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
 
     if (modulationRateParameter != nullptr)
         parameterSnapshot.modulationRateHz = modulationRateParameter->load (std::memory_order_relaxed);
+
+    if (modulationDestinationParameter != nullptr)
+        parameterSnapshot.modulationDestination = modDestinationFromChoiceIndex (
+            juce::roundToInt (modulationDestinationParameter->load (std::memory_order_relaxed)));
 }
 
 void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
@@ -251,7 +261,7 @@ void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
                                   parameterSnapshot.decaySeconds,
                                   parameterSnapshot.sustainLevel,
                                   parameterSnapshot.releaseSeconds);
-    synthEngine.setModulationParameters (parameterSnapshot.modulationDepth, parameterSnapshot.modulationRateHz);
+    synthEngine.setModulationParameters (parameterSnapshot.modulationDepth, parameterSnapshot.modulationRateHz, parameterSnapshot.modulationDestination);
 }
 
 PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::waveformFromParameterValue (float parameterValue) noexcept
@@ -319,6 +329,30 @@ const juce::StringArray& PolySynthAudioProcessor::getStealPolicyChoices() noexce
     static const juce::StringArray choices { "Released First", "Oldest", "Quietest" };
     return choices;
 }
+int PolySynthAudioProcessor::modDestinationToChoiceIndex (SynthVoice::ModulationDestination destination) noexcept
+{
+    return static_cast<int> (destination);
+}
+
+SynthVoice::ModulationDestination PolySynthAudioProcessor::modDestinationFromChoiceIndex (int choiceIndex) noexcept
+{
+    switch (choiceIndex)
+    {
+        case static_cast<int> (ModDestinationParameterChoice::amplitude): return SynthVoice::ModulationDestination::amplitude;
+        case static_cast<int> (ModDestinationParameterChoice::pitch): return SynthVoice::ModulationDestination::pitch;
+        case static_cast<int> (ModDestinationParameterChoice::pulseWidth): return SynthVoice::ModulationDestination::pulseWidth;
+        default: break;
+    }
+
+    return SynthVoice::ModulationDestination::amplitude;
+}
+
+const juce::StringArray& PolySynthAudioProcessor::getModDestinationChoices() noexcept
+{
+    static const juce::StringArray choices { "Amplitude", "Pitch", "Pulse Width" };
+    return choices;
+}
+
 
 //==============================================================================
 bool PolySynthAudioProcessor::hasEditor() const
@@ -379,7 +413,8 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
                                      sustainParameterId,
                                      releaseParameterId,
                                      modulationDepthParameterId,
-                                     modulationRateParameterId })
+                                     modulationRateParameterId,
+                                     modulationDestinationParameterId })
     {
         if (auto* parameter = parameters.getParameter (parameterId))
             parameter->setValueNotifyingHost (parameter->getDefaultValue());
@@ -395,7 +430,8 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
                                      sustainParameterId,
                                      releaseParameterId,
                                      modulationDepthParameterId,
-                                     modulationRateParameterId })
+                                     modulationRateParameterId,
+                                     modulationDestinationParameterId })
     {
         if (const auto value = findLegacyParameterValue (legacyState, parameterId); value.has_value())
         {
