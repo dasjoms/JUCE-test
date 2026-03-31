@@ -1,5 +1,5 @@
-#include "MonoSynthAudioProcessor.h"
-#include "MonoSynthAudioProcessorEditor.h"
+#include "PolySynthAudioProcessor.h"
+#include "PolySynthAudioProcessorEditor.h"
 #include <cmath>
 
 namespace
@@ -16,7 +16,7 @@ constexpr int currentStateSchemaVersion = 1;
 } // namespace
 
 //==============================================================================
-MonoSynthAudioProcessor::MonoSynthAudioProcessor()
+PolySynthAudioProcessor::PolySynthAudioProcessor()
      : AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
                       #if ! JucePlugin_IsSynth
@@ -38,17 +38,17 @@ MonoSynthAudioProcessor::MonoSynthAudioProcessor()
     applyParameterSnapshotToEngine();
 }
 
-MonoSynthAudioProcessor::~MonoSynthAudioProcessor()
+PolySynthAudioProcessor::~PolySynthAudioProcessor()
 {
 }
 
 //==============================================================================
-const juce::String MonoSynthAudioProcessor::getName() const
+const juce::String PolySynthAudioProcessor::getName() const
 {
     return JucePlugin_Name;
 }
 
-bool MonoSynthAudioProcessor::acceptsMidi() const
+bool PolySynthAudioProcessor::acceptsMidi() const
 {
    #if JucePlugin_WantsMidiInput
     return true;
@@ -57,7 +57,7 @@ bool MonoSynthAudioProcessor::acceptsMidi() const
    #endif
 }
 
-bool MonoSynthAudioProcessor::producesMidi() const
+bool PolySynthAudioProcessor::producesMidi() const
 {
    #if JucePlugin_ProducesMidiOutput
     return true;
@@ -66,7 +66,7 @@ bool MonoSynthAudioProcessor::producesMidi() const
    #endif
 }
 
-bool MonoSynthAudioProcessor::isMidiEffect() const
+bool PolySynthAudioProcessor::isMidiEffect() const
 {
    #if JucePlugin_IsMidiEffect
     return true;
@@ -75,48 +75,48 @@ bool MonoSynthAudioProcessor::isMidiEffect() const
    #endif
 }
 
-double MonoSynthAudioProcessor::getTailLengthSeconds() const
+double PolySynthAudioProcessor::getTailLengthSeconds() const
 {
     return 0.0;
 }
 
-int MonoSynthAudioProcessor::getNumPrograms()
+int PolySynthAudioProcessor::getNumPrograms()
 {
     return 1;
 }
 
-int MonoSynthAudioProcessor::getCurrentProgram()
+int PolySynthAudioProcessor::getCurrentProgram()
 {
     return 0;
 }
 
-void MonoSynthAudioProcessor::setCurrentProgram (int index)
+void PolySynthAudioProcessor::setCurrentProgram (int index)
 {
     juce::ignoreUnused (index);
 }
 
-const juce::String MonoSynthAudioProcessor::getProgramName (int index)
+const juce::String PolySynthAudioProcessor::getProgramName (int index)
 {
     juce::ignoreUnused (index);
     return {};
 }
 
-void MonoSynthAudioProcessor::changeProgramName (int index, const juce::String& newName)
+void PolySynthAudioProcessor::changeProgramName (int index, const juce::String& newName)
 {
     juce::ignoreUnused (index, newName);
 }
 
 //==============================================================================
-void MonoSynthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void PolySynthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
     synthEngine.prepare (sampleRate, samplesPerBlock);
 }
 
-void MonoSynthAudioProcessor::releaseResources()
+void PolySynthAudioProcessor::releaseResources()
 {
 }
 
-bool MonoSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+bool PolySynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
   #if JucePlugin_IsMidiEffect
     juce::ignoreUnused (layouts);
@@ -135,7 +135,7 @@ bool MonoSynthAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts
   #endif
 }
 
-void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
+void PolySynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
                                             juce::MidiBuffer& midiMessages)
 {
     juce::ScopedNoDenormals noDenormals;
@@ -152,12 +152,12 @@ void MonoSynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
     midiMessages.clear();
 }
 
-MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::getWaveform() const noexcept
+PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::getWaveform() const noexcept
 {
     return waveform.load (std::memory_order_relaxed);
 }
 
-juce::AudioProcessorValueTreeState::ParameterLayout MonoSynthAudioProcessor::createParameterLayout()
+juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> layout;
     layout.push_back (std::make_unique<juce::AudioParameterChoice> (waveformParameterId,
@@ -195,7 +195,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout MonoSynthAudioProcessor::cre
     return { layout.begin(), layout.end() };
 }
 
-void MonoSynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
+void PolySynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
 {
     if (waveformParameter != nullptr)
     {
@@ -223,7 +223,7 @@ void MonoSynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
         parameterSnapshot.modulationRateHz = modulationRateParameter->load (std::memory_order_relaxed);
 }
 
-void MonoSynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
+void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
 {
     synthEngine.setActiveVoiceCount (parameterSnapshot.maxVoices);
     synthEngine.setVoiceStealPolicy (parameterSnapshot.stealPolicy);
@@ -232,17 +232,17 @@ void MonoSynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
     synthEngine.setModulationParameters (parameterSnapshot.modulationDepth, parameterSnapshot.modulationRateHz);
 }
 
-MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::waveformFromParameterValue (float parameterValue) noexcept
+PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::waveformFromParameterValue (float parameterValue) noexcept
 {
     return waveformFromChoiceIndex (juce::roundToInt (parameterValue));
 }
 
-int MonoSynthAudioProcessor::waveformToChoiceIndex (Waveform waveformType) noexcept
+int PolySynthAudioProcessor::waveformToChoiceIndex (Waveform waveformType) noexcept
 {
     return static_cast<int> (waveformType);
 }
 
-MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::waveformFromChoiceIndex (int choiceIndex) noexcept
+PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::waveformFromChoiceIndex (int choiceIndex) noexcept
 {
     switch (choiceIndex)
     {
@@ -256,12 +256,12 @@ MonoSynthAudioProcessor::Waveform MonoSynthAudioProcessor::waveformFromChoiceInd
     return Waveform::sine;
 }
 
-SynthEngine::VoiceStealPolicy MonoSynthAudioProcessor::stealPolicyFromParameterValue (float parameterValue) noexcept
+SynthEngine::VoiceStealPolicy PolySynthAudioProcessor::stealPolicyFromParameterValue (float parameterValue) noexcept
 {
     return stealPolicyFromChoiceIndex (juce::roundToInt (parameterValue));
 }
 
-int MonoSynthAudioProcessor::stealPolicyToChoiceIndex (SynthEngine::VoiceStealPolicy policy) noexcept
+int PolySynthAudioProcessor::stealPolicyToChoiceIndex (SynthEngine::VoiceStealPolicy policy) noexcept
 {
     switch (policy)
     {
@@ -273,7 +273,7 @@ int MonoSynthAudioProcessor::stealPolicyToChoiceIndex (SynthEngine::VoiceStealPo
     return 0;
 }
 
-SynthEngine::VoiceStealPolicy MonoSynthAudioProcessor::stealPolicyFromChoiceIndex (int choiceIndex) noexcept
+SynthEngine::VoiceStealPolicy PolySynthAudioProcessor::stealPolicyFromChoiceIndex (int choiceIndex) noexcept
 {
     switch (choiceIndex)
     {
@@ -286,31 +286,31 @@ SynthEngine::VoiceStealPolicy MonoSynthAudioProcessor::stealPolicyFromChoiceInde
     return SynthEngine::VoiceStealPolicy::releasedFirst;
 }
 
-const juce::StringArray& MonoSynthAudioProcessor::getWaveformChoices() noexcept
+const juce::StringArray& PolySynthAudioProcessor::getWaveformChoices() noexcept
 {
     static const juce::StringArray choices { "Sine", "Saw", "Square", "Triangle" };
     return choices;
 }
 
-const juce::StringArray& MonoSynthAudioProcessor::getStealPolicyChoices() noexcept
+const juce::StringArray& PolySynthAudioProcessor::getStealPolicyChoices() noexcept
 {
     static const juce::StringArray choices { "Released First", "Oldest", "Quietest" };
     return choices;
 }
 
 //==============================================================================
-bool MonoSynthAudioProcessor::hasEditor() const
+bool PolySynthAudioProcessor::hasEditor() const
 {
     return true;
 }
 
-juce::AudioProcessorEditor* MonoSynthAudioProcessor::createEditor()
+juce::AudioProcessorEditor* PolySynthAudioProcessor::createEditor()
 {
-    return new MonoSynthAudioProcessorEditor (*this);
+    return new PolySynthAudioProcessorEditor (*this);
 }
 
 //==============================================================================
-void MonoSynthAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
+void PolySynthAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto stateToSave = parameters.copyState();
     stateToSave.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
@@ -319,7 +319,7 @@ void MonoSynthAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
         copyXmlToBinary (*xml, destData);
 }
 
-void MonoSynthAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
+void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (const auto xml = getXmlFromBinary (data, sizeInBytes); xml != nullptr)
     {
@@ -345,7 +345,7 @@ void MonoSynthAudioProcessor::setStateInformation (const void* data, int sizeInB
     applyParameterSnapshotToEngine();
 }
 
-void MonoSynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyState)
+void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyState)
 {
     auto migratedState = parameters.copyState();
 
@@ -393,7 +393,7 @@ void MonoSynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
     parameters.replaceState (migratedState);
 }
 
-std::optional<float> MonoSynthAudioProcessor::findLegacyParameterValue (const juce::ValueTree& tree,
+std::optional<float> PolySynthAudioProcessor::findLegacyParameterValue (const juce::ValueTree& tree,
                                                                         juce::StringRef parameterId)
 {
     if (! tree.isValid())
@@ -441,7 +441,7 @@ std::optional<float> MonoSynthAudioProcessor::findLegacyParameterValue (const ju
     return std::nullopt;
 }
 
-std::optional<float> MonoSynthAudioProcessor::parseWaveformLegacyValue (const juce::var& value)
+std::optional<float> PolySynthAudioProcessor::parseWaveformLegacyValue (const juce::var& value)
 {
     if (value.isInt() || value.isInt64() || value.isDouble() || value.isBool())
         return static_cast<float> (value);
@@ -466,5 +466,5 @@ std::optional<float> MonoSynthAudioProcessor::parseWaveformLegacyValue (const ju
 //==============================================================================
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new MonoSynthAudioProcessor();
+    return new PolySynthAudioProcessor();
 }

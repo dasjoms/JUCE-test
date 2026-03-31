@@ -20,13 +20,13 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 - [x] Poly-specific allocator constraints covered (active voice limit, scaling voice limit upward). (`tests/PolyAllocatorBehaviorTest.cpp`)
 
 ### State schema and migration
-- [x] APVTS state schema version marker persisted/restored. (`MonoSynthAudioProcessor.cpp`)
+- [x] APVTS state schema version marker persisted/restored. (`PolySynthAudioProcessor.cpp`)
 - [x] Legacy mono migration coverage retained (waveform preservation + new-parameter defaults). (`tests/StateSchemaMigrationTest.cpp`)
 - [x] Poly-specific state round-trip coverage for allocator/modulation-facing params (`maxVoices`, `stealPolicy`, `modDepth`). (`tests/PolyStateRoundTripTest.cpp`)
 - [ ] Add explicit future migration fixtures for schema version > 1 as new parameters land. (planned: `tests/StateSchemaMigrationTest.cpp`)
 
 ### UI/parameter parity with mono baseline
-- [x] Waveform selection parity maintained with mono baseline (`Sine`, `Saw`, `Square`, `Triangle`). (`MonoSynthAudioProcessorEditor.*`, `MonoSynthAudioProcessor.*`)
+- [x] Waveform selection parity maintained with mono baseline (`Sine`, `Saw`, `Square`, `Triangle`). (`PolySynthAudioProcessorEditor.*`, `PolySynthAudioProcessor.*`)
 - [ ] Poly-focused UI affordances (voice count, steal policy, modulation controls) exposed in editor.
 
 ## Immediate next steps

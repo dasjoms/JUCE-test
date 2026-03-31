@@ -1,13 +1,13 @@
 #pragma once
 
-#include "MonoSynthAudioProcessor.h"
+#include "PolySynthAudioProcessor.h"
 
 //==============================================================================
-class MonoSynthAudioProcessorEditor final : public juce::AudioProcessorEditor
+class PolySynthAudioProcessorEditor final : public juce::AudioProcessorEditor
 {
 public:
-    explicit MonoSynthAudioProcessorEditor (MonoSynthAudioProcessor&);
-    ~MonoSynthAudioProcessorEditor() override;
+    explicit PolySynthAudioProcessorEditor (PolySynthAudioProcessor&);
+    ~PolySynthAudioProcessorEditor() override;
 
     //==============================================================================
     void paint (juce::Graphics&) override;
@@ -16,7 +16,7 @@ public:
 private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
-    MonoSynthAudioProcessor& processorRef;
+    PolySynthAudioProcessor& processorRef;
     juce::Label titleLabel;
     juce::Label waveformLabel;
     juce::Label maxVoicesLabel;
@@ -34,5 +34,5 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attackAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MonoSynthAudioProcessorEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };

@@ -1,4 +1,4 @@
-#include "../MonoSynthAudioProcessor.h"
+#include "../PolySynthAudioProcessor.h"
 
 #include <iostream>
 
@@ -9,7 +9,7 @@ constexpr auto stealPolicyParameterId = "stealPolicy";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
 
-float getRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef parameterId)
+float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
 {
     if (auto* raw = processor.getValueTreeState().getRawParameterValue (parameterId))
         return raw->load();
@@ -17,7 +17,7 @@ float getRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef 
     return -1.0f;
 }
 
-bool setRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
+bool setRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
 {
     if (auto* parameter = processor.getValueTreeState().getParameter (parameterId))
     {
@@ -30,7 +30,7 @@ bool setRawParameterValue (MonoSynthAudioProcessor& processor, juce::StringRef p
 
 bool validatePolyParametersRoundTrip()
 {
-    MonoSynthAudioProcessor source;
+    PolySynthAudioProcessor source;
 
     if (! setRawParameterValue (source, maxVoicesParameterId, 12.0f)
         || ! setRawParameterValue (source, stealPolicyParameterId, 2.0f)
@@ -44,7 +44,7 @@ bool validatePolyParametersRoundTrip()
     juce::MemoryBlock state;
     source.getStateInformation (state);
 
-    MonoSynthAudioProcessor restored;
+    PolySynthAudioProcessor restored;
     restored.setStateInformation (state.getData(), static_cast<int> (state.getSize()));
 
     if (juce::roundToInt (getRawParameterValue (restored, maxVoicesParameterId)) != 12)

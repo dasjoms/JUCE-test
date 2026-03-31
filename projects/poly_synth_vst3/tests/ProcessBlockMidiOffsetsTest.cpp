@@ -1,4 +1,4 @@
-#include "../MonoSynthAudioProcessor.h"
+#include "../PolySynthAudioProcessor.h"
 
 #include <algorithm>
 #include <cmath>
@@ -35,7 +35,7 @@ juce::MidiBuffer createMidiBuffer (const std::vector<TimedMidiEvent>& events)
     return midi;
 }
 
-juce::AudioBuffer<float> processAsSingleBlock (MonoSynthAudioProcessor& processor,
+juce::AudioBuffer<float> processAsSingleBlock (PolySynthAudioProcessor& processor,
                                                int numChannels,
                                                int numSamples,
                                                const std::vector<TimedMidiEvent>& events)
@@ -47,7 +47,7 @@ juce::AudioBuffer<float> processAsSingleBlock (MonoSynthAudioProcessor& processo
     return buffer;
 }
 
-juce::AudioBuffer<float> processAsEventSubranges (MonoSynthAudioProcessor& processor,
+juce::AudioBuffer<float> processAsEventSubranges (PolySynthAudioProcessor& processor,
                                                   int numChannels,
                                                   int numSamples,
                                                   const std::vector<TimedMidiEvent>& events)
@@ -124,10 +124,10 @@ bool validateEventSubrangeEquivalence (const std::vector<TimedMidiEvent>& events
                                        int numChannels,
                                        float tolerance)
 {
-    MonoSynthAudioProcessor singleBlockProcessor;
+    PolySynthAudioProcessor singleBlockProcessor;
     singleBlockProcessor.prepareToPlay (sampleRate, blockSize);
 
-    MonoSynthAudioProcessor segmentedProcessor;
+    PolySynthAudioProcessor segmentedProcessor;
     segmentedProcessor.prepareToPlay (sampleRate, blockSize);
 
     const auto singleBlockOutput = processAsSingleBlock (singleBlockProcessor, numChannels, blockSize, events);
@@ -153,7 +153,7 @@ bool validateNoLargeRetriggerDiscontinuity (const std::vector<TimedMidiEvent>& e
                                             int blockSize,
                                             int numChannels)
 {
-    MonoSynthAudioProcessor processor;
+    PolySynthAudioProcessor processor;
     processor.prepareToPlay (sampleRate, blockSize);
 
     juce::AudioBuffer<float> buffer (numChannels, blockSize);
@@ -226,10 +226,10 @@ bool validateNoteOffOnlyClosesCurrentGate (double sampleRate, int blockSize, int
 
     float maxDifference = 0.0f;
 
-    MonoSynthAudioProcessor processorA;
+    PolySynthAudioProcessor processorA;
     processorA.prepareToPlay (sampleRate, blockSize);
 
-    MonoSynthAudioProcessor processorB;
+    PolySynthAudioProcessor processorB;
     processorB.prepareToPlay (sampleRate, blockSize);
 
     const auto outputA = processAsSingleBlock (processorA, numChannels, blockSize, noteOffCurrentFirst);
@@ -270,10 +270,10 @@ bool validateAllNotesAndSoundOffCloseGate (double sampleRate, int blockSize, int
         { 36, juce::MidiMessage::allSoundOff (1) }
     };
 
-    MonoSynthAudioProcessor processorNotesOff;
+    PolySynthAudioProcessor processorNotesOff;
     processorNotesOff.prepareToPlay (sampleRate, blockSize);
 
-    MonoSynthAudioProcessor processorSoundOff;
+    PolySynthAudioProcessor processorSoundOff;
     processorSoundOff.prepareToPlay (sampleRate, blockSize);
 
     const auto notesOffOutput = processAsSingleBlock (processorNotesOff, numChannels, blockSize, allNotesOffEvents);
