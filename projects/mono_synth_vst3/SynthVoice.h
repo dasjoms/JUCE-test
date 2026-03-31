@@ -1,6 +1,7 @@
 #pragma once
 
 #include <juce_audio_basics/juce_audio_basics.h>
+#include <cstdint>
 
 class SynthVoice final
 {
@@ -13,8 +14,18 @@ public:
         triangle
     };
 
+    struct RuntimeMetadata
+    {
+        bool isActive = false;
+        bool isReleasing = false;
+        uint64_t startOrder = 0;
+        float amplitudeEstimate = 0.0f;
+        int midiNote = -1;
+    };
+
     void prepare (double sampleRate) noexcept;
     void setWaveform (Waveform newWaveform) noexcept;
+    void setStartOrder (uint64_t newStartOrder) noexcept;
 
     void noteOn (int midiNoteNumber) noexcept;
     void noteOff (int midiNoteNumber) noexcept;
@@ -22,6 +33,7 @@ public:
     void handleMidiEvent (const juce::MidiMessage& midiMessage) noexcept;
 
     float renderSample() noexcept;
+    RuntimeMetadata getRuntimeMetadata() const noexcept;
 
 private:
     enum class NoteTransitionState
@@ -57,4 +69,5 @@ private:
     float attackStep = 0.0f;
     float releaseStep = 0.0f;
     float noteTransitionStep = 0.0f;
+    uint64_t startOrder = 0;
 };
