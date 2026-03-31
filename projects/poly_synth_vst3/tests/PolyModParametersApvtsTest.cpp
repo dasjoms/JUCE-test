@@ -7,6 +7,7 @@ namespace
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
 constexpr auto modulationDestinationParameterId = "modDestination";
+constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto decayParameterId = "decay";
 constexpr auto sustainParameterId = "sustain";
 
@@ -29,8 +30,9 @@ bool validateModulationParametersPresentAndWritable()
     auto* depthRaw = apvts.getRawParameterValue (modulationDepthParameterId);
     auto* rateRaw = apvts.getRawParameterValue (modulationRateParameterId);
     auto* destinationRaw = apvts.getRawParameterValue (modulationDestinationParameterId);
+    auto* velocitySensitivityRaw = apvts.getRawParameterValue (velocitySensitivityParameterId);
 
-    if (depthRaw == nullptr || rateRaw == nullptr || destinationRaw == nullptr)
+    if (depthRaw == nullptr || rateRaw == nullptr || destinationRaw == nullptr || velocitySensitivityRaw == nullptr)
     {
         std::cerr << "missing one or more modulation parameters in APVTS" << '\n';
         return false;
@@ -39,10 +41,12 @@ bool validateModulationParametersPresentAndWritable()
     constexpr auto depthTarget = 0.67f;
     constexpr auto rateTarget = 7.25f;
     constexpr auto destinationTarget = 1.0f;
+    constexpr auto velocitySensitivityTarget = 0.74f;
 
     if (! setRawParameterValue (processor, modulationDepthParameterId, depthTarget)
         || ! setRawParameterValue (processor, modulationRateParameterId, rateTarget)
-        || ! setRawParameterValue (processor, modulationDestinationParameterId, destinationTarget))
+        || ! setRawParameterValue (processor, modulationDestinationParameterId, destinationTarget)
+        || ! setRawParameterValue (processor, velocitySensitivityParameterId, velocitySensitivityTarget))
     {
         std::cerr << "unable to write modulation parameters through APVTS" << '\n';
         return false;
@@ -63,6 +67,12 @@ bool validateModulationParametersPresentAndWritable()
     if (juce::roundToInt (destinationRaw->load()) != static_cast<int> (destinationTarget))
     {
         std::cerr << "modDestination write mismatch" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual (velocitySensitivityRaw->load(), velocitySensitivityTarget))
+    {
+        std::cerr << "velocitySensitivity write mismatch" << '\n';
         return false;
     }
 

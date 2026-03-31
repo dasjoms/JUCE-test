@@ -16,7 +16,7 @@ bool validateAttackDecayAndSustainTransitions()
     SynthVoice voice;
     voice.prepare (1000.0);
     voice.setEnvelopeTimes (0.01f, 0.02f, 0.40f, 0.05f);
-    voice.noteOn (60);
+    voice.noteOn (60, 1.0f);
 
     renderSamples (voice, 10);
     const auto postAttack = voice.getRuntimeMetadata().amplitudeEstimate;
@@ -53,7 +53,7 @@ bool validateSustainHoldsUntilNoteOff()
     SynthVoice voice;
     voice.prepare (2000.0);
     voice.setEnvelopeTimes (0.005f, 0.01f, 0.55f, 0.05f);
-    voice.noteOn (67);
+    voice.noteOn (67, 1.0f);
 
     renderSamples (voice, 200);
 
@@ -75,7 +75,7 @@ bool validateReleaseTransitionsToIdle()
     SynthVoice voice;
     voice.prepare (1000.0);
     voice.setEnvelopeTimes (0.01f, 0.02f, 0.50f, 0.04f);
-    voice.noteOn (72);
+    voice.noteOn (72, 1.0f);
     renderSamples (voice, 120);
 
     voice.noteOff (72);

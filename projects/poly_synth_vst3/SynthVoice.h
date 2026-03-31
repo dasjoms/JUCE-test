@@ -27,6 +27,7 @@ public:
         bool isReleasing = false;
         uint64_t startOrder = 0;
         float amplitudeEstimate = 0.0f;
+        float noteOnVelocity = 1.0f;
         int midiNote = -1;
     };
 
@@ -34,9 +35,10 @@ public:
     void setWaveform (Waveform newWaveform) noexcept;
     void setEnvelopeTimes (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept;
     void setModulationParameters (float depth, float rateHz, ModulationDestination destination) noexcept;
+    void setVelocitySensitivity (float sensitivity) noexcept;
     void setStartOrder (uint64_t newStartOrder) noexcept;
 
-    void noteOn (int midiNoteNumber) noexcept;
+    void noteOn (int midiNoteNumber, float velocity) noexcept;
     void noteOff (int midiNoteNumber) noexcept;
     void allNotesOff() noexcept;
     void handleMidiEvent (const juce::MidiMessage& midiMessage) noexcept;
@@ -87,6 +89,9 @@ private:
     float releaseTimeSeconds = 0.03f;
     float modulationDepth = 0.0f;
     float modulationRateHz = 0.0f;
+    float velocitySensitivity = 0.0f;
+    float currentNoteOnVelocity = 1.0f;
+    float pendingNoteOnVelocity = 1.0f;
     ModulationDestination modulationDestination = ModulationDestination::amplitude;
     double lfoPhase = 0.0;
     double lfoPhaseIncrement = 0.0;

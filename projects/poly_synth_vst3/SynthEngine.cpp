@@ -19,6 +19,7 @@ void SynthEngine::prepare (double sampleRate, int blockSize) noexcept
         voice.setWaveform (currentWaveform);
         voice.setEnvelopeTimes (currentAttackSeconds, currentDecaySeconds, currentSustainLevel, currentReleaseSeconds);
         voice.setModulationParameters (currentModulationDepth, currentModulationRateHz, currentModulationDestination);
+        voice.setVelocitySensitivity (currentVelocitySensitivity);
     }
 
     noteStartCounter = 0;
@@ -68,6 +69,14 @@ void SynthEngine::setModulationParameters (float depth, float rateHz, SynthVoice
                                                                      currentModulationDestination);
 }
 
+void SynthEngine::setVelocitySensitivity (float sensitivity) noexcept
+{
+    currentVelocitySensitivity = juce::jlimit (0.0f, 1.0f, sensitivity);
+
+    for (auto index = 0; index < activeVoiceCount; ++index)
+        voices[static_cast<size_t> (index)].setVelocitySensitivity (currentVelocitySensitivity);
+}
+
 SynthEngine::VoiceStealPolicy SynthEngine::getVoiceStealPolicy() const noexcept
 {
     return voiceStealPolicy;
@@ -115,7 +124,7 @@ void SynthEngine::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcep
     {
         const auto voiceIndex = pickVoiceForNoteOn();
         voices[static_cast<size_t> (voiceIndex)].setStartOrder (noteStartCounter++);
-        voices[static_cast<size_t> (voiceIndex)].noteOn (midiMessage.getNoteNumber());
+        voices[static_cast<size_t> (voiceIndex)].noteOn (midiMessage.getNoteNumber(), midiMessage.getFloatVelocity());
         return;
     }
 

@@ -77,6 +77,7 @@ private:
         float releaseSeconds = 0.03f;
         float modulationDepth = 0.0f;
         float modulationRateHz = 0.0f;
+        float velocitySensitivity = 0.0f;
         SynthVoice::ModulationDestination modulationDestination = SynthVoice::ModulationDestination::amplitude;
     };
 
@@ -108,6 +109,7 @@ private:
     std::atomic<float>* releaseParameter = nullptr;
     std::atomic<float>* modulationDepthParameter = nullptr;
     std::atomic<float>* modulationRateParameter = nullptr;
+    std::atomic<float>* velocitySensitivityParameter = nullptr;
     std::atomic<float>* modulationDestinationParameter = nullptr;
     std::atomic<Waveform> waveform { Waveform::sine };
     EngineParameterSnapshot parameterSnapshot;

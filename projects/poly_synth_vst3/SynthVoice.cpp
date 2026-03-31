@@ -12,6 +12,8 @@ void SynthVoice::prepare (double sampleRate) noexcept
     pendingMidiNote = -1;
     currentFrequencyHz = 440.0;
     pendingFrequencyHz = 440.0;
+    currentNoteOnVelocity = 1.0f;
+    pendingNoteOnVelocity = 1.0f;
     currentAmplitude = 0.0f;
     envelopeStage = EnvelopeStage::idle;
     noteTransitionState = NoteTransitionState::none;
@@ -49,19 +51,26 @@ void SynthVoice::setModulationParameters (float depth, float rateHz, ModulationD
     updateLfoIncrement();
 }
 
+void SynthVoice::setVelocitySensitivity (float sensitivity) noexcept
+{
+    velocitySensitivity = juce::jlimit (0.0f, 1.0f, sensitivity);
+}
+
 void SynthVoice::setStartOrder (uint64_t newStartOrder) noexcept
 {
     startOrder = newStartOrder;
 }
 
-void SynthVoice::noteOn (int midiNoteNumber) noexcept
+void SynthVoice::noteOn (int midiNoteNumber, float velocity) noexcept
 {
     const auto incomingFrequencyHz = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
+    const auto normalizedVelocity = juce::jlimit (0.0f, 1.0f, velocity);
 
     if (currentAmplitude > minimumEnvelopeValue)
     {
         pendingMidiNote = midiNoteNumber;
         pendingFrequencyHz = incomingFrequencyHz;
+        pendingNoteOnVelocity = normalizedVelocity;
         shouldResetPhaseOnNoteChange = true;
         gateOpen = false;
         envelopeStage = EnvelopeStage::release;
@@ -72,6 +81,7 @@ void SynthVoice::noteOn (int midiNoteNumber) noexcept
     const auto shouldResetPhase = (! gateOpen) || (currentAmplitude <= minimumEnvelopeValue);
     currentMidiNote = midiNoteNumber;
     currentFrequencyHz = incomingFrequencyHz;
+    currentNoteOnVelocity = normalizedVelocity;
 
     if (shouldResetPhase)
         phase = 0.0;
@@ -82,6 +92,7 @@ void SynthVoice::noteOn (int midiNoteNumber) noexcept
     noteTransitionState = NoteTransitionState::none;
     pendingMidiNote = -1;
     pendingFrequencyHz = currentFrequencyHz;
+    pendingNoteOnVelocity = currentNoteOnVelocity;
     shouldResetPhaseOnNoteChange = false;
     updatePhaseIncrement();
 }
@@ -116,7 +127,7 @@ void SynthVoice::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcept
 {
     if (midiMessage.isNoteOn())
     {
-        noteOn (midiMessage.getNoteNumber());
+        noteOn (midiMessage.getNoteNumber(), midiMessage.getFloatVelocity());
         return;
     }
 
@@ -190,6 +201,7 @@ float SynthVoice::renderSample() noexcept
         currentAmplitude = 0.0f;
         currentMidiNote = pendingMidiNote;
         currentFrequencyHz = pendingFrequencyHz;
+        currentNoteOnVelocity = pendingNoteOnVelocity;
 
         if (shouldResetPhaseOnNoteChange)
             phase = 0.0;
@@ -201,6 +213,7 @@ float SynthVoice::renderSample() noexcept
         envelopeStage = EnvelopeStage::attack;
         pendingMidiNote = -1;
         pendingFrequencyHz = currentFrequencyHz;
+        pendingNoteOnVelocity = currentNoteOnVelocity;
     }
 
     if (gateOpen || currentAmplitude > minimumEnvelopeValue)
@@ -230,7 +243,8 @@ float SynthVoice::renderSample() noexcept
                 break;
         }
 
-        const auto sampleValue = outputLevel * currentAmplitude * modulationGain * getOscillatorSample (phase, waveform);
+        const auto velocityGain = juce::jmap (velocitySensitivity, 1.0f, currentNoteOnVelocity);
+        const auto sampleValue = outputLevel * velocityGain * currentAmplitude * modulationGain * getOscillatorSample (phase, waveform);
 
         phase += oscillatorPhaseIncrement;
         if (phase >= twoPi)
@@ -246,6 +260,8 @@ float SynthVoice::renderSample() noexcept
     currentAmplitude = 0.0f;
     currentMidiNote = -1;
     pendingMidiNote = -1;
+    currentNoteOnVelocity = 1.0f;
+    pendingNoteOnVelocity = 1.0f;
     shouldResetPhaseOnNoteChange = false;
     noteTransitionState = NoteTransitionState::none;
     envelopeStage = EnvelopeStage::idle;
@@ -259,6 +275,7 @@ SynthVoice::RuntimeMetadata SynthVoice::getRuntimeMetadata() const noexcept
     metadata.isReleasing = metadata.isActive && (envelopeStage == EnvelopeStage::release);
     metadata.startOrder = startOrder;
     metadata.amplitudeEstimate = currentAmplitude;
+    metadata.noteOnVelocity = currentNoteOnVelocity;
     metadata.midiNote = currentMidiNote;
     return metadata;
 }

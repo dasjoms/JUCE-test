@@ -207,6 +207,21 @@ target_compile_definitions(SynthVoiceEnvelopeAdsrTest
 
 add_test(NAME SynthVoiceEnvelopeAdsrTest COMMAND SynthVoiceEnvelopeAdsrTest)
 
+add_executable(SynthVoiceVelocitySensitivityTest
+    tests/SynthVoiceVelocitySensitivityTest.cpp
+    SynthVoice.cpp)
+
+target_link_libraries(SynthVoiceVelocitySensitivityTest
+    PRIVATE
+        juce::juce_audio_basics)
+
+target_compile_definitions(SynthVoiceVelocitySensitivityTest
+    PRIVATE
+        JUCE_USE_CURL=0
+        JUCE_WEB_BROWSER=0)
+
+add_test(NAME SynthVoiceVelocitySensitivityTest COMMAND SynthVoiceVelocitySensitivityTest)
+
 add_executable(PolyStateRoundTripTest
     tests/PolyStateRoundTripTest.cpp)
 

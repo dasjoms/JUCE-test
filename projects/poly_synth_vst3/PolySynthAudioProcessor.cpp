@@ -13,6 +13,7 @@ constexpr auto sustainParameterId = "sustain";
 constexpr auto releaseParameterId = "release";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
+constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
 constexpr int currentStateSchemaVersion = 2;
@@ -39,6 +40,7 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
     releaseParameter = parameters.getRawParameterValue (releaseParameterId);
     modulationDepthParameter = parameters.getRawParameterValue (modulationDepthParameterId);
     modulationRateParameter = parameters.getRawParameterValue (modulationRateParameterId);
+    velocitySensitivityParameter = parameters.getRawParameterValue (velocitySensitivityParameterId);
     modulationDestinationParameter = parameters.getRawParameterValue (modulationDestinationParameterId);
     updateParameterSnapshotFromAPVTS();
     applyParameterSnapshotToEngine();
@@ -207,6 +209,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::cre
                                                                     juce::NormalisableRange<float> (0.05f, 20.0f, 0.01f, 0.3f),
                                                                     2.0f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("Hz")));
+    layout.push_back (std::make_unique<juce::AudioParameterFloat> (velocitySensitivityParameterId,
+                                                                    "Velocity Sensitivity",
+                                                                    juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f),
+                                                                    0.0f));
     layout.push_back (std::make_unique<juce::AudioParameterChoice> (modulationDestinationParameterId,
                                                                      "Mod Destination",
                                                                      getModDestinationChoices(),
@@ -247,6 +253,9 @@ void PolySynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
     if (modulationRateParameter != nullptr)
         parameterSnapshot.modulationRateHz = modulationRateParameter->load (std::memory_order_relaxed);
 
+    if (velocitySensitivityParameter != nullptr)
+        parameterSnapshot.velocitySensitivity = velocitySensitivityParameter->load (std::memory_order_relaxed);
+
     if (modulationDestinationParameter != nullptr)
         parameterSnapshot.modulationDestination = modDestinationFromChoiceIndex (
             juce::roundToInt (modulationDestinationParameter->load (std::memory_order_relaxed)));
@@ -262,6 +271,7 @@ void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
                                   parameterSnapshot.sustainLevel,
                                   parameterSnapshot.releaseSeconds);
     synthEngine.setModulationParameters (parameterSnapshot.modulationDepth, parameterSnapshot.modulationRateHz, parameterSnapshot.modulationDestination);
+    synthEngine.setVelocitySensitivity (parameterSnapshot.velocitySensitivity);
 }
 
 PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::waveformFromParameterValue (float parameterValue) noexcept
@@ -414,6 +424,7 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
                                      releaseParameterId,
                                      modulationDepthParameterId,
                                      modulationRateParameterId,
+                                     velocitySensitivityParameterId,
                                      modulationDestinationParameterId })
     {
         if (auto* parameter = parameters.getParameter (parameterId))
@@ -431,6 +442,7 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
                                      releaseParameterId,
                                      modulationDepthParameterId,
                                      modulationRateParameterId,
+                                     velocitySensitivityParameterId,
                                      modulationDestinationParameterId })
     {
         if (const auto value = findLegacyParameterValue (legacyState, parameterId); value.has_value())

@@ -23,6 +23,7 @@ public:
     void setVoiceStealPolicy (VoiceStealPolicy newPolicy) noexcept;
     void setEnvelopeTimes (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept;
     void setModulationParameters (float depth, float rateHz, SynthVoice::ModulationDestination destination) noexcept;
+    void setVelocitySensitivity (float sensitivity) noexcept;
     VoiceStealPolicy getVoiceStealPolicy() const noexcept;
 
     void renderBlock (juce::AudioBuffer<float>& buffer, const juce::MidiBuffer& midiMessages) noexcept;
@@ -49,6 +50,7 @@ private:
     float currentReleaseSeconds = 0.03f;
     float currentModulationDepth = 0.0f;
     float currentModulationRateHz = 0.0f;
+    float currentVelocitySensitivity = 0.0f;
     SynthVoice::ModulationDestination currentModulationDestination = SynthVoice::ModulationDestination::amplitude;
     uint64_t noteStartCounter = 0;
 };
