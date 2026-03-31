@@ -23,7 +23,8 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 - [x] APVTS state schema version marker persisted/restored. (`PolySynthAudioProcessor.cpp`)
 - [x] Legacy mono migration coverage retained (waveform preservation + new-parameter defaults). (`tests/StateSchemaMigrationTest.cpp`)
 - [x] Poly-specific state round-trip coverage for allocator/modulation-facing params (`maxVoices`, `stealPolicy`, `modDepth`). (`tests/PolyStateRoundTripTest.cpp`)
-- [ ] Add explicit future migration fixtures for schema version > 1 as new parameters land. (planned: `tests/StateSchemaMigrationTest.cpp`)
+- [x] Explicit future migration fixture added for schema version `2` (poly-expansion example with a new `spread` parameter) and centralized schema expectations enforce test updates before schema bumps. (`tests/StateSchemaMigrationTest.cpp`)
+- [x] Migration expectation mirrored: during restore, unknown future parameters are ignored, known IDs are restored, and missing known IDs fall back to APVTS defaults (`release=0.03`, `modRate=2.0`). (`tests/StateSchemaMigrationTest.cpp`)
 
 ### UI/parameter parity with mono baseline
 - [x] Waveform selection parity maintained with mono baseline (`Sine`, `Saw`, `Square`, `Triangle`). (`PolySynthAudioProcessorEditor.*`, `PolySynthAudioProcessor.*`)
@@ -32,4 +33,4 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 ## Immediate next steps
 1. Rename processor/editor classes from mono-prefixed names to poly-specific names once target-level churn settles.
 2. Add modulation matrix scaffolding and parameterized routing tests.
-3. Add additional state migration fixture(s) before changing APVTS schema version.
+3. Keep the centralized schema constants in `tests/StateSchemaMigrationTest.cpp` updated first whenever `currentStateSchemaVersion` changes, then adjust migration fixtures/expectations.
