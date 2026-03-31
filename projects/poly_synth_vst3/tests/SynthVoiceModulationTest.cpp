@@ -11,7 +11,7 @@ std::vector<float> renderVoice (float modulationDepth, float modulationRateHz, i
     SynthVoice voice;
     voice.prepare (48000.0);
     voice.setWaveform (SynthVoice::Waveform::sine);
-    voice.setEnvelopeTimes (0.001f, 0.05f);
+    voice.setEnvelopeTimes (0.001f, 0.04f, 0.9f, 0.05f);
     voice.setModulationParameters (modulationDepth, modulationRateHz);
     voice.noteOn (60);
 

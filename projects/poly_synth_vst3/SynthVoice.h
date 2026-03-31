@@ -25,7 +25,7 @@ public:
 
     void prepare (double sampleRate) noexcept;
     void setWaveform (Waveform newWaveform) noexcept;
-    void setEnvelopeTimes (float attackSeconds, float releaseSeconds) noexcept;
+    void setEnvelopeTimes (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept;
     void setModulationParameters (float depth, float rateHz) noexcept;
     void setStartOrder (uint64_t newStartOrder) noexcept;
 
@@ -41,8 +41,16 @@ private:
     enum class NoteTransitionState
     {
         none = 0,
-        rampDownForNoteChange,
-        rampUpAfterNoteChange
+        rampDownForNoteChange
+    };
+
+    enum class EnvelopeStage
+    {
+        idle = 0,
+        attack,
+        decay,
+        sustain,
+        release
     };
 
     void updatePhaseIncrement() noexcept;
@@ -67,13 +75,17 @@ private:
     NoteTransitionState noteTransitionState = NoteTransitionState::none;
     Waveform waveform = Waveform::sine;
     float attackTimeSeconds = 0.005f;
+    float decayTimeSeconds = 0.08f;
+    float sustainLevel = 0.8f;
     float releaseTimeSeconds = 0.03f;
     float modulationDepth = 0.0f;
     float modulationRateHz = 0.0f;
     double lfoPhase = 0.0;
     double lfoPhaseIncrement = 0.0;
     float currentAmplitude = 0.0f;
+    EnvelopeStage envelopeStage = EnvelopeStage::idle;
     float attackStep = 0.0f;
+    float decayStep = 0.0f;
     float releaseStep = 0.0f;
     float noteTransitionStep = 0.0f;
     uint64_t startOrder = 0;

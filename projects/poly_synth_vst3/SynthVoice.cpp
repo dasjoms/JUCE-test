@@ -13,10 +13,12 @@ void SynthVoice::prepare (double sampleRate) noexcept
     currentFrequencyHz = 440.0;
     pendingFrequencyHz = 440.0;
     currentAmplitude = 0.0f;
+    envelopeStage = EnvelopeStage::idle;
     noteTransitionState = NoteTransitionState::none;
     shouldResetPhaseOnNoteChange = false;
     startOrder = 0;
     attackStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * attackTimeSeconds));
+    decayStep = (1.0f - sustainLevel) / static_cast<float> (juce::jmax (1.0, currentSampleRate * decayTimeSeconds));
     releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
     noteTransitionStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * noteTransitionRampTimeSeconds));
     updatePhaseIncrement();
@@ -28,11 +30,14 @@ void SynthVoice::setWaveform (Waveform newWaveform) noexcept
     waveform = newWaveform;
 }
 
-void SynthVoice::setEnvelopeTimes (float attackSeconds, float releaseSeconds) noexcept
+void SynthVoice::setEnvelopeTimes (float attackSeconds, float decaySeconds, float newSustainLevel, float releaseSeconds) noexcept
 {
     attackTimeSeconds = juce::jmax (0.001f, attackSeconds);
+    decayTimeSeconds = juce::jmax (0.001f, decaySeconds);
+    sustainLevel = juce::jlimit (0.0f, 1.0f, newSustainLevel);
     releaseTimeSeconds = juce::jmax (0.001f, releaseSeconds);
     attackStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * attackTimeSeconds));
+    decayStep = (1.0f - sustainLevel) / static_cast<float> (juce::jmax (1.0, currentSampleRate * decayTimeSeconds));
     releaseStep = 1.0f / static_cast<float> (juce::jmax (1.0, currentSampleRate * releaseTimeSeconds));
 }
 
@@ -58,6 +63,7 @@ void SynthVoice::noteOn (int midiNoteNumber) noexcept
         pendingFrequencyHz = incomingFrequencyHz;
         shouldResetPhaseOnNoteChange = true;
         gateOpen = false;
+        envelopeStage = EnvelopeStage::release;
         noteTransitionState = NoteTransitionState::rampDownForNoteChange;
         return;
     }
@@ -70,6 +76,7 @@ void SynthVoice::noteOn (int midiNoteNumber) noexcept
         phase = 0.0;
 
     gateOpen = true;
+    envelopeStage = EnvelopeStage::attack;
     lfoPhase = 0.0;
     noteTransitionState = NoteTransitionState::none;
     pendingMidiNote = -1;
@@ -83,9 +90,8 @@ void SynthVoice::noteOff (int midiNoteNumber) noexcept
     if (midiNoteNumber == currentMidiNote)
     {
         gateOpen = false;
-
-        if (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange)
-            noteTransitionState = NoteTransitionState::none;
+        if (noteTransitionState == NoteTransitionState::none)
+            envelopeStage = EnvelopeStage::release;
     }
 
     if (midiNoteNumber == pendingMidiNote)
@@ -102,6 +108,7 @@ void SynthVoice::allNotesOff() noexcept
 {
     gateOpen = false;
     noteTransitionState = NoteTransitionState::none;
+    envelopeStage = EnvelopeStage::release;
 }
 
 void SynthVoice::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcept
@@ -124,17 +131,57 @@ void SynthVoice::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcept
 
 float SynthVoice::renderSample() noexcept
 {
-    const auto shouldRunTransitionRamp = (noteTransitionState == NoteTransitionState::rampDownForNoteChange)
-                                      || (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange);
-    const auto targetAmplitude = shouldRunTransitionRamp ? (noteTransitionState == NoteTransitionState::rampDownForNoteChange ? 0.0f : 1.0f)
-                                                         : (gateOpen ? 1.0f : 0.0f);
-    const auto envelopeStep = shouldRunTransitionRamp ? noteTransitionStep
-                                                      : (gateOpen ? attackStep : releaseStep);
+    if (noteTransitionState == NoteTransitionState::rampDownForNoteChange)
+    {
+        currentAmplitude = juce::jmax (0.0f, currentAmplitude - noteTransitionStep);
+    }
+    else
+    {
+        switch (envelopeStage)
+        {
+            case EnvelopeStage::idle:
+                currentAmplitude = 0.0f;
+                break;
 
-    if (currentAmplitude < targetAmplitude)
-        currentAmplitude = juce::jmin (targetAmplitude, currentAmplitude + envelopeStep);
-    else if (currentAmplitude > targetAmplitude)
-        currentAmplitude = juce::jmax (targetAmplitude, currentAmplitude - envelopeStep);
+            case EnvelopeStage::attack:
+                currentAmplitude = juce::jmin (1.0f, currentAmplitude + attackStep);
+
+                if (currentAmplitude >= (1.0f - minimumEnvelopeValue))
+                {
+                    currentAmplitude = 1.0f;
+                    envelopeStage = sustainLevel < (1.0f - minimumEnvelopeValue) ? EnvelopeStage::decay
+                                                                                  : EnvelopeStage::sustain;
+                }
+
+                break;
+
+            case EnvelopeStage::decay:
+                currentAmplitude = juce::jmax (sustainLevel, currentAmplitude - decayStep);
+
+                if (currentAmplitude <= (sustainLevel + minimumEnvelopeValue))
+                {
+                    currentAmplitude = sustainLevel;
+                    envelopeStage = EnvelopeStage::sustain;
+                }
+
+                break;
+
+            case EnvelopeStage::sustain:
+                currentAmplitude = sustainLevel;
+                break;
+
+            case EnvelopeStage::release:
+                currentAmplitude = juce::jmax (0.0f, currentAmplitude - releaseStep);
+
+                if (currentAmplitude <= minimumEnvelopeValue)
+                {
+                    currentAmplitude = 0.0f;
+                    envelopeStage = EnvelopeStage::idle;
+                }
+
+                break;
+        }
+    }
 
     if (noteTransitionState == NoteTransitionState::rampDownForNoteChange
         && currentAmplitude <= minimumEnvelopeValue)
@@ -149,12 +196,10 @@ float SynthVoice::renderSample() noexcept
         updatePhaseIncrement();
         lfoPhase = 0.0;
         gateOpen = true;
-        noteTransitionState = NoteTransitionState::rampUpAfterNoteChange;
-    }
-    else if (noteTransitionState == NoteTransitionState::rampUpAfterNoteChange
-             && currentAmplitude >= (1.0f - minimumEnvelopeValue))
-    {
         noteTransitionState = NoteTransitionState::none;
+        envelopeStage = EnvelopeStage::attack;
+        pendingMidiNote = -1;
+        pendingFrequencyHz = currentFrequencyHz;
     }
 
     if (gateOpen || currentAmplitude > minimumEnvelopeValue)
@@ -180,14 +225,15 @@ float SynthVoice::renderSample() noexcept
     pendingMidiNote = -1;
     shouldResetPhaseOnNoteChange = false;
     noteTransitionState = NoteTransitionState::none;
+    envelopeStage = EnvelopeStage::idle;
     return 0.0f;
 }
 
 SynthVoice::RuntimeMetadata SynthVoice::getRuntimeMetadata() const noexcept
 {
     RuntimeMetadata metadata;
-    metadata.isActive = gateOpen || currentAmplitude > minimumEnvelopeValue || noteTransitionState != NoteTransitionState::none;
-    metadata.isReleasing = metadata.isActive && ! gateOpen;
+    metadata.isActive = envelopeStage != EnvelopeStage::idle || noteTransitionState != NoteTransitionState::none;
+    metadata.isReleasing = metadata.isActive && (envelopeStage == EnvelopeStage::release);
     metadata.startOrder = startOrder;
     metadata.amplitudeEstimate = currentAmplitude;
     metadata.midiNote = currentMidiNote;

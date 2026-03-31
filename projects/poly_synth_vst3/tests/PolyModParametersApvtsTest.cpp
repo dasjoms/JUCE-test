@@ -6,6 +6,8 @@ namespace
 {
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
+constexpr auto decayParameterId = "decay";
+constexpr auto sustainParameterId = "sustain";
 
 bool setRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
 {
@@ -57,11 +59,53 @@ bool validateModulationParametersPresentAndWritable()
     return true;
 }
 
+bool validateAdsrParametersPresentAndWritable()
+{
+    PolySynthAudioProcessor processor;
+    auto& apvts = processor.getValueTreeState();
+
+    auto* decayRaw = apvts.getRawParameterValue (decayParameterId);
+    auto* sustainRaw = apvts.getRawParameterValue (sustainParameterId);
+
+    if (decayRaw == nullptr || sustainRaw == nullptr)
+    {
+        std::cerr << "missing one or more ADSR parameters in APVTS" << '\n';
+        return false;
+    }
+
+    constexpr auto decayTarget = 0.19f;
+    constexpr auto sustainTarget = 0.43f;
+
+    if (! setRawParameterValue (processor, decayParameterId, decayTarget)
+        || ! setRawParameterValue (processor, sustainParameterId, sustainTarget))
+    {
+        std::cerr << "unable to write ADSR parameters through APVTS" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual (decayRaw->load(), decayTarget))
+    {
+        std::cerr << "decay write mismatch" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual (sustainRaw->load(), sustainTarget))
+    {
+        std::cerr << "sustain write mismatch" << '\n';
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main()
 {
     if (! validateModulationParametersPresentAndWritable())
+        return 1;
+
+    if (! validateAdsrParametersPresentAndWritable())
         return 1;
 
     std::cout << "poly APVTS modulation parameter validation passed." << '\n';

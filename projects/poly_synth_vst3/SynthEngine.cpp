@@ -17,7 +17,7 @@ void SynthEngine::prepare (double sampleRate, int blockSize) noexcept
     {
         voice.prepare (currentSampleRate);
         voice.setWaveform (currentWaveform);
-        voice.setEnvelopeTimes (currentAttackSeconds, currentReleaseSeconds);
+        voice.setEnvelopeTimes (currentAttackSeconds, currentDecaySeconds, currentSustainLevel, currentReleaseSeconds);
         voice.setModulationParameters (currentModulationDepth, currentModulationRateHz);
     }
 
@@ -45,13 +45,15 @@ void SynthEngine::setVoiceStealPolicy (VoiceStealPolicy newPolicy) noexcept
     voiceStealPolicy = newPolicy;
 }
 
-void SynthEngine::setEnvelopeTimes (float attackSeconds, float releaseSeconds) noexcept
+void SynthEngine::setEnvelopeTimes (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept
 {
     currentAttackSeconds = juce::jmax (0.001f, attackSeconds);
+    currentDecaySeconds = juce::jmax (0.001f, decaySeconds);
+    currentSustainLevel = juce::jlimit (0.0f, 1.0f, sustainLevel);
     currentReleaseSeconds = juce::jmax (0.001f, releaseSeconds);
 
     for (auto index = 0; index < activeVoiceCount; ++index)
-        voices[static_cast<size_t> (index)].setEnvelopeTimes (currentAttackSeconds, currentReleaseSeconds);
+        voices[static_cast<size_t> (index)].setEnvelopeTimes (currentAttackSeconds, currentDecaySeconds, currentSustainLevel, currentReleaseSeconds);
 }
 
 void SynthEngine::setModulationParameters (float depth, float rateHz) noexcept
