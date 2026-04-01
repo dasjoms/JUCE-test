@@ -439,6 +439,8 @@ bool PolySynthAudioProcessor::setLayerWaveformById (uint64_t layerId, Waveform w
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
         layer->waveform = waveformType;
+        if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
+            syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
         return true;
     }
@@ -457,6 +459,8 @@ bool PolySynthAudioProcessor::setLayerVoiceCountById (uint64_t layerId, int voic
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
         layer->voiceCount = juce::jlimit (1, 16, voiceCount);
+        if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
+            syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
         return true;
     }
@@ -475,6 +479,8 @@ bool PolySynthAudioProcessor::setLayerStealPolicyById (uint64_t layerId, SynthEn
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
         layer->stealPolicy = policy;
+        if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
+            syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
         return true;
     }
@@ -496,6 +502,8 @@ bool PolySynthAudioProcessor::setLayerAdsrById (uint64_t layerId, float attackSe
         layer->decaySeconds = juce::jlimit (0.001f, 5.0f, decaySeconds);
         layer->sustainLevel = juce::jlimit (0.0f, 1.0f, sustainLevel);
         layer->releaseSeconds = juce::jlimit (0.005f, 5.0f, releaseSeconds);
+        if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
+            syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
         return true;
     }
@@ -516,6 +524,8 @@ bool PolySynthAudioProcessor::setLayerModParametersById (uint64_t layerId, float
         layer->modulationDepth = juce::jlimit (0.0f, 1.0f, modulationDepth);
         layer->modulationRateHz = juce::jlimit (0.05f, 20.0f, modulationRateHz);
         layer->modulationDestination = destination;
+        if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
+            syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
         return true;
     }
@@ -534,6 +544,8 @@ bool PolySynthAudioProcessor::setLayerVelocitySensitivityById (uint64_t layerId,
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
         layer->velocitySensitivity = juce::jlimit (0.0f, 1.0f, velocitySensitivity);
+        if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
+            syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
         return true;
     }
@@ -553,6 +565,8 @@ bool PolySynthAudioProcessor::setLayerUnisonById (uint64_t layerId, int unisonVo
     {
         layer->unisonVoices = juce::jlimit (1, 8, unisonVoices);
         layer->unisonDetuneCents = juce::jlimit (0.0f, 50.0f, unisonDetuneCents);
+        if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
+            syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
         return true;
     }
@@ -571,6 +585,8 @@ bool PolySynthAudioProcessor::setLayerOutputStageById (uint64_t layerId, SynthEn
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
         layer->outputStage = outputStage;
+        if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
+            syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
         return true;
     }
@@ -701,6 +717,7 @@ void PolySynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         buffer.clear (i, 0, numSamples);
 
     updateParameterSnapshotFromAPVTS();
+    applyParameterSnapshotToEngine();
     syncLayerRuntimesFromState();
 
     const auto numChannels = buffer.getNumChannels();
@@ -899,9 +916,9 @@ void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
 void PolySynthAudioProcessor::syncLayerRuntimesFromState() noexcept
 {
     ensureSelectedLayerIsValid();
-    // APVTS parameters remain host-automatable base-layer controls.
-    // Layer inspector controls are direct layer-state edits keyed by selected layer.
-    applyParameterSnapshotToEngine();
+    // Explicit Phase-A contract:
+    // APVTS remains host-automatable, but it must always mirror the base layer state.
+    // Layer setters are layer-state edits, and base-layer edits are immediately mirrored to APVTS.
 
     const auto& order = instrumentState.getLayerOrder();
     const auto cappedLayerCount = juce::jmin (order.size(), maxRuntimeLayers);
@@ -938,6 +955,58 @@ void PolySynthAudioProcessor::syncLayerRuntimesFromState() noexcept
             runtime.engine.setMidiNoteTransposeSemitones (runtime.midiNoteTransposeFromBaseRoot);
         }
     }
+}
+
+void PolySynthAudioProcessor::syncBaseLayerParametersToAPVTS (bool notifyHost) noexcept
+{
+    const auto& order = instrumentState.getLayerOrder();
+    if (order.empty())
+        return;
+
+    const auto* baseLayer = instrumentState.findLayerById (order.front());
+    if (baseLayer == nullptr)
+        return;
+
+    const auto setParameterFromPlainValue = [this, notifyHost] (juce::StringRef parameterId, float plainValue)
+    {
+        if (auto* parameter = parameters.getParameter (parameterId))
+        {
+            const auto normalized = parameter->convertTo0to1 (plainValue);
+            juce::ignoreUnused (notifyHost);
+            parameter->setValueNotifyingHost (normalized);
+        }
+    };
+
+    setParameterFromPlainValue (waveformParameterId, static_cast<float> (waveformToChoiceIndex (baseLayer->waveform)));
+    setParameterFromPlainValue (maxVoicesParameterId, static_cast<float> (baseLayer->voiceCount));
+    setParameterFromPlainValue (stealPolicyParameterId, static_cast<float> (stealPolicyToChoiceIndex (baseLayer->stealPolicy)));
+    setParameterFromPlainValue (attackParameterId, baseLayer->attackSeconds);
+    setParameterFromPlainValue (decayParameterId, baseLayer->decaySeconds);
+    setParameterFromPlainValue (sustainParameterId, baseLayer->sustainLevel);
+    setParameterFromPlainValue (releaseParameterId, baseLayer->releaseSeconds);
+    setParameterFromPlainValue (modulationDepthParameterId, baseLayer->modulationDepth);
+    setParameterFromPlainValue (modulationRateParameterId, baseLayer->modulationRateHz);
+    setParameterFromPlainValue (velocitySensitivityParameterId, baseLayer->velocitySensitivity);
+    setParameterFromPlainValue (modulationDestinationParameterId, static_cast<float> (modDestinationToChoiceIndex (baseLayer->modulationDestination)));
+    setParameterFromPlainValue (unisonVoicesParameterId, static_cast<float> (baseLayer->unisonVoices));
+    setParameterFromPlainValue (unisonDetuneCentsParameterId, baseLayer->unisonDetuneCents);
+    setParameterFromPlainValue (outputStageParameterId, static_cast<float> (outputStageToChoiceIndex (baseLayer->outputStage)));
+
+    parameterSnapshot.waveform = baseLayer->waveform;
+    parameterSnapshot.maxVoices = baseLayer->voiceCount;
+    parameterSnapshot.stealPolicy = baseLayer->stealPolicy;
+    parameterSnapshot.attackSeconds = baseLayer->attackSeconds;
+    parameterSnapshot.decaySeconds = baseLayer->decaySeconds;
+    parameterSnapshot.sustainLevel = baseLayer->sustainLevel;
+    parameterSnapshot.releaseSeconds = baseLayer->releaseSeconds;
+    parameterSnapshot.modulationDepth = baseLayer->modulationDepth;
+    parameterSnapshot.modulationRateHz = baseLayer->modulationRateHz;
+    parameterSnapshot.velocitySensitivity = baseLayer->velocitySensitivity;
+    parameterSnapshot.modulationDestination = baseLayer->modulationDestination;
+    parameterSnapshot.unisonVoices = baseLayer->unisonVoices;
+    parameterSnapshot.unisonDetuneCents = baseLayer->unisonDetuneCents;
+    parameterSnapshot.outputStage = baseLayer->outputStage;
+    waveform.store (baseLayer->waveform, std::memory_order_relaxed);
 }
 
 void PolySynthAudioProcessor::markLayerStateDirty() noexcept
@@ -1151,6 +1220,7 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
             {
                 parameters.replaceState (stateTree);
                 loadLayeredStateFromTree (stateTree);
+                syncBaseLayerParametersToAPVTS (false);
             }
             else
             {
@@ -1160,7 +1230,7 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
     }
 
     updateParameterSnapshotFromAPVTS();
-    applyParameterSnapshotToEngine();
+    syncLayerRuntimesFromState();
 }
 
 juce::ValueTree PolySynthAudioProcessor::createCurrentInstrumentStatePayload()
@@ -1185,10 +1255,11 @@ void PolySynthAudioProcessor::applyInstrumentStatePayload (const juce::ValueTree
     {
         parameters.replaceState (payload);
         loadLayeredStateFromTree (payload);
+        syncBaseLayerParametersToAPVTS (false);
     }
 
     updateParameterSnapshotFromAPVTS();
-    applyParameterSnapshotToEngine();
+    syncLayerRuntimesFromState();
     markLayerStateDirty();
 }
 
@@ -1208,6 +1279,7 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
     migratedState.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
     parameters.replaceState (migratedState);
     loadLayeredStateFromTree (migratedState);
+    syncBaseLayerParametersToAPVTS (false);
 }
 
 void PolySynthAudioProcessor::migrateV1ToV2 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)

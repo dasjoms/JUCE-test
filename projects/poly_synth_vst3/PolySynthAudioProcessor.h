@@ -179,6 +179,7 @@ private:
     static SynthEngine::OutputStage outputStageFromChoiceIndex (int choiceIndex) noexcept;
     static const juce::StringArray& getOutputStageChoices() noexcept;
     void syncLayerRuntimesFromState() noexcept;
+    void syncBaseLayerParametersToAPVTS (bool notifyHost) noexcept;
     void markLayerStateDirty() noexcept;
     LayerState* findLayerByVisualIndex (std::size_t layerVisualIndex) noexcept;
     const LayerState* findLayerByVisualIndex (std::size_t layerVisualIndex) const noexcept;

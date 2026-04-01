@@ -58,6 +58,20 @@ bool expectLayer (PolySynthAudioProcessor& processor,
         && expect (juce::approximatelyEqual (state->layerVolume, volume), "volume mismatch");
 }
 
+float renderPeak (PolySynthAudioProcessor& processor, const juce::MidiBuffer& midi, int numSamples = 256)
+{
+    juce::AudioBuffer<float> buffer (2, numSamples);
+    buffer.clear();
+    auto midiCopy = midi;
+    processor.processBlock (buffer, midiCopy);
+
+    float peak = 0.0f;
+    for (int channel = 0; channel < buffer.getNumChannels(); ++channel)
+        peak = juce::jmax (peak, buffer.getMagnitude (channel, 0, numSamples));
+
+    return peak;
+}
+
 bool verifyRoundTripAndSaveSemantics (const juce::File& root)
 {
     PolySynthAudioProcessor processor (root);
@@ -116,6 +130,32 @@ bool verifyWarningSurfacedWhenFutureFieldsPresent (const juce::File& root)
         && expect (loadResult.warnedAboutPartialLoad, "future preset warning should surface");
 }
 
+bool verifyPresetLoadIsAudibleOnFirstBlock (const juce::File& root)
+{
+    PolySynthAudioProcessor source (root);
+    source.setLayerWaveformByVisualIndex (0, SynthVoice::Waveform::square);
+    source.setLayerAdsrByVisualIndex (0, 0.001f, 0.01f, 1.0f, 0.05f);
+    source.setLayerOutputStageByVisualIndex (0, SynthEngine::OutputStage::none);
+    source.setLayerVolume (0, 1.0f);
+    if (! source.saveCurrentPresetAsNew ("FirstBlock").success)
+        return expect (false, "failed to create preset fixture");
+
+    PolySynthAudioProcessor restored (root);
+    restored.prepareToPlay (44100.0, 256);
+    const auto loadResult = restored.loadPresetByName ("FirstBlock");
+
+    juce::MidiBuffer noteOn;
+    noteOn.addEvent (juce::MidiMessage::noteOn (1, 60, static_cast<juce::uint8> (100)), 0);
+    const auto firstPeak = renderPeak (restored, noteOn);
+
+    juce::MidiBuffer noteOff;
+    noteOff.addEvent (juce::MidiMessage::noteOff (1, 60), 0);
+    renderPeak (restored, noteOff);
+
+    return expect (loadResult.success, "preset load should succeed")
+        && expect (firstPeak > 0.01f, "preset-loaded base layer should be audible on first block");
+}
+
 } // namespace
 
 int main()
@@ -131,6 +171,10 @@ int main()
     root.deleteRecursively();
     root.createDirectory();
     ok = verifyWarningSurfacedWhenFutureFieldsPresent (root) && ok;
+
+    root.deleteRecursively();
+    root.createDirectory();
+    ok = verifyPresetLoadIsAudibleOnFirstBlock (root) && ok;
 
     root.deleteRecursively();
 

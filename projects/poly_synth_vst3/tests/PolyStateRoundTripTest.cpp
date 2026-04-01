@@ -107,11 +107,79 @@ bool validateLayeredStateRoundTripRetainsIdentityOrderSelectionAndParameters()
         && expect (afterSelected == selectedId, "round-trip selected layer mismatch");
 }
 
+bool setRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
+{
+    if (auto* parameter = processor.getValueTreeState().getParameter (parameterId))
+    {
+        parameter->setValueNotifyingHost (parameter->convertTo0to1 (rawValue));
+        return true;
+    }
+
+    return false;
+}
+
+bool validateBaseLayerStateWinsOverStaleApvtsOnRestore()
+{
+    PolySynthAudioProcessor source;
+    source.setLayerWaveformByVisualIndex (0, PolySynthAudioProcessor::Waveform::triangle);
+    source.setLayerVoiceCountByVisualIndex (0, 7);
+    source.setLayerStealPolicyByVisualIndex (0, SynthEngine::VoiceStealPolicy::quietest);
+    source.setLayerAdsrByVisualIndex (0, 0.31f, 0.42f, 0.37f, 0.54f);
+    source.setLayerModParametersByVisualIndex (0, 0.83f, 8.5f, SynthVoice::ModulationDestination::pitch);
+    source.setLayerVelocitySensitivityByVisualIndex (0, 0.61f);
+    source.setLayerUnisonByVisualIndex (0, 5, 17.25f);
+    source.setLayerOutputStageByVisualIndex (0, SynthEngine::OutputStage::softLimit);
+
+    juce::MemoryBlock serialized;
+    source.getStateInformation (serialized);
+    PolySynthAudioProcessor restored;
+    const auto staleSetOk = expect (setRawParameterValue (restored, "waveform", 0.0f), "missing waveform parameter")
+                          && expect (setRawParameterValue (restored, "maxVoices", 1.0f), "missing maxVoices parameter")
+                          && expect (setRawParameterValue (restored, "stealPolicy", 0.0f), "missing stealPolicy parameter")
+                          && expect (setRawParameterValue (restored, "attack", 0.005f), "missing attack parameter")
+                          && expect (setRawParameterValue (restored, "decay", 0.08f), "missing decay parameter")
+                          && expect (setRawParameterValue (restored, "sustain", 0.8f), "missing sustain parameter")
+                          && expect (setRawParameterValue (restored, "release", 0.03f), "missing release parameter")
+                          && expect (setRawParameterValue (restored, "modDepth", 0.0f), "missing modDepth parameter")
+                          && expect (setRawParameterValue (restored, "modRate", 2.0f), "missing modRate parameter")
+                          && expect (setRawParameterValue (restored, "velocitySensitivity", 0.0f), "missing velocitySensitivity parameter")
+                          && expect (setRawParameterValue (restored, "modDestination", 0.0f), "missing modDestination parameter")
+                          && expect (setRawParameterValue (restored, "unisonVoices", 1.0f), "missing unisonVoices parameter")
+                          && expect (setRawParameterValue (restored, "unisonDetuneCents", 0.0f), "missing unisonDetuneCents parameter")
+                          && expect (setRawParameterValue (restored, "outputStage", 1.0f), "missing outputStage parameter");
+
+    if (! staleSetOk)
+        return false;
+
+    restored.setStateInformation (serialized.getData(), static_cast<int> (serialized.getSize()));
+    const auto base = restored.getLayerStateByVisualIndex (0);
+    if (! expect (base.has_value(), "restored base layer missing"))
+        return false;
+
+    return expect (base->waveform == PolySynthAudioProcessor::Waveform::triangle, "waveform overwritten by stale APVTS value")
+        && expect (base->voiceCount == 7, "voice count overwritten by stale APVTS value")
+        && expect (base->stealPolicy == SynthEngine::VoiceStealPolicy::quietest, "steal policy overwritten by stale APVTS value")
+        && expect (juce::approximatelyEqual (base->attackSeconds, 0.31f), "attack overwritten by stale APVTS value")
+        && expect (juce::approximatelyEqual (base->decaySeconds, 0.42f), "decay overwritten by stale APVTS value")
+        && expect (juce::approximatelyEqual (base->sustainLevel, 0.37f), "sustain overwritten by stale APVTS value")
+        && expect (juce::approximatelyEqual (base->releaseSeconds, 0.54f), "release overwritten by stale APVTS value")
+        && expect (juce::approximatelyEqual (base->modulationDepth, 0.83f), "mod depth overwritten by stale APVTS value")
+        && expect (juce::approximatelyEqual (base->modulationRateHz, 8.5f), "mod rate overwritten by stale APVTS value")
+        && expect (base->modulationDestination == SynthVoice::ModulationDestination::pitch, "mod destination overwritten by stale APVTS value")
+        && expect (juce::approximatelyEqual (base->velocitySensitivity, 0.61f), "velocity sensitivity overwritten by stale APVTS value")
+        && expect (base->unisonVoices == 5, "unison voices overwritten by stale APVTS value")
+        && expect (juce::approximatelyEqual (base->unisonDetuneCents, 17.25f), "unison detune overwritten by stale APVTS value")
+        && expect (base->outputStage == SynthEngine::OutputStage::softLimit, "output stage overwritten by stale APVTS value");
+}
+
 } // namespace
 
 int main()
 {
     if (! validateLayeredStateRoundTripRetainsIdentityOrderSelectionAndParameters())
+        return 1;
+
+    if (! validateBaseLayerStateWinsOverStaleApvtsOnRestore())
         return 1;
 
     std::cout << "poly state round-trip validation passed." << '\n';
