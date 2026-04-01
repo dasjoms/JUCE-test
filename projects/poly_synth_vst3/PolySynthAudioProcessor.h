@@ -1,6 +1,7 @@
 #pragma once
 
 #include "LayeredInstrumentState.h"
+#include "PresetLibrary.h"
 #include "SynthEngine.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
@@ -16,6 +17,7 @@ public:
 
     //==============================================================================
     PolySynthAudioProcessor();
+    explicit PolySynthAudioProcessor (juce::File presetStorageRootOverride);
     ~PolySynthAudioProcessor() override;
 
     //==============================================================================
@@ -55,6 +57,19 @@ public:
     static constexpr int minimumMidiNote = 0;
     static constexpr int maximumMidiNote = 127;
     static constexpr int defaultBaseLayerRootNote = 60; // C4
+
+    struct PresetOperationResult
+    {
+        bool success = false;
+        juce::String message;
+        bool warnedAboutPartialLoad = false;
+    };
+
+    juce::StringArray listLocalPresetNames() const;
+    PresetOperationResult loadPresetByName (const juce::String& presetName);
+    PresetOperationResult saveCurrentPresetOverwrite();
+    PresetOperationResult saveCurrentPresetAsNew (const juce::String& requestedName);
+    juce::String getCurrentPresetName() const;
 
     int getLayerCount() const noexcept;
     int getLayerRootNoteAbsolute (std::size_t layerVisualIndex) const noexcept;
@@ -171,6 +186,8 @@ private:
     std::optional<uint64_t> getLayerIdForVisualIndex (std::size_t visualIndex) const noexcept;
     std::size_t getVisualIndexForLayerId (uint64_t layerId) const noexcept;
     void ensureSelectedLayerIsValid() noexcept;
+    juce::ValueTree createCurrentInstrumentStatePayload();
+    void applyInstrumentStatePayload (const juce::ValueTree& payload);
 
     struct LayerRuntime
     {
@@ -209,6 +226,9 @@ private:
     double preparedSampleRate = 44100.0;
     int preparedSamplesPerBlock = 0;
     uint64_t layerStateRevision = 0;
+    PresetLibrary presetLibrary;
+    juce::String currentPresetName;
+    juce::String lastPresetWarningMessage;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessor)

@@ -47,6 +47,10 @@ private:
     void setActionStatusMessage (const juce::String& message);
     void handleAbsoluteRootNoteChange();
     void handleRelativeRootSemitoneChange();
+    void refreshPresetControls();
+    void savePresetOverwrite();
+    void savePresetAsNew();
+    void loadSelectedPreset();
     static juce::String midiNoteToDisplayString (int midiNote);
 
     // This reference is provided as a quick way for your editor to
@@ -58,6 +62,12 @@ private:
     juce::GroupComponent layerListPanel;
     juce::TextButton addLayerButton;
     juce::Label actionStatusLabel;
+    juce::Label presetLabel;
+    juce::ComboBox presetSelector;
+    juce::TextButton presetLoadButton;
+    juce::TextButton presetSaveButton;
+    juce::TextButton presetSaveAsNewButton;
+    juce::Label presetStatusLabel;
     juce::Label inspectorTitleLabel;
     juce::Label emptyInspectorLabel;
     juce::Label titleLabel;

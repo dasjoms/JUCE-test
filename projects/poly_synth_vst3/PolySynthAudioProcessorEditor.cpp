@@ -108,6 +108,29 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     actionStatusLabel.setColour (juce::Label::textColourId, juce::Colours::orange);
     addAndMakeVisible (actionStatusLabel);
 
+    presetLabel.setText ("Preset", juce::dontSendNotification);
+    presetLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (presetLabel);
+
+    presetSelector.setTextWhenNothingSelected ("No presets");
+    addAndMakeVisible (presetSelector);
+
+    presetLoadButton.setButtonText ("Load");
+    presetLoadButton.onClick = [this] { loadSelectedPreset(); };
+    addAndMakeVisible (presetLoadButton);
+
+    presetSaveButton.setButtonText ("Save");
+    presetSaveButton.onClick = [this] { savePresetOverwrite(); };
+    addAndMakeVisible (presetSaveButton);
+
+    presetSaveAsNewButton.setButtonText ("Save As New");
+    presetSaveAsNewButton.onClick = [this] { savePresetAsNew(); };
+    addAndMakeVisible (presetSaveAsNewButton);
+
+    presetStatusLabel.setJustificationType (juce::Justification::centredLeft);
+    presetStatusLabel.setColour (juce::Label::textColourId, juce::Colours::lightgoldenrodyellow);
+    addAndMakeVisible (presetStatusLabel);
+
     inspectorTitleLabel.setText ("Selected Layer Controls", juce::dontSendNotification);
     inspectorTitleLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (inspectorTitleLabel);
@@ -357,6 +380,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     syncLayerListFromProcessor();
     syncInspectorControlsFromSelectedLayer();
     syncRootNoteControlsFromProcessor();
+    refreshPresetControls();
     updateInspectorBindingState();
     startTimerHz (15);
 }
@@ -403,6 +427,15 @@ void PolySynthAudioProcessorEditor::resized()
     addLayerButton.setBounds (rowArea.removeFromTop (28));
     rowArea.removeFromTop (4);
     actionStatusLabel.setBounds (rowArea.removeFromTop (20));
+    rowArea.removeFromTop (4);
+    auto presetRow = rowArea.removeFromTop (28);
+    presetLabel.setBounds (presetRow.removeFromLeft (54));
+    presetSelector.setBounds (presetRow.removeFromLeft (juce::jmax (120, presetRow.getWidth() - 152)).reduced (2, 0));
+    presetLoadButton.setBounds (presetRow.removeFromLeft (42).reduced (1, 0));
+    presetSaveButton.setBounds (presetRow.removeFromLeft (42).reduced (1, 0));
+    presetSaveAsNewButton.setBounds (presetRow.reduced (1, 0));
+    rowArea.removeFromTop (2);
+    presetStatusLabel.setBounds (rowArea.removeFromTop (36));
     rowArea.removeFromTop (4);
     for (std::size_t i = 0; i < layerRows.size(); ++i)
     {
@@ -452,6 +485,7 @@ void PolySynthAudioProcessorEditor::timerCallback()
     syncLayerListFromProcessor();
     syncInspectorControlsFromSelectedLayer();
     syncRootNoteControlsFromProcessor();
+    refreshPresetControls();
 }
 
 void PolySynthAudioProcessorEditor::syncRootNoteControlsFromProcessor()
@@ -706,6 +740,89 @@ void PolySynthAudioProcessorEditor::moveLayerDown (std::size_t layerIndex)
 void PolySynthAudioProcessorEditor::setActionStatusMessage (const juce::String& message)
 {
     actionStatusLabel.setText (message, juce::dontSendNotification);
+}
+
+void PolySynthAudioProcessorEditor::refreshPresetControls()
+{
+    const auto available = processorRef.listLocalPresetNames();
+    const auto previousSelection = presetSelector.getText();
+
+    presetSelector.clear (juce::dontSendNotification);
+    for (int i = 0; i < available.size(); ++i)
+        presetSelector.addItem (available[i], i + 1);
+
+    const auto activePreset = processorRef.getCurrentPresetName();
+    if (activePreset.isNotEmpty())
+    {
+        const auto activeIndex = available.indexOf (activePreset);
+        if (activeIndex >= 0)
+            presetSelector.setSelectedItemIndex (activeIndex, juce::dontSendNotification);
+        else
+            presetSelector.setText (activePreset);
+    }
+    else if (available.contains (previousSelection))
+    {
+        presetSelector.setText (previousSelection);
+    }
+}
+
+void PolySynthAudioProcessorEditor::savePresetOverwrite()
+{
+    const auto result = processorRef.saveCurrentPresetOverwrite();
+    presetStatusLabel.setText (result.message, juce::dontSendNotification);
+
+    if (! result.success && processorRef.getCurrentPresetName().isEmpty())
+        presetStatusLabel.setText ("No current preset selected. Use Save As New first.", juce::dontSendNotification);
+
+    refreshPresetControls();
+}
+
+void PolySynthAudioProcessorEditor::savePresetAsNew()
+{
+    auto* prompt = new juce::AlertWindow ("Save Preset As New",
+                                          "Enter a unique preset name.",
+                                          juce::AlertWindow::NoIcon);
+    prompt->addTextEditor ("presetName", processorRef.getCurrentPresetName(), "Name:");
+    prompt->addButton ("Save", 1, juce::KeyPress (juce::KeyPress::returnKey));
+    prompt->addButton ("Cancel", 0, juce::KeyPress (juce::KeyPress::escapeKey));
+
+    auto safePrompt = juce::Component::SafePointer<juce::AlertWindow> (prompt);
+    prompt->enterModalState (true,
+                             juce::ModalCallbackFunction::create ([this, safePrompt] (int modalResult)
+                             {
+                                 if (modalResult != 1 || safePrompt == nullptr)
+                                     return;
+
+                                 const auto requestedName = safePrompt->getTextEditorContents ("presetName").trim();
+                                 const auto result = processorRef.saveCurrentPresetAsNew (requestedName);
+                                 presetStatusLabel.setText (result.message, juce::dontSendNotification);
+                                 refreshPresetControls();
+                             }),
+                             true);
+}
+
+void PolySynthAudioProcessorEditor::loadSelectedPreset()
+{
+    const auto selectedPresetName = presetSelector.getText().trim();
+    if (selectedPresetName.isEmpty())
+    {
+        presetStatusLabel.setText ("Select a preset to load.", juce::dontSendNotification);
+        return;
+    }
+
+    const auto result = processorRef.loadPresetByName (selectedPresetName);
+    presetStatusLabel.setColour (juce::Label::textColourId,
+                                 result.warnedAboutPartialLoad ? juce::Colours::yellow : juce::Colours::lightgreen);
+    presetStatusLabel.setText (result.message, juce::dontSendNotification);
+
+    if (result.success)
+    {
+        syncLayerListFromProcessor();
+        syncInspectorControlsFromSelectedLayer();
+        syncRootNoteControlsFromProcessor();
+    }
+
+    refreshPresetControls();
 }
 
 void PolySynthAudioProcessorEditor::handleAbsoluteRootNoteChange()
