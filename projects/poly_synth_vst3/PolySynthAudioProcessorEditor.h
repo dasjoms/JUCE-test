@@ -3,7 +3,8 @@
 #include "PolySynthAudioProcessor.h"
 
 //==============================================================================
-class PolySynthAudioProcessorEditor final : public juce::AudioProcessorEditor
+class PolySynthAudioProcessorEditor final : public juce::AudioProcessorEditor,
+                                            private juce::Timer
 {
 public:
     explicit PolySynthAudioProcessorEditor (PolySynthAudioProcessor&);
@@ -14,6 +15,12 @@ public:
     void resized() override;
 
 private:
+    void timerCallback() override;
+    void syncRootNoteControlsFromProcessor();
+    void handleAbsoluteRootNoteChange();
+    void handleRelativeRootSemitoneChange();
+    static juce::String midiNoteToDisplayString (int midiNote);
+
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     PolySynthAudioProcessor& processorRef;
@@ -32,6 +39,9 @@ private:
     juce::Label unisonVoicesLabel;
     juce::Label unisonDetuneCentsLabel;
     juce::Label outputStageLabel;
+    juce::Label absoluteRootNoteLabel;
+    juce::Label relativeRootSemitoneLabel;
+    juce::Label rootNoteFeedbackLabel;
     juce::ComboBox waveformSelector;
     juce::ComboBox stealPolicySelector;
     juce::Slider maxVoicesSlider;
@@ -45,6 +55,8 @@ private:
     juce::ComboBox modDestinationSelector;
     juce::Slider unisonVoicesSlider;
     juce::Slider unisonDetuneCentsSlider;
+    juce::Slider absoluteRootNoteSlider;
+    juce::Slider relativeRootSemitoneSlider;
     juce::ComboBox outputStageSelector;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveformAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> stealPolicyAttachment;
@@ -60,6 +72,8 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> unisonVoicesAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> unisonDetuneCentsAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> outputStageAttachment;
+    std::size_t selectedLayerIndex = 0;
+    bool suppressRootNoteCallbacks = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };

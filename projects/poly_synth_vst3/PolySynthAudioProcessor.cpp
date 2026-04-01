@@ -97,6 +97,56 @@ PolySynthAudioProcessor::~PolySynthAudioProcessor()
 {
 }
 
+int PolySynthAudioProcessor::getLayerCount() const noexcept
+{
+    return static_cast<int> (instrumentState.getLayerOrder().size());
+}
+
+int PolySynthAudioProcessor::clampMidiNote (int midiNote) noexcept
+{
+    return juce::jlimit (minimumMidiNote, maximumMidiNote, midiNote);
+}
+
+int PolySynthAudioProcessor::getLayerRootNoteAbsolute (std::size_t layerVisualIndex) const noexcept
+{
+    const auto& layerOrder = instrumentState.getLayerOrder();
+    if (layerVisualIndex >= layerOrder.size())
+        return defaultBaseLayerRootNote;
+
+    if (const auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+        return clampMidiNote (layer->rootNoteAbsolute);
+
+    return defaultBaseLayerRootNote;
+}
+
+int PolySynthAudioProcessor::getLayerRootNoteRelativeSemitones (std::size_t layerVisualIndex) const noexcept
+{
+    const auto baseRootNote = getLayerRootNoteAbsolute (0);
+    const auto layerRootNote = getLayerRootNoteAbsolute (layerVisualIndex);
+    return layerRootNote - baseRootNote;
+}
+
+int PolySynthAudioProcessor::setLayerRootNoteAbsolute (std::size_t layerVisualIndex, int absoluteMidiNote) noexcept
+{
+    const auto clampedMidiNote = clampMidiNote (absoluteMidiNote);
+    const auto& layerOrder = instrumentState.getLayerOrder();
+
+    if (layerVisualIndex >= layerOrder.size())
+        return clampedMidiNote;
+
+    if (auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+        layer->rootNoteAbsolute = clampedMidiNote;
+
+    return clampedMidiNote;
+}
+
+int PolySynthAudioProcessor::setLayerRootNoteRelativeSemitones (std::size_t layerVisualIndex, int relativeSemitones) noexcept
+{
+    const auto baseRootNote = getLayerRootNoteAbsolute (0);
+    const auto absoluteMidiNote = baseRootNote + relativeSemitones;
+    return setLayerRootNoteAbsolute (layerVisualIndex, absoluteMidiNote);
+}
+
 //==============================================================================
 const juce::String PolySynthAudioProcessor::getName() const
 {

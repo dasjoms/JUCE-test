@@ -1,5 +1,11 @@
 #include "PolySynthAudioProcessor.h"
 #include "PolySynthAudioProcessorEditor.h"
+#include <array>
+
+namespace
+{
+constexpr std::array<const char*, 12> pitchClassNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+}
 
 //==============================================================================
 PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProcessor& p)
@@ -133,6 +139,37 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     outputStageSelector.addItem ("Soft Limit", 3);
     addAndMakeVisible (outputStageSelector);
 
+    absoluteRootNoteLabel.setText ("Root Note", juce::dontSendNotification);
+    absoluteRootNoteLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (absoluteRootNoteLabel);
+
+    absoluteRootNoteSlider.setSliderStyle (juce::Slider::IncDecButtons);
+    absoluteRootNoteSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 96, 20);
+    absoluteRootNoteSlider.setRange (PolySynthAudioProcessor::minimumMidiNote,
+                                     PolySynthAudioProcessor::maximumMidiNote,
+                                     1.0);
+    absoluteRootNoteSlider.textFromValueFunction = [] (double value)
+    {
+        return midiNoteToDisplayString (juce::roundToInt (value));
+    };
+    absoluteRootNoteSlider.onValueChange = [this] { handleAbsoluteRootNoteChange(); };
+    addAndMakeVisible (absoluteRootNoteSlider);
+
+    relativeRootSemitoneLabel.setText ("Relative (st)", juce::dontSendNotification);
+    relativeRootSemitoneLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (relativeRootSemitoneLabel);
+
+    relativeRootSemitoneSlider.setSliderStyle (juce::Slider::LinearHorizontal);
+    relativeRootSemitoneSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 80, 20);
+    relativeRootSemitoneSlider.setRange (-127.0, 127.0, 1.0);
+    relativeRootSemitoneSlider.setNumDecimalPlacesToDisplay (0);
+    relativeRootSemitoneSlider.setTextValueSuffix (" st");
+    relativeRootSemitoneSlider.onValueChange = [this] { handleRelativeRootSemitoneChange(); };
+    addAndMakeVisible (relativeRootSemitoneSlider);
+
+    rootNoteFeedbackLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (rootNoteFeedbackLabel);
+
     waveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
                                                                                                     "waveform",
                                                                                                     waveformSelector);
@@ -177,8 +214,11 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
                                                                                                         outputStageSelector);
 
     setResizable (true, false);
-    setResizeLimits (420, 560, 760, 760);
-    setSize (520, 570);
+    setResizeLimits (420, 620, 760, 840);
+    setSize (520, 640);
+
+    syncRootNoteControlsFromProcessor();
+    startTimerHz (15);
 }
 
 PolySynthAudioProcessorEditor::~PolySynthAudioProcessorEditor()
@@ -224,4 +264,64 @@ void PolySynthAudioProcessorEditor::resized()
     placeRow (unisonVoicesLabel, unisonVoicesSlider);
     placeRow (unisonDetuneCentsLabel, unisonDetuneCentsSlider);
     placeRow (outputStageLabel, outputStageSelector);
+    placeRow (absoluteRootNoteLabel, absoluteRootNoteSlider);
+    placeRow (relativeRootSemitoneLabel, relativeRootSemitoneSlider);
+
+    auto feedbackBounds = content.removeFromTop (24);
+    rootNoteFeedbackLabel.setBounds (feedbackBounds);
+}
+
+void PolySynthAudioProcessorEditor::timerCallback()
+{
+    syncRootNoteControlsFromProcessor();
+}
+
+void PolySynthAudioProcessorEditor::syncRootNoteControlsFromProcessor()
+{
+    suppressRootNoteCallbacks = true;
+    absoluteRootNoteSlider.setValue (processorRef.getLayerRootNoteAbsolute (selectedLayerIndex), juce::dontSendNotification);
+    relativeRootSemitoneSlider.setValue (processorRef.getLayerRootNoteRelativeSemitones (selectedLayerIndex), juce::dontSendNotification);
+    suppressRootNoteCallbacks = false;
+}
+
+void PolySynthAudioProcessorEditor::handleAbsoluteRootNoteChange()
+{
+    if (suppressRootNoteCallbacks)
+        return;
+
+    const auto requestedMidiNote = juce::roundToInt (absoluteRootNoteSlider.getValue());
+    const auto appliedMidiNote = processorRef.setLayerRootNoteAbsolute (selectedLayerIndex, requestedMidiNote);
+    const auto wasClamped = requestedMidiNote != appliedMidiNote;
+
+    rootNoteFeedbackLabel.setText (wasClamped ? "Clamped to MIDI range C-1..G9 (0..127)" : "",
+                                   juce::dontSendNotification);
+    syncRootNoteControlsFromProcessor();
+}
+
+void PolySynthAudioProcessorEditor::handleRelativeRootSemitoneChange()
+{
+    if (suppressRootNoteCallbacks)
+        return;
+
+    const auto requestedSemitones = juce::roundToInt (relativeRootSemitoneSlider.getValue());
+    const auto baseRootMidiNote = processorRef.getLayerRootNoteAbsolute (0);
+    const auto requestedMidiNote = baseRootMidiNote + requestedSemitones;
+    const auto appliedMidiNote = processorRef.setLayerRootNoteRelativeSemitones (selectedLayerIndex, requestedSemitones);
+    const auto wasClamped = requestedMidiNote != appliedMidiNote;
+
+    rootNoteFeedbackLabel.setText (wasClamped ? "Clamped to MIDI range C-1..G9 (0..127)" : "",
+                                   juce::dontSendNotification);
+    syncRootNoteControlsFromProcessor();
+}
+
+juce::String PolySynthAudioProcessorEditor::midiNoteToDisplayString (int midiNote)
+{
+    const auto clampedMidiNote = PolySynthAudioProcessor::clampMidiNote (midiNote);
+    const auto pitchClassIndex = clampedMidiNote % 12;
+    const auto octave = (clampedMidiNote / 12) - 1;
+    return juce::String (pitchClassNames[static_cast<std::size_t> (pitchClassIndex)])
+           + juce::String (octave)
+           + " ("
+           + juce::String (clampedMidiNote)
+           + ")";
 }
