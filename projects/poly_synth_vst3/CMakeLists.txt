@@ -260,3 +260,19 @@ target_compile_definitions(SynthEngineUnisonTest
         JUCE_WEB_BROWSER=0)
 
 add_test(NAME SynthEngineUnisonTest COMMAND SynthEngineUnisonTest)
+
+add_executable(SynthEngineOutputSafetyTest
+    tests/SynthEngineOutputSafetyTest.cpp
+    SynthEngine.cpp
+    SynthVoice.cpp)
+
+target_link_libraries(SynthEngineOutputSafetyTest
+    PRIVATE
+        juce::juce_audio_basics)
+
+target_compile_definitions(SynthEngineOutputSafetyTest
+    PRIVATE
+        JUCE_USE_CURL=0
+        JUCE_WEB_BROWSER=0)
+
+add_test(NAME SynthEngineOutputSafetyTest COMMAND SynthEngineOutputSafetyTest)
