@@ -36,6 +36,26 @@ constexpr auto soloPropertyId = "solo";
 constexpr auto layerVolumePropertyId = "layerVolume";
 constexpr auto layerStateRevisionPropertyId = "layerStateRevision";
 constexpr int currentStateSchemaVersion = 6;
+constexpr int minVoiceCount = 1;
+constexpr int maxVoiceCount = 16;
+constexpr float minAttackSeconds = 0.001f;
+constexpr float maxAttackSeconds = 5.0f;
+constexpr float minDecaySeconds = 0.001f;
+constexpr float maxDecaySeconds = 5.0f;
+constexpr float minSustainLevel = 0.0f;
+constexpr float maxSustainLevel = 1.0f;
+constexpr float minReleaseSeconds = 0.005f;
+constexpr float maxReleaseSeconds = 5.0f;
+constexpr float minModulationDepth = 0.0f;
+constexpr float maxModulationDepth = 1.0f;
+constexpr float minModulationRateHz = 0.05f;
+constexpr float maxModulationRateHz = 20.0f;
+constexpr float minVelocitySensitivity = 0.0f;
+constexpr float maxVelocitySensitivity = 1.0f;
+constexpr int minUnisonVoices = 1;
+constexpr int maxUnisonVoices = 8;
+constexpr float minUnisonDetuneCents = 0.0f;
+constexpr float maxUnisonDetuneCents = 50.0f;
 
 constexpr std::array<const char*, 11> schemaV2ParameterIds {
     waveformParameterId,
@@ -80,6 +100,56 @@ constexpr std::array<const char*, schemaV2ParameterIds.size() + schemaV3Paramete
     unisonDetuneCentsParameterId,
     outputStageParameterId
 };
+
+int clampVoiceCount (int voiceCount) noexcept
+{
+    return juce::jlimit (minVoiceCount, maxVoiceCount, voiceCount);
+}
+
+float clampAttackSeconds (float attackSeconds) noexcept
+{
+    return juce::jlimit (minAttackSeconds, maxAttackSeconds, attackSeconds);
+}
+
+float clampDecaySeconds (float decaySeconds) noexcept
+{
+    return juce::jlimit (minDecaySeconds, maxDecaySeconds, decaySeconds);
+}
+
+float clampSustainLevel (float sustainLevel) noexcept
+{
+    return juce::jlimit (minSustainLevel, maxSustainLevel, sustainLevel);
+}
+
+float clampReleaseSeconds (float releaseSeconds) noexcept
+{
+    return juce::jlimit (minReleaseSeconds, maxReleaseSeconds, releaseSeconds);
+}
+
+float clampModulationDepth (float modulationDepth) noexcept
+{
+    return juce::jlimit (minModulationDepth, maxModulationDepth, modulationDepth);
+}
+
+float clampModulationRateHz (float modulationRateHz) noexcept
+{
+    return juce::jlimit (minModulationRateHz, maxModulationRateHz, modulationRateHz);
+}
+
+float clampVelocitySensitivity (float velocitySensitivity) noexcept
+{
+    return juce::jlimit (minVelocitySensitivity, maxVelocitySensitivity, velocitySensitivity);
+}
+
+int clampUnisonVoices (int unisonVoices) noexcept
+{
+    return juce::jlimit (minUnisonVoices, maxUnisonVoices, unisonVoices);
+}
+
+float clampUnisonDetuneCents (float unisonDetuneCents) noexcept
+{
+    return juce::jlimit (minUnisonDetuneCents, maxUnisonDetuneCents, unisonDetuneCents);
+}
 } // namespace
 
 //==============================================================================
@@ -458,7 +528,7 @@ bool PolySynthAudioProcessor::setLayerVoiceCountById (uint64_t layerId, int voic
 {
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
-        layer->voiceCount = juce::jlimit (1, 16, voiceCount);
+        layer->voiceCount = clampVoiceCount (voiceCount);
         if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
             syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
@@ -498,10 +568,10 @@ bool PolySynthAudioProcessor::setLayerAdsrById (uint64_t layerId, float attackSe
 {
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
-        layer->attackSeconds = juce::jlimit (0.001f, 5.0f, attackSeconds);
-        layer->decaySeconds = juce::jlimit (0.001f, 5.0f, decaySeconds);
-        layer->sustainLevel = juce::jlimit (0.0f, 1.0f, sustainLevel);
-        layer->releaseSeconds = juce::jlimit (0.005f, 5.0f, releaseSeconds);
+        layer->attackSeconds = clampAttackSeconds (attackSeconds);
+        layer->decaySeconds = clampDecaySeconds (decaySeconds);
+        layer->sustainLevel = clampSustainLevel (sustainLevel);
+        layer->releaseSeconds = clampReleaseSeconds (releaseSeconds);
         if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
             syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
@@ -521,8 +591,8 @@ bool PolySynthAudioProcessor::setLayerModParametersById (uint64_t layerId, float
 {
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
-        layer->modulationDepth = juce::jlimit (0.0f, 1.0f, modulationDepth);
-        layer->modulationRateHz = juce::jlimit (0.05f, 20.0f, modulationRateHz);
+        layer->modulationDepth = clampModulationDepth (modulationDepth);
+        layer->modulationRateHz = clampModulationRateHz (modulationRateHz);
         layer->modulationDestination = destination;
         if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
             syncBaseLayerParametersToAPVTS (true);
@@ -543,7 +613,7 @@ bool PolySynthAudioProcessor::setLayerVelocitySensitivityById (uint64_t layerId,
 {
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
-        layer->velocitySensitivity = juce::jlimit (0.0f, 1.0f, velocitySensitivity);
+        layer->velocitySensitivity = clampVelocitySensitivity (velocitySensitivity);
         if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
             syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
@@ -563,8 +633,8 @@ bool PolySynthAudioProcessor::setLayerUnisonById (uint64_t layerId, int unisonVo
 {
     if (auto* layer = instrumentState.findLayerById (layerId))
     {
-        layer->unisonVoices = juce::jlimit (1, 8, unisonVoices);
-        layer->unisonDetuneCents = juce::jlimit (0.0f, 50.0f, unisonDetuneCents);
+        layer->unisonVoices = clampUnisonVoices (unisonVoices);
+        layer->unisonDetuneCents = clampUnisonDetuneCents (unisonDetuneCents);
         if (! instrumentState.getLayerOrder().empty() && layerId == instrumentState.getLayerOrder().front())
             syncBaseLayerParametersToAPVTS (true);
         markLayerStateDirty();
@@ -782,44 +852,44 @@ juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::cre
                                                                      waveformToChoiceIndex (Waveform::sine)));
     layout.push_back (std::make_unique<juce::AudioParameterInt> (maxVoicesParameterId,
                                                                   "Max Voices",
-                                                                  1,
-                                                                  16,
-                                                                  1));
+                                                                  minVoiceCount,
+                                                                  maxVoiceCount,
+                                                                  minVoiceCount));
     layout.push_back (std::make_unique<juce::AudioParameterChoice> (stealPolicyParameterId,
                                                                      "Steal Policy",
                                                                      getStealPolicyChoices(),
                                                                      stealPolicyToChoiceIndex (SynthEngine::VoiceStealPolicy::releasedFirst)));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (attackParameterId,
                                                                     "Attack",
-                                                                    juce::NormalisableRange<float> (0.001f, 5.0f, 0.001f, 0.35f),
+                                                                    juce::NormalisableRange<float> (minAttackSeconds, maxAttackSeconds, 0.001f, 0.35f),
                                                                     0.005f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("s")));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (decayParameterId,
                                                                     "Decay",
-                                                                    juce::NormalisableRange<float> (0.001f, 5.0f, 0.001f, 0.35f),
+                                                                    juce::NormalisableRange<float> (minDecaySeconds, maxDecaySeconds, 0.001f, 0.35f),
                                                                     0.08f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("s")));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (sustainParameterId,
                                                                     "Sustain",
-                                                                    juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f),
+                                                                    juce::NormalisableRange<float> (minSustainLevel, maxSustainLevel, 0.001f),
                                                                     0.8f));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (releaseParameterId,
                                                                     "Release",
-                                                                    juce::NormalisableRange<float> (0.005f, 5.0f, 0.001f, 0.35f),
+                                                                    juce::NormalisableRange<float> (minReleaseSeconds, maxReleaseSeconds, 0.001f, 0.35f),
                                                                     0.03f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("s")));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (modulationDepthParameterId,
                                                                     "Mod Depth",
-                                                                    juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f),
+                                                                    juce::NormalisableRange<float> (minModulationDepth, maxModulationDepth, 0.001f),
                                                                     0.0f));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (modulationRateParameterId,
                                                                     "Mod Rate",
-                                                                    juce::NormalisableRange<float> (0.05f, 20.0f, 0.01f, 0.3f),
+                                                                    juce::NormalisableRange<float> (minModulationRateHz, maxModulationRateHz, 0.01f, 0.3f),
                                                                     2.0f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("Hz")));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (velocitySensitivityParameterId,
                                                                     "Velocity Sensitivity",
-                                                                    juce::NormalisableRange<float> (0.0f, 1.0f, 0.001f),
+                                                                    juce::NormalisableRange<float> (minVelocitySensitivity, maxVelocitySensitivity, 0.001f),
                                                                     0.0f));
     layout.push_back (std::make_unique<juce::AudioParameterChoice> (modulationDestinationParameterId,
                                                                      "Mod Destination",
@@ -827,12 +897,12 @@ juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::cre
                                                                      modDestinationToChoiceIndex (SynthVoice::ModulationDestination::off)));
     layout.push_back (std::make_unique<juce::AudioParameterInt> (unisonVoicesParameterId,
                                                                   "Unison Voices",
-                                                                  1,
-                                                                  8,
-                                                                  1));
+                                                                  minUnisonVoices,
+                                                                  maxUnisonVoices,
+                                                                  minUnisonVoices));
     layout.push_back (std::make_unique<juce::AudioParameterFloat> (unisonDetuneCentsParameterId,
                                                                     "Unison Detune",
-                                                                    juce::NormalisableRange<float> (0.0f, 50.0f, 0.01f),
+                                                                    juce::NormalisableRange<float> (minUnisonDetuneCents, maxUnisonDetuneCents, 0.01f),
                                                                     0.0f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("cents")));
     layout.push_back (std::make_unique<juce::AudioParameterChoice> (outputStageParameterId,
@@ -1470,18 +1540,18 @@ void PolySynthAudioProcessor::loadLayeredStateFromTree (const juce::ValueTree& s
             if (const auto layerStateNode = layerNode.getChildWithName (layerStateNodeId); layerStateNode.isValid())
             {
                 restoredLayer.waveform = waveformFromChoiceIndex (static_cast<int> (layerStateNode.getProperty (waveformParameterId, waveformToChoiceIndex (restoredLayer.waveform))));
-                restoredLayer.voiceCount = juce::jlimit (1, 32, static_cast<int> (layerStateNode.getProperty (maxVoicesParameterId, restoredLayer.voiceCount)));
+                restoredLayer.voiceCount = clampVoiceCount (static_cast<int> (layerStateNode.getProperty (maxVoicesParameterId, restoredLayer.voiceCount)));
                 restoredLayer.stealPolicy = stealPolicyFromChoiceIndex (static_cast<int> (layerStateNode.getProperty (stealPolicyParameterId, stealPolicyToChoiceIndex (restoredLayer.stealPolicy))));
-                restoredLayer.attackSeconds = juce::jlimit (0.001f, 2.0f, static_cast<float> (layerStateNode.getProperty (attackParameterId, restoredLayer.attackSeconds)));
-                restoredLayer.decaySeconds = juce::jlimit (0.001f, 2.0f, static_cast<float> (layerStateNode.getProperty (decayParameterId, restoredLayer.decaySeconds)));
-                restoredLayer.sustainLevel = juce::jlimit (0.0f, 1.0f, static_cast<float> (layerStateNode.getProperty (sustainParameterId, restoredLayer.sustainLevel)));
-                restoredLayer.releaseSeconds = juce::jlimit (0.001f, 3.0f, static_cast<float> (layerStateNode.getProperty (releaseParameterId, restoredLayer.releaseSeconds)));
-                restoredLayer.modulationDepth = juce::jlimit (0.0f, 1.0f, static_cast<float> (layerStateNode.getProperty (modulationDepthParameterId, restoredLayer.modulationDepth)));
-                restoredLayer.modulationRateHz = juce::jlimit (0.1f, 20.0f, static_cast<float> (layerStateNode.getProperty (modulationRateParameterId, restoredLayer.modulationRateHz)));
-                restoredLayer.velocitySensitivity = juce::jlimit (0.0f, 1.0f, static_cast<float> (layerStateNode.getProperty (velocitySensitivityParameterId, restoredLayer.velocitySensitivity)));
+                restoredLayer.attackSeconds = clampAttackSeconds (static_cast<float> (layerStateNode.getProperty (attackParameterId, restoredLayer.attackSeconds)));
+                restoredLayer.decaySeconds = clampDecaySeconds (static_cast<float> (layerStateNode.getProperty (decayParameterId, restoredLayer.decaySeconds)));
+                restoredLayer.sustainLevel = clampSustainLevel (static_cast<float> (layerStateNode.getProperty (sustainParameterId, restoredLayer.sustainLevel)));
+                restoredLayer.releaseSeconds = clampReleaseSeconds (static_cast<float> (layerStateNode.getProperty (releaseParameterId, restoredLayer.releaseSeconds)));
+                restoredLayer.modulationDepth = clampModulationDepth (static_cast<float> (layerStateNode.getProperty (modulationDepthParameterId, restoredLayer.modulationDepth)));
+                restoredLayer.modulationRateHz = clampModulationRateHz (static_cast<float> (layerStateNode.getProperty (modulationRateParameterId, restoredLayer.modulationRateHz)));
+                restoredLayer.velocitySensitivity = clampVelocitySensitivity (static_cast<float> (layerStateNode.getProperty (velocitySensitivityParameterId, restoredLayer.velocitySensitivity)));
                 restoredLayer.modulationDestination = modDestinationFromChoiceIndex (static_cast<int> (layerStateNode.getProperty (modulationDestinationParameterId, modDestinationToChoiceIndex (restoredLayer.modulationDestination))));
-                restoredLayer.unisonVoices = juce::jlimit (1, 8, static_cast<int> (layerStateNode.getProperty (unisonVoicesParameterId, restoredLayer.unisonVoices)));
-                restoredLayer.unisonDetuneCents = juce::jlimit (0.0f, 50.0f, static_cast<float> (layerStateNode.getProperty (unisonDetuneCentsParameterId, restoredLayer.unisonDetuneCents)));
+                restoredLayer.unisonVoices = clampUnisonVoices (static_cast<int> (layerStateNode.getProperty (unisonVoicesParameterId, restoredLayer.unisonVoices)));
+                restoredLayer.unisonDetuneCents = clampUnisonDetuneCents (static_cast<float> (layerStateNode.getProperty (unisonDetuneCentsParameterId, restoredLayer.unisonDetuneCents)));
                 restoredLayer.outputStage = outputStageFromChoiceIndex (static_cast<int> (layerStateNode.getProperty (outputStageParameterId, outputStageToChoiceIndex (restoredLayer.outputStage))));
                 restoredLayer.rootNoteAbsolute = clampMidiNote (static_cast<int> (layerStateNode.getProperty (rootNoteAbsolutePropertyId, restoredLayer.rootNoteAbsolute)));
                 restoredLayer.mute = static_cast<bool> (layerStateNode.getProperty (mutePropertyId, restoredLayer.mute));
