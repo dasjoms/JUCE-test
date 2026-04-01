@@ -52,6 +52,16 @@ public:
 
     juce::AudioProcessorValueTreeState& getValueTreeState() noexcept { return parameters; }
     Waveform getWaveform() const noexcept;
+    static constexpr int minimumMidiNote = 0;
+    static constexpr int maximumMidiNote = 127;
+    static constexpr int defaultBaseLayerRootNote = 60; // C4
+
+    int getLayerCount() const noexcept;
+    int getLayerRootNoteAbsolute (std::size_t layerVisualIndex) const noexcept;
+    int getLayerRootNoteRelativeSemitones (std::size_t layerVisualIndex) const noexcept;
+    int setLayerRootNoteAbsolute (std::size_t layerVisualIndex, int absoluteMidiNote) noexcept;
+    int setLayerRootNoteRelativeSemitones (std::size_t layerVisualIndex, int relativeSemitones) noexcept;
+    static int clampMidiNote (int midiNote) noexcept;
 
 private:
     enum class StealPolicyParameterChoice

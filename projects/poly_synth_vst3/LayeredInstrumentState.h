@@ -30,7 +30,7 @@ struct LayerState
     SynthEngine::OutputStage outputStage = SynthEngine::OutputStage::normalizeVoiceSum;
     float velocitySensitivity = 0.0f;
 
-    int rootNoteAbsolute = 60;
+    int rootNoteAbsolute = 60; // Canonical absolute MIDI root note. Default C4 (MIDI 60).
     bool mute = false;
     bool solo = false;
     float layerVolume = 1.0f;
