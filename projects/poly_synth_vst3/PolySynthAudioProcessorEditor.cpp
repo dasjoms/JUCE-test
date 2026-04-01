@@ -97,8 +97,17 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     globalPanelPlaceholderLabel.setVisible (false);
     addAndMakeVisible (globalPanelPlaceholderLabel);
 
+    sidebarPanel.setText ("Sidebar");
+    addAndMakeVisible (sidebarPanel);
+
     layerListPanel.setText ("Layers");
     addAndMakeVisible (layerListPanel);
+
+    presetPanel.setText ("Preset Browser");
+    addAndMakeVisible (presetPanel);
+
+    marketplacePanel.setText ("Marketplace");
+    addAndMakeVisible (marketplacePanel);
 
     addLayerButton.setButtonText ("Add Layer");
     addLayerButton.onClick = [this] { showAddLayerMenu(); };
@@ -130,6 +139,22 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     presetStatusLabel.setJustificationType (juce::Justification::centredLeft);
     presetStatusLabel.setColour (juce::Label::textColourId, juce::Colours::lightgoldenrodyellow);
     addAndMakeVisible (presetStatusLabel);
+
+    marketplaceBrowseButton.setButtonText ("Browse");
+    marketplaceBrowseButton.setEnabled (false);
+    addAndMakeVisible (marketplaceBrowseButton);
+
+    marketplaceUploadButton.setButtonText ("Upload");
+    marketplaceUploadButton.setEnabled (false);
+    addAndMakeVisible (marketplaceUploadButton);
+
+    marketplaceSyncButton.setButtonText ("Sync");
+    marketplaceSyncButton.setEnabled (false);
+    addAndMakeVisible (marketplaceSyncButton);
+
+    marketplaceLoginStatusLabel.setText ("Login: Not connected", juce::dontSendNotification);
+    marketplaceLoginStatusLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (marketplaceLoginStatusLabel);
 
     inspectorTitleLabel.setText ("Selected Layer Controls", juce::dontSendNotification);
     inspectorTitleLabel.setJustificationType (juce::Justification::centredLeft);
@@ -420,22 +445,21 @@ void PolySynthAudioProcessorEditor::resized()
     }
 
     auto mainArea = bounds;
-    auto layerListBounds = mainArea.removeFromLeft (juce::jmax (220, mainArea.getWidth() / 3));
-    layerListPanel.setBounds (layerListBounds);
+    constexpr int sidebarMinWidth = 250;
+    constexpr int sidebarMaxWidth = 340;
+    constexpr int sidebarFixedWidth = 290;
+    const auto sidebarWidth = juce::jlimit (sidebarMinWidth, sidebarMaxWidth, sidebarFixedWidth);
+    auto sidebarBounds = mainArea.removeFromLeft (juce::jmin (sidebarWidth, mainArea.getWidth() - 220));
+    sidebarPanel.setBounds (sidebarBounds);
 
-    auto rowArea = layerListBounds.reduced (8, 28);
+    auto sidebarContent = sidebarBounds.reduced (8, 28);
+    auto layersBounds = sidebarContent.removeFromTop (juce::jmin (300, sidebarContent.getHeight() / 2));
+    layerListPanel.setBounds (layersBounds);
+
+    auto rowArea = layersBounds.reduced (8, 28);
     addLayerButton.setBounds (rowArea.removeFromTop (28));
     rowArea.removeFromTop (4);
     actionStatusLabel.setBounds (rowArea.removeFromTop (20));
-    rowArea.removeFromTop (4);
-    auto presetRow = rowArea.removeFromTop (28);
-    presetLabel.setBounds (presetRow.removeFromLeft (54));
-    presetSelector.setBounds (presetRow.removeFromLeft (juce::jmax (120, presetRow.getWidth() - 152)).reduced (2, 0));
-    presetLoadButton.setBounds (presetRow.removeFromLeft (42).reduced (1, 0));
-    presetSaveButton.setBounds (presetRow.removeFromLeft (42).reduced (1, 0));
-    presetSaveAsNewButton.setBounds (presetRow.reduced (1, 0));
-    rowArea.removeFromTop (2);
-    presetStatusLabel.setBounds (rowArea.removeFromTop (36));
     rowArea.removeFromTop (4);
     for (std::size_t i = 0; i < layerRows.size(); ++i)
     {
@@ -446,7 +470,32 @@ void PolySynthAudioProcessorEditor::resized()
             row.setBounds ({});
     }
 
-    auto content = mainArea.reduced (8, 0);
+    sidebarContent.removeFromTop (8);
+    auto presetBounds = sidebarContent.removeFromTop (124);
+    presetPanel.setBounds (presetBounds);
+    auto presetContent = presetBounds.reduced (8, 28);
+    auto presetRow = presetContent.removeFromTop (28);
+    presetLabel.setBounds (presetRow.removeFromLeft (54));
+    presetSelector.setBounds (presetRow);
+    presetContent.removeFromTop (4);
+    auto presetButtonsRow = presetContent.removeFromTop (28);
+    presetLoadButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
+    presetSaveButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
+    presetSaveAsNewButton.setBounds (presetButtonsRow.reduced (1, 0));
+    presetContent.removeFromTop (4);
+    presetStatusLabel.setBounds (presetContent.removeFromTop (34));
+
+    sidebarContent.removeFromTop (8);
+    marketplacePanel.setBounds (sidebarContent);
+    auto marketplaceContent = sidebarContent.reduced (8, 28);
+    auto marketplaceButtonsRow = marketplaceContent.removeFromTop (28);
+    marketplaceBrowseButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
+    marketplaceUploadButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
+    marketplaceSyncButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
+    marketplaceContent.removeFromTop (6);
+    marketplaceLoginStatusLabel.setBounds (marketplaceContent.removeFromTop (22));
+
+    auto content = mainArea.reduced (12, 0);
     inspectorTitleLabel.setBounds (content.removeFromTop (24));
     content.removeFromTop (6);
 

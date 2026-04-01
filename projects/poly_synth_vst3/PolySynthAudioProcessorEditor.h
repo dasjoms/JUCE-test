@@ -59,7 +59,10 @@ private:
     juce::ToggleButton globalPanelToggle;
     juce::GroupComponent globalPanel;
     juce::Label globalPanelPlaceholderLabel;
+    juce::GroupComponent sidebarPanel;
     juce::GroupComponent layerListPanel;
+    juce::GroupComponent presetPanel;
+    juce::GroupComponent marketplacePanel;
     juce::TextButton addLayerButton;
     juce::Label actionStatusLabel;
     juce::Label presetLabel;
@@ -68,6 +71,10 @@ private:
     juce::TextButton presetSaveButton;
     juce::TextButton presetSaveAsNewButton;
     juce::Label presetStatusLabel;
+    juce::TextButton marketplaceBrowseButton;
+    juce::TextButton marketplaceUploadButton;
+    juce::TextButton marketplaceSyncButton;
+    juce::Label marketplaceLoginStatusLabel;
     juce::Label inspectorTitleLabel;
     juce::Label emptyInspectorLabel;
     juce::Label titleLabel;
