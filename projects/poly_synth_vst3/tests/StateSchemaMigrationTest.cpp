@@ -97,27 +97,33 @@ bool expectSerializedSchemaVersion (const juce::MemoryBlock& serializedState, in
     return true;
 }
 
+bool restoreFromFixtureXml (PolySynthAudioProcessor& processor, const juce::String& xml, juce::StringRef context)
+{
+    auto fixture = juce::parseXML (xml);
+
+    if (fixture == nullptr)
+    {
+        std::cerr << "unable to parse fixture for " << juce::String (context) << '\n';
+        return false;
+    }
+
+    juce::MemoryBlock serializedState;
+    PolySynthAudioProcessor::copyXmlToBinary (*fixture, serializedState);
+    processor.setStateInformation (serializedState.getData(), static_cast<int> (serializedState.getSize()));
+    return true;
+}
+
 bool validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds()
 {
     PolySynthAudioProcessor processor;
 
-    auto legacyXml = juce::parseXML (R"xml(
+    return restoreFromFixtureXml (processor,
+                                  R"xml(
 <PARAMETERS>
   <PARAM id="waveform" value="3"/>
-</PARAMETERS>)xml");
-
-    if (legacyXml == nullptr)
-    {
-        std::cerr << "unable to parse legacy mono state fixture" << '\n';
-        return false;
-    }
-
-    juce::MemoryBlock serializedLegacyState;
-    PolySynthAudioProcessor::copyXmlToBinary (*legacyXml, serializedLegacyState);
-
-    processor.setStateInformation (serializedLegacyState.getData(), static_cast<int> (serializedLegacyState.getSize()));
-
-    return expectIntParameter (processor, waveformParameterId, 3, "legacy migration")
+</PARAMETERS>)xml",
+                                  "legacy mono migration")
+        && expectIntParameter (processor, waveformParameterId, 3, "legacy migration")
         && expectIntParameter (processor, maxVoicesParameterId, 1, "legacy migration default")
         && expectIntParameter (processor, stealPolicyParameterId, 0, "legacy migration default")
         && expectFloatParameter (processor, attackParameterId, 0.005f, "legacy migration default")
@@ -130,6 +136,65 @@ bool validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds()
         && expectIntParameter (processor, modulationDestinationParameterId, 0, "legacy migration default")
         && expectIntParameter (processor, unisonVoicesParameterId, 1, "legacy migration default")
         && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "legacy migration default");
+}
+
+bool validateSchemaV2MissingParametersDefaultAndKnownParametersRestore()
+{
+    PolySynthAudioProcessor processor;
+
+    return restoreFromFixtureXml (processor,
+                                  R"xml(
+<PARAMETERS schemaVersion="2">
+  <PARAM id="waveform" value="1"/>
+  <PARAM id="maxVoices" value="10"/>
+  <PARAM id="stealPolicy" value="2"/>
+  <PARAM id="attack" value="0.11"/>
+  <PARAM id="modDepth" value="0.48"/>
+</PARAMETERS>)xml",
+                                  "schema-v2 migration")
+        && expectIntParameter (processor, waveformParameterId, 1, "schema-v2 known restore")
+        && expectIntParameter (processor, maxVoicesParameterId, 10, "schema-v2 known restore")
+        && expectIntParameter (processor, stealPolicyParameterId, 2, "schema-v2 known restore")
+        && expectFloatParameter (processor, attackParameterId, 0.11f, "schema-v2 known restore")
+        && expectFloatParameter (processor, modulationDepthParameterId, 0.48f, "schema-v2 known restore")
+        && expectIntParameter (processor, unisonVoicesParameterId, 1, "schema-v2 missing default")
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "schema-v2 missing default");
+}
+
+bool validateRenamedLegacyParameterRestoresPredictably()
+{
+    PolySynthAudioProcessor processor;
+
+    return restoreFromFixtureXml (processor,
+                                  R"xml(
+<PARAMETERS schemaVersion="1">
+  <PARAM id="waveform" value="2"/>
+  <PARAM id="lfoDepth" value="0.37"/>
+</PARAMETERS>)xml",
+                                  "renamed parameter migration")
+        && expectIntParameter (processor, waveformParameterId, 2, "renamed parameter migration")
+        && expectFloatParameter (processor, modulationDepthParameterId, 0.37f, "renamed parameter migration");
+}
+
+bool validateOutOfRangeValuesAreClampedDuringMigration()
+{
+    PolySynthAudioProcessor processor;
+
+    return restoreFromFixtureXml (processor,
+                                  R"xml(
+<PARAMETERS schemaVersion="2">
+  <PARAM id="waveform" value="99"/>
+  <PARAM id="attack" value="-5.0"/>
+  <PARAM id="modRate" value="123.0"/>
+  <PARAM id="unisonVoices" value="100"/>
+  <PARAM id="unisonDetuneCents" value="-10"/>
+</PARAMETERS>)xml",
+                                  "out-of-range migration")
+        && expectIntParameter (processor, waveformParameterId, 3, "out-of-range clamped waveform")
+        && expectFloatParameter (processor, attackParameterId, 0.001f, "out-of-range clamped attack")
+        && expectFloatParameter (processor, modulationRateParameterId, 20.0f, "out-of-range clamped modRate")
+        && expectIntParameter (processor, unisonVoicesParameterId, 8, "out-of-range clamped unisonVoices")
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "out-of-range clamped unisonDetune");
 }
 
 bool validateCurrentVersionRoundTrip()
@@ -232,6 +297,15 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
 int main()
 {
     if (! validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds())
+        return 1;
+
+    if (! validateSchemaV2MissingParametersDefaultAndKnownParametersRestore())
+        return 1;
+
+    if (! validateRenamedLegacyParameterRestoresPredictably())
+        return 1;
+
+    if (! validateOutOfRangeValuesAreClampedDuringMigration())
         return 1;
 
     if (! validateCurrentVersionRoundTrip())

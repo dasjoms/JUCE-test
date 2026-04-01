@@ -92,6 +92,8 @@ private:
     static SynthEngine::VoiceStealPolicy stealPolicyFromParameterValue (float parameterValue) noexcept;
     static int stealPolicyToChoiceIndex (SynthEngine::VoiceStealPolicy policy) noexcept;
     static SynthEngine::VoiceStealPolicy stealPolicyFromChoiceIndex (int choiceIndex) noexcept;
+    void migrateV1ToV2 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
+    void migrateV2ToV3 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void restoreLegacyState (const juce::ValueTree& legacyState);
     static std::optional<float> findLegacyParameterValue (const juce::ValueTree& tree, juce::StringRef parameterId);
     static std::optional<float> parseWaveformLegacyValue (const juce::var& value);
