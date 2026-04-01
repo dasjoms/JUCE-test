@@ -1,13 +1,24 @@
 #include "../PolySynthAudioProcessor.h"
 
 #include <iostream>
+#include <vector>
 
 namespace
 {
+struct ParameterFixture
+{
+    juce::StringRef parameterId;
+    float value;
+    bool expectInteger;
+};
+
+constexpr auto waveformParameterId = "waveform";
 constexpr auto maxVoicesParameterId = "maxVoices";
 constexpr auto stealPolicyParameterId = "stealPolicy";
+constexpr auto attackParameterId = "attack";
 constexpr auto decayParameterId = "decay";
 constexpr auto sustainParameterId = "sustain";
+constexpr auto releaseParameterId = "release";
 constexpr auto modulationDepthParameterId = "modDepth";
 constexpr auto modulationRateParameterId = "modRate";
 constexpr auto modulationDestinationParameterId = "modDestination";
@@ -15,6 +26,23 @@ constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 constexpr auto outputStageParameterId = "outputStage";
+
+const std::vector<ParameterFixture> allUserFacingParameterFixtures {
+    { waveformParameterId, 3.0f, true },
+    { maxVoicesParameterId, 12.0f, true },
+    { stealPolicyParameterId, 2.0f, true },
+    { attackParameterId, 0.031f, false },
+    { decayParameterId, 0.12f, false },
+    { sustainParameterId, 0.45f, false },
+    { releaseParameterId, 0.61f, false },
+    { modulationDepthParameterId, 0.75f, false },
+    { modulationRateParameterId, 6.5f, false },
+    { modulationDestinationParameterId, 1.0f, true },
+    { velocitySensitivityParameterId, 0.85f, false },
+    { unisonVoicesParameterId, 5.0f, true },
+    { unisonDetuneCentsParameterId, 22.0f, false },
+    { outputStageParameterId, 2.0f, true }
+};
 
 float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
 {
@@ -37,22 +65,17 @@ bool setRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef p
 
 bool validatePolyParametersRoundTrip()
 {
+    // Regression guard: keep this fixture in sync with the current UI/APVTS user-facing parameter list.
     PolySynthAudioProcessor source;
 
-    if (! setRawParameterValue (source, maxVoicesParameterId, 12.0f)
-        || ! setRawParameterValue (source, stealPolicyParameterId, 2.0f)
-        || ! setRawParameterValue (source, decayParameterId, 0.12f)
-        || ! setRawParameterValue (source, sustainParameterId, 0.45f)
-        || ! setRawParameterValue (source, modulationDepthParameterId, 0.75f)
-        || ! setRawParameterValue (source, modulationRateParameterId, 6.5f)
-        || ! setRawParameterValue (source, velocitySensitivityParameterId, 0.85f)
-        || ! setRawParameterValue (source, modulationDestinationParameterId, 1.0f)
-        || ! setRawParameterValue (source, unisonVoicesParameterId, 5.0f)
-        || ! setRawParameterValue (source, unisonDetuneCentsParameterId, 22.0f)
-        || ! setRawParameterValue (source, outputStageParameterId, 2.0f))
+    for (const auto& fixture : allUserFacingParameterFixtures)
     {
-        std::cerr << "unable to configure source processor for round-trip test" << '\n';
-        return false;
+        if (! setRawParameterValue (source, fixture.parameterId, fixture.value))
+        {
+            std::cerr << "unable to configure source processor for round-trip test: "
+                      << juce::String (fixture.parameterId) << '\n';
+            return false;
+        }
     }
 
     juce::MemoryBlock state;
@@ -61,70 +84,27 @@ bool validatePolyParametersRoundTrip()
     PolySynthAudioProcessor restored;
     restored.setStateInformation (state.getData(), static_cast<int> (state.getSize()));
 
-    if (juce::roundToInt (getRawParameterValue (restored, maxVoicesParameterId)) != 12)
+    for (const auto& fixture : allUserFacingParameterFixtures)
     {
-        std::cerr << "maxVoices mismatch after round-trip" << '\n';
-        return false;
-    }
+        const auto actualValue = getRawParameterValue (restored, fixture.parameterId);
 
-    if (juce::roundToInt (getRawParameterValue (restored, stealPolicyParameterId)) != 2)
-    {
-        std::cerr << "stealPolicy mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (! juce::approximatelyEqual (getRawParameterValue (restored, modulationDepthParameterId), 0.75f))
-    {
-        std::cerr << "modulation depth mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (! juce::approximatelyEqual (getRawParameterValue (restored, modulationRateParameterId), 6.5f))
-    {
-        std::cerr << "modulation rate mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (juce::roundToInt (getRawParameterValue (restored, modulationDestinationParameterId)) != 1)
-    {
-        std::cerr << "modulation destination mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (! juce::approximatelyEqual (getRawParameterValue (restored, velocitySensitivityParameterId), 0.85f))
-    {
-        std::cerr << "velocity sensitivity mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (! juce::approximatelyEqual (getRawParameterValue (restored, decayParameterId), 0.12f))
-    {
-        std::cerr << "decay mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (! juce::approximatelyEqual (getRawParameterValue (restored, sustainParameterId), 0.45f))
-    {
-        std::cerr << "sustain mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (juce::roundToInt (getRawParameterValue (restored, unisonVoicesParameterId)) != 5)
-    {
-        std::cerr << "unisonVoices mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (! juce::approximatelyEqual (getRawParameterValue (restored, unisonDetuneCentsParameterId), 22.0f))
-    {
-        std::cerr << "unisonDetuneCents mismatch after round-trip" << '\n';
-        return false;
-    }
-
-    if (juce::roundToInt (getRawParameterValue (restored, outputStageParameterId)) != 2)
-    {
-        std::cerr << "outputStage mismatch after round-trip" << '\n';
-        return false;
+        if (fixture.expectInteger)
+        {
+            if (juce::roundToInt (actualValue) != juce::roundToInt (fixture.value))
+            {
+                std::cerr << "round-trip mismatch for " << juce::String (fixture.parameterId)
+                          << ": expected " << juce::roundToInt (fixture.value)
+                          << ", got " << juce::roundToInt (actualValue) << '\n';
+                return false;
+            }
+        }
+        else if (! juce::approximatelyEqual (actualValue, fixture.value))
+        {
+            std::cerr << "round-trip mismatch for " << juce::String (fixture.parameterId)
+                      << ": expected " << fixture.value
+                      << ", got " << actualValue << '\n';
+            return false;
+        }
     }
 
     return true;
