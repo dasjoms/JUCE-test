@@ -17,6 +17,11 @@ const std::vector<uint64_t>& InstrumentState::getLayerOrder() const noexcept
     return layerOrder;
 }
 
+uint64_t InstrumentState::getNextLayerId() const noexcept
+{
+    return nextLayerId;
+}
+
 LayerState* InstrumentState::findLayerById (uint64_t layerId) noexcept
 {
     const auto it = std::find_if (layers.begin(),
