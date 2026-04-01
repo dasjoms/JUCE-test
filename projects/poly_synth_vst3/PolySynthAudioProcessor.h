@@ -66,6 +66,13 @@ private:
         pulseWidth
     };
 
+    enum class OutputStageParameterChoice
+    {
+        none = 0,
+        normalizeVoiceSum,
+        softLimit
+    };
+
     struct EngineParameterSnapshot
     {
         Waveform waveform = Waveform::sine;
@@ -81,6 +88,7 @@ private:
         SynthVoice::ModulationDestination modulationDestination = SynthVoice::ModulationDestination::amplitude;
         int unisonVoices = 1;
         float unisonDetuneCents = 0.0f;
+        SynthEngine::OutputStage outputStage = SynthEngine::OutputStage::normalizeVoiceSum;
     };
 
     static juce::AudioProcessorValueTreeState::ParameterLayout createParameterLayout();
@@ -94,6 +102,7 @@ private:
     static SynthEngine::VoiceStealPolicy stealPolicyFromChoiceIndex (int choiceIndex) noexcept;
     void migrateV1ToV2 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void migrateV2ToV3 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
+    void migrateV3ToV4 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void restoreLegacyState (const juce::ValueTree& legacyState);
     static std::optional<float> findLegacyParameterValue (const juce::ValueTree& tree, juce::StringRef parameterId);
     static std::optional<float> parseWaveformLegacyValue (const juce::var& value);
@@ -102,6 +111,10 @@ private:
     static int modDestinationToChoiceIndex (SynthVoice::ModulationDestination destination) noexcept;
     static SynthVoice::ModulationDestination modDestinationFromChoiceIndex (int choiceIndex) noexcept;
     static const juce::StringArray& getModDestinationChoices() noexcept;
+    static SynthEngine::OutputStage outputStageFromParameterValue (float parameterValue) noexcept;
+    static int outputStageToChoiceIndex (SynthEngine::OutputStage outputStage) noexcept;
+    static SynthEngine::OutputStage outputStageFromChoiceIndex (int choiceIndex) noexcept;
+    static const juce::StringArray& getOutputStageChoices() noexcept;
 
     juce::AudioProcessorValueTreeState parameters;
     std::atomic<float>* waveformParameter = nullptr;
@@ -117,6 +130,7 @@ private:
     std::atomic<float>* modulationDestinationParameter = nullptr;
     std::atomic<float>* unisonVoicesParameter = nullptr;
     std::atomic<float>* unisonDetuneCentsParameter = nullptr;
+    std::atomic<float>* outputStageParameter = nullptr;
     std::atomic<Waveform> waveform { Waveform::sine };
     EngineParameterSnapshot parameterSnapshot;
     SynthEngine synthEngine;

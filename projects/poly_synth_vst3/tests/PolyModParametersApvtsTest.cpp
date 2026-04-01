@@ -13,6 +13,7 @@ constexpr auto decayParameterId = "decay";
 constexpr auto sustainParameterId = "sustain";
 constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
+constexpr auto outputStageParameterId = "outputStage";
 
 bool setRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
 {
@@ -36,9 +37,10 @@ bool validateModulationParametersPresentAndWritable()
     auto* velocitySensitivityRaw = apvts.getRawParameterValue (velocitySensitivityParameterId);
     auto* unisonVoicesRaw = apvts.getRawParameterValue (unisonVoicesParameterId);
     auto* unisonDetuneRaw = apvts.getRawParameterValue (unisonDetuneCentsParameterId);
+    auto* outputStageRaw = apvts.getRawParameterValue (outputStageParameterId);
 
     if (depthRaw == nullptr || rateRaw == nullptr || destinationRaw == nullptr || velocitySensitivityRaw == nullptr
-        || unisonVoicesRaw == nullptr || unisonDetuneRaw == nullptr)
+        || unisonVoicesRaw == nullptr || unisonDetuneRaw == nullptr || outputStageRaw == nullptr)
     {
         std::cerr << "missing one or more modulation parameters in APVTS" << '\n';
         return false;
@@ -50,13 +52,15 @@ bool validateModulationParametersPresentAndWritable()
     constexpr auto velocitySensitivityTarget = 0.74f;
     constexpr auto unisonVoicesTarget = 4.0f;
     constexpr auto unisonDetuneTarget = 12.5f;
+    constexpr auto outputStageTarget = 2.0f;
 
     if (! setRawParameterValue (processor, modulationDepthParameterId, depthTarget)
         || ! setRawParameterValue (processor, modulationRateParameterId, rateTarget)
         || ! setRawParameterValue (processor, modulationDestinationParameterId, destinationTarget)
         || ! setRawParameterValue (processor, velocitySensitivityParameterId, velocitySensitivityTarget)
         || ! setRawParameterValue (processor, unisonVoicesParameterId, unisonVoicesTarget)
-        || ! setRawParameterValue (processor, unisonDetuneCentsParameterId, unisonDetuneTarget))
+        || ! setRawParameterValue (processor, unisonDetuneCentsParameterId, unisonDetuneTarget)
+        || ! setRawParameterValue (processor, outputStageParameterId, outputStageTarget))
     {
         std::cerr << "unable to write modulation parameters through APVTS" << '\n';
         return false;
@@ -95,6 +99,12 @@ bool validateModulationParametersPresentAndWritable()
     if (! juce::approximatelyEqual (unisonDetuneRaw->load(), unisonDetuneTarget))
     {
         std::cerr << "unisonDetuneCents write mismatch" << '\n';
+        return false;
+    }
+
+    if (juce::roundToInt (outputStageRaw->load()) != static_cast<int> (outputStageTarget))
+    {
+        std::cerr << "outputStage write mismatch" << '\n';
         return false;
     }
 
@@ -155,9 +165,11 @@ bool validateEditorControlAttachmentsForEngineParameters()
     auto* destinationControl = dynamic_cast<juce::ComboBox*> (editor.findChildWithID ("modDestinationSelector"));
     auto* unisonVoicesControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("unisonVoicesSlider"));
     auto* unisonDetuneControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("unisonDetuneCentsSlider"));
+    auto* outputStageControl = dynamic_cast<juce::ComboBox*> (editor.findChildWithID ("outputStageSelector"));
 
     if (decayControl == nullptr || sustainControl == nullptr || velocityControl == nullptr
-        || destinationControl == nullptr || unisonVoicesControl == nullptr || unisonDetuneControl == nullptr)
+        || destinationControl == nullptr || unisonVoicesControl == nullptr || unisonDetuneControl == nullptr
+        || outputStageControl == nullptr)
     {
         std::cerr << "missing one or more UI controls for engine-facing APVTS parameters" << '\n';
         return false;
@@ -187,6 +199,12 @@ bool validateEditorControlAttachmentsForEngineParameters()
     if (destinationControl->getNumItems() < 2)
     {
         std::cerr << "mod destination control choices missing" << '\n';
+        return false;
+    }
+
+    if (outputStageControl->getNumItems() != 3)
+    {
+        std::cerr << "output stage control choices missing" << '\n';
         return false;
     }
 
