@@ -200,9 +200,10 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (modDestinationLabel);
 
     modDestinationSelector.setComponentID ("modDestinationSelector");
-    modDestinationSelector.addItem ("Amplitude", 1);
-    modDestinationSelector.addItem ("Pitch", 2);
-    modDestinationSelector.addItem ("Pulse Width", 3);
+    modDestinationSelector.addItem ("Off", 1);
+    modDestinationSelector.addItem ("Amplitude", 2);
+    modDestinationSelector.addItem ("Pitch", 3);
+    modDestinationSelector.addItem ("Pulse Width", 4);
     addAndMakeVisible (modDestinationSelector);
 
     unisonVoicesLabel.setText ("Unison Voices", juce::dontSendNotification);

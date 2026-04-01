@@ -91,6 +91,23 @@ bool validateModulationIsDeterministicPerVoice()
     return true;
 }
 
+bool validateOffDestinationBypassesModulation()
+{
+    const auto dry = renderVoice (0.0f, 6.0f, SynthVoice::ModulationDestination::off, SynthVoice::Waveform::square, 512);
+    const auto modulatedButOff = renderVoice (0.95f, 6.0f, SynthVoice::ModulationDestination::off, SynthVoice::Waveform::square, 512);
+
+    for (size_t sample = 0; sample < dry.size(); ++sample)
+    {
+        if (std::abs (dry[sample] - modulatedButOff[sample]) > 1.0e-7f)
+        {
+            std::cerr << "expected modulation destination Off to bypass modulation at sample " << sample << '\n';
+            return false;
+        }
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -105,6 +122,9 @@ int main()
         return 1;
 
     if (! validateModulationIsDeterministicPerVoice())
+        return 1;
+
+    if (! validateOffDestinationBypassesModulation())
         return 1;
 
     std::cout << "synth voice modulation validation passed." << '\n';

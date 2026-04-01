@@ -86,7 +86,8 @@ private:
 
     enum class ModDestinationParameterChoice
     {
-        amplitude = 0,
+        off = 0,
+        amplitude,
         pitch,
         pulseWidth
     };
@@ -110,7 +111,7 @@ private:
         float modulationDepth = 0.0f;
         float modulationRateHz = 0.0f;
         float velocitySensitivity = 0.0f;
-        SynthVoice::ModulationDestination modulationDestination = SynthVoice::ModulationDestination::amplitude;
+        SynthVoice::ModulationDestination modulationDestination = SynthVoice::ModulationDestination::off;
         int unisonVoices = 1;
         float unisonDetuneCents = 0.0f;
         SynthEngine::OutputStage outputStage = SynthEngine::OutputStage::normalizeVoiceSum;
@@ -129,6 +130,7 @@ private:
     void migrateV2ToV3 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void migrateV3ToV4 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void migrateV4ToV5 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
+    void migrateV5ToV6 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void restoreLegacyState (const juce::ValueTree& legacyState);
     void writeLayeredStateToTree (juce::ValueTree& stateTree) const;
     void loadLayeredStateFromTree (const juce::ValueTree& stateTree);

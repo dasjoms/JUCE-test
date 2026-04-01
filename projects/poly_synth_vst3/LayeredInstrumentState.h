@@ -22,7 +22,7 @@ struct LayerState
 
     float modulationDepth = 0.0f;
     float modulationRateHz = 2.0f;
-    SynthVoice::ModulationDestination modulationDestination = SynthVoice::ModulationDestination::amplitude;
+    SynthVoice::ModulationDestination modulationDestination = SynthVoice::ModulationDestination::off;
 
     int unisonVoices = 1;
     float unisonDetuneCents = 0.0f;

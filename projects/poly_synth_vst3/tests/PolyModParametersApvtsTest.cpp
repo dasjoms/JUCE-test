@@ -48,7 +48,7 @@ bool validateModulationParametersPresentAndWritable()
 
     constexpr auto depthTarget = 0.67f;
     constexpr auto rateTarget = 7.25f;
-    constexpr auto destinationTarget = 1.0f;
+    constexpr auto destinationTarget = 0.0f;
     constexpr auto velocitySensitivityTarget = 0.74f;
     constexpr auto unisonVoicesTarget = 4.0f;
     constexpr auto unisonDetuneTarget = 12.5f;
@@ -196,9 +196,15 @@ bool validateEditorControlAttachmentsForEngineParameters()
         return false;
     }
 
-    if (destinationControl->getNumItems() < 2)
+    if (destinationControl->getNumItems() != 4)
     {
         std::cerr << "mod destination control choices missing" << '\n';
+        return false;
+    }
+
+    if (destinationControl->getItemText (0) != "Off")
+    {
+        std::cerr << "mod destination control first choice should be Off" << '\n';
         return false;
     }
 

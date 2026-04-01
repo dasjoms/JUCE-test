@@ -7,8 +7,8 @@ namespace
 {
 struct SchemaExpectation
 {
-    int currentSchemaVersion = 5;
-    int futureExpansionFixtureVersion = 6;
+    int currentSchemaVersion = 6;
+    int futureExpansionFixtureVersion = 7;
 };
 
 constexpr SchemaExpectation expectedSchema {};
@@ -278,6 +278,19 @@ bool validateRenamedLegacyParameterRestoresPredictably()
         && expectFloatParameter (processor, modulationDepthParameterId, 0.37f, "renamed parameter migration");
 }
 
+bool validateLegacyModDestinationMappingPreservesIntent()
+{
+    PolySynthAudioProcessor processor;
+
+    return restoreFromFixtureXml (processor,
+                                  R"xml(
+<PARAMETERS schemaVersion="5">
+  <PARAM id="modDestination" value="0"/>
+</PARAMETERS>)xml",
+                                  "legacy mod destination mapping")
+        && expectIntParameter (processor, modulationDestinationParameterId, 1, "legacy mod destination mapping");
+}
+
 bool validateOutOfRangeValuesAreClampedDuringMigration()
 {
     PolySynthAudioProcessor processor;
@@ -321,7 +334,7 @@ bool validateV1ThroughV4MigrateToSingleLayerAndPreserveSound()
             || ! expectFloatParameter (processor, releaseParameterId, 0.66f, context)
             || ! expectFloatParameter (processor, modulationDepthParameterId, 0.3f, context)
             || ! expectFloatParameter (processor, modulationRateParameterId, 5.5f, context)
-            || ! expectIntParameter (processor, modulationDestinationParameterId, 1, context)
+            || ! expectIntParameter (processor, modulationDestinationParameterId, 2, context)
             || ! expectIntParameter (processor, unisonVoicesParameterId, 4, context)
             || ! expectFloatParameter (processor, unisonDetuneCentsParameterId, 12.0f, context)
             || ! expectIntParameter (processor, outputStageParameterId, 2, context)
@@ -342,6 +355,7 @@ bool validateMigratedDefaultsDoNotColorSound()
 
     return expectFloatParameter (processor, modulationDepthParameterId, 0.0f, "sound-color default regression")
         && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "sound-color default regression")
+        && expectIntParameter (processor, modulationDestinationParameterId, 0, "sound-color default regression")
         && expectIntParameter (processor, unisonVoicesParameterId, 1, "sound-color default regression")
         && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "sound-color default regression")
         && expectIntParameter (processor, outputStageParameterId, 1, "sound-color default regression");
@@ -361,7 +375,7 @@ bool validateCurrentVersionRoundTrip()
         || ! setRawParameterValue (sourceProcessor, modulationDepthParameterId, 0.77f)
         || ! setRawParameterValue (sourceProcessor, modulationRateParameterId, 7.25f)
         || ! setRawParameterValue (sourceProcessor, velocitySensitivityParameterId, 0.63f)
-        || ! setRawParameterValue (sourceProcessor, modulationDestinationParameterId, 2.0f)
+        || ! setRawParameterValue (sourceProcessor, modulationDestinationParameterId, 3.0f)
         || ! setRawParameterValue (sourceProcessor, unisonVoicesParameterId, 4.0f)
         || ! setRawParameterValue (sourceProcessor, unisonDetuneCentsParameterId, 16.5f)
         || ! setRawParameterValue (sourceProcessor, outputStageParameterId, 2.0f))
@@ -389,7 +403,7 @@ bool validateCurrentVersionRoundTrip()
         && expectFloatParameter (restoredProcessor, modulationDepthParameterId, 0.77f, "current-version restore")
         && expectFloatParameter (restoredProcessor, modulationRateParameterId, 7.25f, "current-version restore")
         && expectFloatParameter (restoredProcessor, velocitySensitivityParameterId, 0.63f, "current-version restore")
-        && expectIntParameter (restoredProcessor, modulationDestinationParameterId, 2, "current-version restore")
+        && expectIntParameter (restoredProcessor, modulationDestinationParameterId, 3, "current-version restore")
         && expectIntParameter (restoredProcessor, unisonVoicesParameterId, 4, "current-version restore")
         && expectFloatParameter (restoredProcessor, unisonDetuneCentsParameterId, 16.5f, "current-version restore")
         && expectIntParameter (restoredProcessor, outputStageParameterId, 2, "current-version restore");
@@ -400,7 +414,7 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
     PolySynthAudioProcessor processor;
 
     auto futureFixtureXml = juce::parseXML (R"xml(
-<PARAMETERS schemaVersion="6">
+<PARAMETERS schemaVersion="7">
   <PARAM id="waveform" value="1"/>
   <PARAM id="maxVoices" value="12"/>
   <PARAM id="stealPolicy" value="1"/>
@@ -456,6 +470,9 @@ int main()
         return 1;
 
     if (! validateRenamedLegacyParameterRestoresPredictably())
+        return 1;
+
+    if (! validateLegacyModDestinationMappingPreservesIntent())
         return 1;
 
     if (! validateOutOfRangeValuesAreClampedDuringMigration())

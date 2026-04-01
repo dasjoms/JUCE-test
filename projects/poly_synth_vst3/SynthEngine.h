@@ -68,7 +68,7 @@ private:
     float currentModulationDepth = 0.0f;
     float currentModulationRateHz = 0.0f;
     float currentVelocitySensitivity = 0.0f;
-    SynthVoice::ModulationDestination currentModulationDestination = SynthVoice::ModulationDestination::amplitude;
+    SynthVoice::ModulationDestination currentModulationDestination = SynthVoice::ModulationDestination::off;
     uint64_t noteStartCounter = 0;
     int nextVoiceGroupId = 1;
     int currentUnisonVoices = 1;
