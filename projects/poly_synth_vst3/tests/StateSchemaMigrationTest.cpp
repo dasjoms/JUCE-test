@@ -1,13 +1,14 @@
 #include "../PolySynthAudioProcessor.h"
 
 #include <iostream>
+#include <vector>
 
 namespace
 {
 struct SchemaExpectation
 {
-    int currentSchemaVersion = 4;
-    int futureExpansionFixtureVersion = 5;
+    int currentSchemaVersion = 5;
+    int futureExpansionFixtureVersion = 6;
 };
 
 constexpr SchemaExpectation expectedSchema {};
@@ -27,6 +28,14 @@ constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 constexpr auto outputStageParameterId = "outputStage";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
+constexpr auto layersNodeId = "LAYERS";
+constexpr auto layerNodeId = "LAYER";
+constexpr auto layerStateNodeId = "layerState";
+constexpr auto layerOrderNodeId = "LAYER_ORDER";
+constexpr auto selectedLayerIdPropertyId = "selectedLayerId";
+constexpr auto layerIdPropertyId = "layerId";
+constexpr auto orderLayerIdPropertyId = "layerId";
+constexpr auto rootNoteAbsolutePropertyId = "rootNoteAbsolute";
 
 float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
 {
@@ -140,6 +149,96 @@ bool validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds()
         && expectIntParameter (processor, outputStageParameterId, 1, "legacy migration default");
 }
 
+bool expectSerializedSingleBaseLayerWithSelection (PolySynthAudioProcessor& processor, juce::StringRef context)
+{
+    juce::MemoryBlock state;
+    processor.getStateInformation (state);
+
+    auto xml = PolySynthAudioProcessor::getXmlFromBinary (state.getData(), static_cast<int> (state.getSize()));
+    if (xml == nullptr)
+    {
+        std::cerr << "unable to parse serialized state for " << juce::String (context) << '\n';
+        return false;
+    }
+
+    auto layersNode = xml->getChildByName (layersNodeId);
+    if (layersNode == nullptr)
+    {
+        std::cerr << "missing layered state node for " << juce::String (context) << '\n';
+        return false;
+    }
+
+    const auto layerNodes = layersNode->getChildIterator();
+    int layerCount = 0;
+    int orderCount = 0;
+    int64_t firstLayerId = 0;
+    int64_t firstOrderId = 0;
+
+    for (auto* child : layerNodes)
+    {
+        if (child->hasTagName (layerNodeId))
+        {
+            ++layerCount;
+            if (layerCount == 1)
+            {
+                firstLayerId = child->getIntAttribute (layerIdPropertyId, 0);
+                if (child->getChildByName (layerStateNodeId) == nullptr)
+                {
+                    std::cerr << "missing layerState payload for " << juce::String (context) << '\n';
+                    return false;
+                }
+            }
+        }
+        else if (child->hasTagName (layerOrderNodeId))
+        {
+            for (auto* item : child->getChildIterator())
+            {
+                if (item->hasTagName ("ITEM"))
+                {
+                    ++orderCount;
+                    if (orderCount == 1)
+                        firstOrderId = item->getIntAttribute (orderLayerIdPropertyId, 0);
+                }
+            }
+        }
+    }
+
+    if (layerCount != 1 || orderCount != 1)
+    {
+        std::cerr << "expected exactly one layer/order entry for " << juce::String (context)
+                  << " got layers=" << layerCount << " order=" << orderCount << '\n';
+        return false;
+    }
+
+    if (firstLayerId <= 0 || firstOrderId != firstLayerId)
+    {
+        std::cerr << "layer identity/order mismatch for " << juce::String (context) << '\n';
+        return false;
+    }
+
+    if (layersNode->getIntAttribute (selectedLayerIdPropertyId, 0) != firstLayerId)
+    {
+        std::cerr << "selected layer id mismatch for " << juce::String (context) << '\n';
+        return false;
+    }
+
+    auto* layerNode = layersNode->getChildByName (layerNodeId);
+    if (layerNode == nullptr)
+        return false;
+
+    auto* layerState = layerNode->getChildByName (layerStateNodeId);
+    if (layerState == nullptr)
+        return false;
+
+    if (layerState->getIntAttribute (rootNoteAbsolutePropertyId, -1) != 60)
+    {
+        std::cerr << "root note default mismatch for " << juce::String (context) << '\n';
+        return false;
+    }
+
+    return true;
+}
+
 bool validateSchemaV2MissingParametersDefaultAndKnownParametersRestore()
 {
     PolySynthAudioProcessor processor;
@@ -200,6 +299,54 @@ bool validateOutOfRangeValuesAreClampedDuringMigration()
         && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "out-of-range clamped unisonDetune");
 }
 
+bool validateV1ThroughV4MigrateToSingleLayerAndPreserveSound()
+{
+    struct Fixture { int schemaVersion; juce::String xml; };
+    const std::vector<Fixture> fixtures {
+        { 1, R"xml(<PARAMETERS schemaVersion="1"><PARAM id="waveform" value="2"/><PARAM id="attack" value="0.17"/><PARAM id="decay" value="0.13"/><PARAM id="sustain" value="0.42"/><PARAM id="release" value="0.66"/><PARAM id="modDepth" value="0.3"/><PARAM id="modRate" value="5.5"/><PARAM id="modDestination" value="1"/><PARAM id="unisonVoices" value="4"/><PARAM id="unisonDetuneCents" value="12.0"/><PARAM id="outputStage" value="2"/></PARAMETERS>)xml" },
+        { 2, R"xml(<PARAMETERS schemaVersion="2"><PARAM id="waveform" value="2"/><PARAM id="attack" value="0.17"/><PARAM id="decay" value="0.13"/><PARAM id="sustain" value="0.42"/><PARAM id="release" value="0.66"/><PARAM id="modDepth" value="0.3"/><PARAM id="modRate" value="5.5"/><PARAM id="modDestination" value="1"/><PARAM id="unisonVoices" value="4"/><PARAM id="unisonDetuneCents" value="12.0"/><PARAM id="outputStage" value="2"/></PARAMETERS>)xml" },
+        { 3, R"xml(<PARAMETERS schemaVersion="3"><PARAM id="waveform" value="2"/><PARAM id="attack" value="0.17"/><PARAM id="decay" value="0.13"/><PARAM id="sustain" value="0.42"/><PARAM id="release" value="0.66"/><PARAM id="modDepth" value="0.3"/><PARAM id="modRate" value="5.5"/><PARAM id="modDestination" value="1"/><PARAM id="unisonVoices" value="4"/><PARAM id="unisonDetuneCents" value="12.0"/><PARAM id="outputStage" value="2"/></PARAMETERS>)xml" },
+        { 4, R"xml(<PARAMETERS schemaVersion="4"><PARAM id="waveform" value="2"/><PARAM id="attack" value="0.17"/><PARAM id="decay" value="0.13"/><PARAM id="sustain" value="0.42"/><PARAM id="release" value="0.66"/><PARAM id="modDepth" value="0.3"/><PARAM id="modRate" value="5.5"/><PARAM id="modDestination" value="1"/><PARAM id="unisonVoices" value="4"/><PARAM id="unisonDetuneCents" value="12.0"/><PARAM id="outputStage" value="2"/></PARAMETERS>)xml" }
+    };
+
+    for (const auto& fixture : fixtures)
+    {
+        PolySynthAudioProcessor processor;
+        const auto context = "schema-v" + juce::String (fixture.schemaVersion) + " layered migration";
+        if (! restoreFromFixtureXml (processor, fixture.xml, context)
+            || ! expectIntParameter (processor, waveformParameterId, 2, context)
+            || ! expectFloatParameter (processor, attackParameterId, 0.17f, context)
+            || ! expectFloatParameter (processor, decayParameterId, 0.13f, context)
+            || ! expectFloatParameter (processor, sustainParameterId, 0.42f, context)
+            || ! expectFloatParameter (processor, releaseParameterId, 0.66f, context)
+            || ! expectFloatParameter (processor, modulationDepthParameterId, 0.3f, context)
+            || ! expectFloatParameter (processor, modulationRateParameterId, 5.5f, context)
+            || ! expectIntParameter (processor, modulationDestinationParameterId, 1, context)
+            || ! expectIntParameter (processor, unisonVoicesParameterId, 4, context)
+            || ! expectFloatParameter (processor, unisonDetuneCentsParameterId, 12.0f, context)
+            || ! expectIntParameter (processor, outputStageParameterId, 2, context)
+            || ! expectSerializedSingleBaseLayerWithSelection (processor, context))
+            return false;
+    }
+
+    return true;
+}
+
+bool validateMigratedDefaultsDoNotColorSound()
+{
+    PolySynthAudioProcessor processor;
+    if (! restoreFromFixtureXml (processor,
+                                 R"xml(<PARAMETERS schemaVersion="1"><PARAM id="waveform" value="0"/></PARAMETERS>)xml",
+                                 "sound-color default regression"))
+        return false;
+
+    return expectFloatParameter (processor, modulationDepthParameterId, 0.0f, "sound-color default regression")
+        && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "sound-color default regression")
+        && expectIntParameter (processor, unisonVoicesParameterId, 1, "sound-color default regression")
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "sound-color default regression")
+        && expectIntParameter (processor, outputStageParameterId, 1, "sound-color default regression");
+}
+
 bool validateCurrentVersionRoundTrip()
 {
     PolySynthAudioProcessor sourceProcessor;
@@ -253,7 +400,7 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
     PolySynthAudioProcessor processor;
 
     auto futureFixtureXml = juce::parseXML (R"xml(
-<PARAMETERS schemaVersion="5">
+<PARAMETERS schemaVersion="6">
   <PARAM id="waveform" value="1"/>
   <PARAM id="maxVoices" value="12"/>
   <PARAM id="stealPolicy" value="1"/>
@@ -312,6 +459,12 @@ int main()
         return 1;
 
     if (! validateOutOfRangeValuesAreClampedDuringMigration())
+        return 1;
+
+    if (! validateV1ThroughV4MigrateToSingleLayerAndPreserveSound())
+        return 1;
+
+    if (! validateMigratedDefaultsDoNotColorSound())
         return 1;
 
     if (! validateCurrentVersionRoundTrip())

@@ -115,7 +115,10 @@ private:
     void migrateV1ToV2 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void migrateV2ToV3 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void migrateV3ToV4 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
+    void migrateV4ToV5 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState);
     void restoreLegacyState (const juce::ValueTree& legacyState);
+    void writeLayeredStateToTree (juce::ValueTree& stateTree) const;
+    void loadLayeredStateFromTree (const juce::ValueTree& stateTree);
     static std::optional<float> findLegacyParameterValue (const juce::ValueTree& tree, juce::StringRef parameterId);
     static std::optional<float> parseWaveformLegacyValue (const juce::var& value);
     static const juce::StringArray& getWaveformChoices() noexcept;
@@ -162,6 +165,7 @@ private:
     std::array<LayerRuntime, maxRuntimeLayers> layerRuntimes;
     std::array<uint64_t, maxRuntimeLayers> activeLayerOrder {};
     std::size_t activeLayerCount = 0;
+    uint64_t selectedLayerId = 0;
     bool isPrepared = false;
     double preparedSampleRate = 44100.0;
     int preparedSamplesPerBlock = 0;
