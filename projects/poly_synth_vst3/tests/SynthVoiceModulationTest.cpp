@@ -9,11 +9,12 @@ namespace
 std::vector<float> renderVoice (float modulationDepth,
                                 float modulationRateHz,
                                 SynthVoice::ModulationDestination destination,
+                                SynthVoice::Waveform waveform,
                                 int sampleCount)
 {
     SynthVoice voice;
     voice.prepare (48000.0);
-    voice.setWaveform (SynthVoice::Waveform::sine);
+    voice.setWaveform (waveform);
     voice.setEnvelopeTimes (0.001f, 0.04f, 0.9f, 0.05f);
     voice.setModulationParameters (modulationDepth, modulationRateHz, destination);
     voice.noteOn (60, 1.0f);
@@ -39,8 +40,8 @@ bool renderedBuffersDiffer (const std::vector<float>& lhs, const std::vector<flo
 
 bool validateAmplitudeDestinationChangesOutput()
 {
-    const auto dry = renderVoice (0.0f, 5.0f, SynthVoice::ModulationDestination::amplitude, 512);
-    const auto tremolo = renderVoice (1.0f, 5.0f, SynthVoice::ModulationDestination::amplitude, 512);
+    const auto dry = renderVoice (0.0f, 5.0f, SynthVoice::ModulationDestination::amplitude, SynthVoice::Waveform::sine, 512);
+    const auto tremolo = renderVoice (1.0f, 5.0f, SynthVoice::ModulationDestination::amplitude, SynthVoice::Waveform::sine, 512);
 
     if (renderedBuffersDiffer (dry, tremolo, 1.0e-5f))
         return true;
@@ -51,8 +52,8 @@ bool validateAmplitudeDestinationChangesOutput()
 
 bool validatePitchDestinationChangesOutput()
 {
-    const auto dry = renderVoice (0.0f, 5.0f, SynthVoice::ModulationDestination::pitch, 512);
-    const auto vibrato = renderVoice (0.8f, 5.0f, SynthVoice::ModulationDestination::pitch, 512);
+    const auto dry = renderVoice (0.0f, 5.0f, SynthVoice::ModulationDestination::pitch, SynthVoice::Waveform::sine, 512);
+    const auto vibrato = renderVoice (0.8f, 5.0f, SynthVoice::ModulationDestination::pitch, SynthVoice::Waveform::sine, 512);
 
     if (renderedBuffersDiffer (dry, vibrato, 1.0e-5f))
         return true;
@@ -61,22 +62,22 @@ bool validatePitchDestinationChangesOutput()
     return false;
 }
 
-bool validatePulseWidthDestinationIsCurrentlyNeutral()
+bool validatePulseWidthDestinationChangesSquareOutput()
 {
-    const auto dry = renderVoice (0.0f, 5.0f, SynthVoice::ModulationDestination::pulseWidth, 512);
-    const auto pulseWidthPlaceholder = renderVoice (0.9f, 5.0f, SynthVoice::ModulationDestination::pulseWidth, 512);
+    const auto dry = renderVoice (0.0f, 5.0f, SynthVoice::ModulationDestination::pulseWidth, SynthVoice::Waveform::square, 512);
+    const auto pulseWidthModulated = renderVoice (0.9f, 5.0f, SynthVoice::ModulationDestination::pulseWidth, SynthVoice::Waveform::square, 512);
 
-    if (! renderedBuffersDiffer (dry, pulseWidthPlaceholder, 1.0e-7f))
+    if (renderedBuffersDiffer (dry, pulseWidthModulated, 1.0e-5f))
         return true;
 
-    std::cerr << "pulse-width destination placeholder should currently be neutral" << '\n';
+    std::cerr << "expected pulse-width destination to change square-wave output" << '\n';
     return false;
 }
 
 bool validateModulationIsDeterministicPerVoice()
 {
-    const auto firstPass = renderVoice (0.67f, 7.5f, SynthVoice::ModulationDestination::pitch, 512);
-    const auto secondPass = renderVoice (0.67f, 7.5f, SynthVoice::ModulationDestination::pitch, 512);
+    const auto firstPass = renderVoice (0.67f, 7.5f, SynthVoice::ModulationDestination::pitch, SynthVoice::Waveform::sine, 512);
+    const auto secondPass = renderVoice (0.67f, 7.5f, SynthVoice::ModulationDestination::pitch, SynthVoice::Waveform::sine, 512);
 
     for (size_t sample = 0; sample < firstPass.size(); ++sample)
     {
@@ -100,7 +101,7 @@ int main()
     if (! validatePitchDestinationChangesOutput())
         return 1;
 
-    if (! validatePulseWidthDestinationIsCurrentlyNeutral())
+    if (! validatePulseWidthDestinationChangesSquareOutput())
         return 1;
 
     if (! validateModulationIsDeterministicPerVoice())

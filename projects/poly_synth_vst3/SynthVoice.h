@@ -69,7 +69,7 @@ private:
     void updatePhaseIncrement() noexcept;
     double getDetunedFrequencyHz (double baseFrequencyHz) const noexcept;
     void updateLfoIncrement() noexcept;
-    static float getOscillatorSample (double phaseInRadians, Waveform waveformType) noexcept;
+    static float getOscillatorSample (double phaseInRadians, Waveform waveformType, float pulseWidth) noexcept;
 
     static constexpr float outputLevel = 0.12f;
     static constexpr double twoPi = juce::MathConstants<double>::twoPi;

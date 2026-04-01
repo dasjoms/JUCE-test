@@ -236,6 +236,7 @@ float SynthVoice::renderSample() noexcept
 
         auto oscillatorPhaseIncrement = phaseIncrement;
         auto modulationGain = 1.0f;
+        auto pulseWidth = 0.5f;
 
         switch (modulationDestination)
         {
@@ -253,11 +254,12 @@ float SynthVoice::renderSample() noexcept
             }
 
             case ModulationDestination::pulseWidth:
+                pulseWidth = juce::jlimit (0.05f, 0.95f, 0.5f + (0.45f * modulationDepth * lfoSample));
                 break;
         }
 
         const auto velocityGain = juce::jmap (velocitySensitivity, 1.0f, currentNoteOnVelocity);
-        const auto sampleValue = outputLevel * velocityGain * currentAmplitude * modulationGain * getOscillatorSample (phase, waveform);
+        const auto sampleValue = outputLevel * velocityGain * currentAmplitude * modulationGain * getOscillatorSample (phase, waveform, pulseWidth);
 
         phase += oscillatorPhaseIncrement;
         if (phase >= twoPi)
@@ -306,7 +308,7 @@ void SynthVoice::updateLfoIncrement() noexcept
     lfoPhaseIncrement = twoPi * modulationRateHz / currentSampleRate;
 }
 
-float SynthVoice::getOscillatorSample (double phaseInRadians, Waveform waveformType) noexcept
+float SynthVoice::getOscillatorSample (double phaseInRadians, Waveform waveformType, float pulseWidth) noexcept
 {
     switch (waveformType)
     {
@@ -315,7 +317,11 @@ float SynthVoice::getOscillatorSample (double phaseInRadians, Waveform waveformT
         case Waveform::saw:
             return static_cast<float> ((phaseInRadians * inverseTwoPi * 2.0) - 1.0);
         case Waveform::square:
-            return phaseInRadians < juce::MathConstants<double>::pi ? 1.0f : -1.0f;
+        {
+            const auto wrappedPulseWidth = juce::jlimit (0.01f, 0.99f, pulseWidth);
+            const auto normalizedPhase = phaseInRadians * inverseTwoPi;
+            return normalizedPhase < wrappedPulseWidth ? 1.0f : -1.0f;
+        }
         case Waveform::triangle:
         {
             const auto normalizedPhase = phaseInRadians * inverseTwoPi;
