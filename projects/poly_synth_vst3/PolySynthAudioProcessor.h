@@ -67,6 +67,13 @@ public:
     bool setLayerMute (std::size_t layerVisualIndex, bool shouldMute) noexcept;
     bool setLayerSolo (std::size_t layerVisualIndex, bool shouldSolo) noexcept;
     float setLayerVolume (std::size_t layerVisualIndex, float volume) noexcept;
+    bool addDefaultLayerAndSelect() noexcept;
+    bool duplicateLayerAndSelect (std::size_t sourceLayerVisualIndex) noexcept;
+    bool removeLayerWithSelectionFallback (std::size_t layerVisualIndex) noexcept;
+    bool moveLayerUp (std::size_t layerVisualIndex) noexcept;
+    bool moveLayerDown (std::size_t layerVisualIndex) noexcept;
+    bool selectLayerByVisualIndex (std::size_t layerVisualIndex) noexcept;
+    std::size_t getSelectedLayerVisualIndex() const noexcept;
     static int clampMidiNote (int midiNote) noexcept;
 
 private:
@@ -138,6 +145,9 @@ private:
     static const juce::StringArray& getOutputStageChoices() noexcept;
     void syncLayerRuntimesFromState() noexcept;
     static void applyLayerStateToEngine (SynthEngine& engine, const LayerState& layerState) noexcept;
+    std::optional<uint64_t> getLayerIdForVisualIndex (std::size_t visualIndex) const noexcept;
+    std::size_t getVisualIndexForLayerId (uint64_t layerId) const noexcept;
+    void ensureSelectedLayerIsValid() noexcept;
 
     struct LayerRuntime
     {

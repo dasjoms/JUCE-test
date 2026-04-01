@@ -23,6 +23,10 @@ private:
 
         juce::TextButton selectButton;
         juce::Label layerNameLabel;
+        juce::TextButton moveUpButton;
+        juce::TextButton moveDownButton;
+        juce::TextButton duplicateButton;
+        juce::TextButton deleteButton;
         juce::ToggleButton muteToggle;
         juce::ToggleButton soloToggle;
         juce::Slider volumeSlider;
@@ -33,6 +37,13 @@ private:
     void syncLayerListFromProcessor();
     void updateInspectorBindingState();
     void selectLayer (std::size_t layerIndex);
+    void showAddLayerMenu();
+    void showDuplicateLayerMenu();
+    void duplicateLayerFromIndex (std::size_t sourceLayerIndex);
+    void deleteLayer (std::size_t layerIndex);
+    void moveLayerUp (std::size_t layerIndex);
+    void moveLayerDown (std::size_t layerIndex);
+    void setActionStatusMessage (const juce::String& message);
     void handleAbsoluteRootNoteChange();
     void handleRelativeRootSemitoneChange();
     static juce::String midiNoteToDisplayString (int midiNote);
@@ -44,6 +55,8 @@ private:
     juce::GroupComponent globalPanel;
     juce::Label globalPanelPlaceholderLabel;
     juce::GroupComponent layerListPanel;
+    juce::TextButton addLayerButton;
+    juce::Label actionStatusLabel;
     juce::Label inspectorTitleLabel;
     juce::Label emptyInspectorLabel;
     juce::Label titleLabel;
