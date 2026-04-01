@@ -19,6 +19,18 @@ PolySynthAudioProcessorEditor::LayerRow::LayerRow()
     layerNameLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (layerNameLabel);
 
+    moveUpButton.setButtonText ("↑");
+    addAndMakeVisible (moveUpButton);
+
+    moveDownButton.setButtonText ("↓");
+    addAndMakeVisible (moveDownButton);
+
+    duplicateButton.setButtonText ("Dup");
+    addAndMakeVisible (duplicateButton);
+
+    deleteButton.setButtonText ("Del");
+    addAndMakeVisible (deleteButton);
+
     muteToggle.setButtonText ("M");
     addAndMakeVisible (muteToggle);
 
@@ -37,7 +49,11 @@ void PolySynthAudioProcessorEditor::LayerRow::resized()
     auto area = getLocalBounds().reduced (4, 2);
     selectButton.setBounds (area);
     auto controls = area.reduced (6, 0);
-    layerNameLabel.setBounds (controls.removeFromLeft (90));
+    layerNameLabel.setBounds (controls.removeFromLeft (54));
+    moveUpButton.setBounds (controls.removeFromLeft (32).reduced (2, 0));
+    moveDownButton.setBounds (controls.removeFromLeft (32).reduced (2, 0));
+    duplicateButton.setBounds (controls.removeFromLeft (44).reduced (2, 0));
+    deleteButton.setBounds (controls.removeFromLeft (40).reduced (2, 0));
     muteToggle.setBounds (controls.removeFromLeft (34));
     soloToggle.setBounds (controls.removeFromLeft (34));
     volumeSlider.setBounds (controls.reduced (2, 0));
@@ -83,6 +99,14 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     layerListPanel.setText ("Layers");
     addAndMakeVisible (layerListPanel);
+
+    addLayerButton.setButtonText ("Add Layer");
+    addLayerButton.onClick = [this] { showAddLayerMenu(); };
+    addAndMakeVisible (addLayerButton);
+
+    actionStatusLabel.setJustificationType (juce::Justification::centredLeft);
+    actionStatusLabel.setColour (juce::Label::textColourId, juce::Colours::orange);
+    addAndMakeVisible (actionStatusLabel);
 
     inspectorTitleLabel.setText ("Selected Layer Controls", juce::dontSendNotification);
     inspectorTitleLabel.setJustificationType (juce::Justification::centredLeft);
@@ -285,6 +309,10 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     {
         auto& row = layerRows[i];
         row.selectButton.onClick = [this, i] { selectLayer (i); };
+        row.moveUpButton.onClick = [this, i] { moveLayerUp (i); };
+        row.moveDownButton.onClick = [this, i] { moveLayerDown (i); };
+        row.duplicateButton.onClick = [this, i] { duplicateLayerFromIndex (i); };
+        row.deleteButton.onClick = [this, i] { deleteLayer (i); };
         row.muteToggle.onClick = [this, i, &row]
         {
             processorRef.setLayerMute (i, row.muteToggle.getToggleState());
@@ -350,6 +378,10 @@ void PolySynthAudioProcessorEditor::resized()
     layerListPanel.setBounds (layerListBounds);
 
     auto rowArea = layerListBounds.reduced (8, 28);
+    addLayerButton.setBounds (rowArea.removeFromTop (28));
+    rowArea.removeFromTop (4);
+    actionStatusLabel.setBounds (rowArea.removeFromTop (20));
+    rowArea.removeFromTop (4);
     for (std::size_t i = 0; i < layerRows.size(); ++i)
     {
         auto& row = layerRows[i];
@@ -417,7 +449,7 @@ void PolySynthAudioProcessorEditor::syncLayerListFromProcessor()
     if (visibleLayerCount == 0)
         selectedLayerIndex = 0;
     else
-        selectedLayerIndex = juce::jmin (selectedLayerIndex, visibleLayerCount - 1);
+        selectedLayerIndex = juce::jmin (processorRef.getSelectedLayerVisualIndex(), visibleLayerCount - 1);
 
     for (std::size_t i = 0; i < layerRows.size(); ++i)
     {
@@ -435,6 +467,9 @@ void PolySynthAudioProcessorEditor::syncLayerListFromProcessor()
         row.selectButton.setColour (juce::TextButton::buttonColourId,
                                     i == selectedLayerIndex ? juce::Colours::darkslategrey.withAlpha (0.35f)
                                                              : juce::Colours::transparentBlack);
+        row.moveUpButton.setEnabled (i > 0);
+        row.moveDownButton.setEnabled (i + 1 < visibleLayerCount);
+        row.deleteButton.setEnabled (visibleLayerCount > 1);
     }
 
     updateInspectorBindingState();
@@ -489,9 +524,137 @@ void PolySynthAudioProcessorEditor::selectLayer (std::size_t layerIndex)
     if (layerIndex >= visibleLayerCount)
         return;
 
-    selectedLayerIndex = layerIndex;
+    if (! processorRef.selectLayerByVisualIndex (layerIndex))
+        return;
+
+    selectedLayerIndex = processorRef.getSelectedLayerVisualIndex();
     syncRootNoteControlsFromProcessor();
     syncLayerListFromProcessor();
+}
+
+void PolySynthAudioProcessorEditor::showAddLayerMenu()
+{
+    juce::PopupMenu addLayerMenu;
+    addLayerMenu.addItem ("Add default", [this]
+    {
+        if (! processorRef.addDefaultLayerAndSelect())
+        {
+            setActionStatusMessage ("Cannot add layer: max layer count reached.");
+            return;
+        }
+
+        setActionStatusMessage ("Added default layer.");
+        syncLayerListFromProcessor();
+        syncRootNoteControlsFromProcessor();
+    });
+    addLayerMenu.addItem ("Add duplicate...", [this] { showDuplicateLayerMenu(); });
+    addLayerMenu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&addLayerButton));
+}
+
+void PolySynthAudioProcessorEditor::showDuplicateLayerMenu()
+{
+    if (visibleLayerCount == 0)
+    {
+        setActionStatusMessage ("Cannot duplicate: no layers available.");
+        return;
+    }
+
+    if (visibleLayerCount == 1)
+    {
+        duplicateLayerFromIndex (0);
+        return;
+    }
+
+    juce::PopupMenu chooseSourceMenu;
+    for (std::size_t i = 0; i < visibleLayerCount; ++i)
+    {
+        chooseSourceMenu.addItem ("Duplicate Layer " + juce::String (static_cast<int> (i + 1)),
+                                  [this, i] { duplicateLayerFromIndex (i); });
+    }
+
+    chooseSourceMenu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&addLayerButton));
+}
+
+void PolySynthAudioProcessorEditor::duplicateLayerFromIndex (std::size_t sourceLayerIndex)
+{
+    if (! processorRef.duplicateLayerAndSelect (sourceLayerIndex))
+    {
+        setActionStatusMessage ("Cannot duplicate layer: invalid source or max layer count reached.");
+        return;
+    }
+
+    setActionStatusMessage ("Duplicated layer.");
+    syncLayerListFromProcessor();
+    syncRootNoteControlsFromProcessor();
+}
+
+void PolySynthAudioProcessorEditor::deleteLayer (std::size_t layerIndex)
+{
+    if (visibleLayerCount <= 1)
+    {
+        setActionStatusMessage ("Cannot delete the last remaining layer.");
+        return;
+    }
+
+    if (layerIndex >= visibleLayerCount)
+    {
+        setActionStatusMessage ("Cannot delete: invalid layer selection.");
+        return;
+    }
+
+    const auto confirmed = juce::AlertWindow::showOkCancelBox (juce::AlertWindow::WarningIcon,
+                                                                "Delete Layer",
+                                                                "Delete Layer " + juce::String (static_cast<int> (layerIndex + 1)) + "?",
+                                                                "Delete",
+                                                                "Cancel",
+                                                                nullptr,
+                                                                nullptr);
+    if (! confirmed)
+    {
+        setActionStatusMessage ("Delete cancelled.");
+        return;
+    }
+
+    if (! processorRef.removeLayerWithSelectionFallback (layerIndex))
+    {
+        setActionStatusMessage ("Delete failed. Layer may be invalid.");
+        return;
+    }
+
+    setActionStatusMessage ("Layer deleted.");
+    syncLayerListFromProcessor();
+    syncRootNoteControlsFromProcessor();
+}
+
+void PolySynthAudioProcessorEditor::moveLayerUp (std::size_t layerIndex)
+{
+    if (! processorRef.moveLayerUp (layerIndex))
+    {
+        setActionStatusMessage ("Cannot move layer up.");
+        return;
+    }
+
+    setActionStatusMessage ("Layer moved up.");
+    syncLayerListFromProcessor();
+    syncRootNoteControlsFromProcessor();
+}
+
+void PolySynthAudioProcessorEditor::moveLayerDown (std::size_t layerIndex)
+{
+    if (! processorRef.moveLayerDown (layerIndex))
+    {
+        setActionStatusMessage ("Cannot move layer down.");
+        return;
+    }
+
+    setActionStatusMessage ("Layer moved down.");
+    syncLayerListFromProcessor();
+    syncRootNoteControlsFromProcessor();
+}
+
+void PolySynthAudioProcessorEditor::setActionStatusMessage (const juce::String& message)
+{
+    actionStatusLabel.setText (message, juce::dontSendNotification);
 }
 
 void PolySynthAudioProcessorEditor::handleAbsoluteRootNoteChange()

@@ -31,6 +31,7 @@ int main()
 
     auto duplicateId = state.duplicateLayer (baseLayerId);
     ok = expect (duplicateId.has_value(), "duplicate layer should succeed under limit") && ok;
+    ok = expect (! state.duplicateLayer (999999).has_value(), "duplicate should fail for unknown source id") && ok;
 
     if (duplicateId.has_value())
     {
@@ -40,8 +41,10 @@ int main()
 
     ok = expect (state.moveLayerUp (1), "move up should succeed for index 1") && ok;
     ok = expect (state.getLayerOrder()[0] == duplicateId.value_or (0), "move up should swap visual order") && ok;
+    ok = expect (! state.moveLayerUp (0), "move up should fail for first visual layer") && ok;
     ok = expect (state.moveLayerDown (0), "move down should succeed for index 0") && ok;
     ok = expect (state.getLayerOrder()[0] == baseLayerId, "move down should restore base-first order") && ok;
+    ok = expect (! state.moveLayerDown (state.getLayerOrder().size() - 1), "move down should fail for last visual layer") && ok;
 
     while (state.getLayers().size() < InstrumentState::maxLayerCount)
         ok = expect (state.createDefaultLayer().has_value(), "create default layer should succeed before max") && ok;
