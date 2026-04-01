@@ -20,7 +20,20 @@ constexpr auto schemaVersionPropertyId = "schemaVersion";
 constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 constexpr auto outputStageParameterId = "outputStage";
-constexpr int currentStateSchemaVersion = 4;
+constexpr auto layersNodeId = "LAYERS";
+constexpr auto layerNodeId = "LAYER";
+constexpr auto layerOrderNodeId = "LAYER_ORDER";
+constexpr auto orderItemNodeId = "ITEM";
+constexpr auto layerStateNodeId = "layerState";
+constexpr auto selectedLayerIdPropertyId = "selectedLayerId";
+constexpr auto orderLayerIdPropertyId = "layerId";
+constexpr auto nextLayerIdPropertyId = "nextLayerId";
+constexpr auto layerIdPropertyId = "layerId";
+constexpr auto rootNoteAbsolutePropertyId = "rootNoteAbsolute";
+constexpr auto mutePropertyId = "mute";
+constexpr auto soloPropertyId = "solo";
+constexpr auto layerVolumePropertyId = "layerVolume";
+constexpr int currentStateSchemaVersion = 5;
 
 constexpr std::array<const char*, 11> schemaV2ParameterIds {
     waveformParameterId,
@@ -89,6 +102,8 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
     unisonVoicesParameter = parameters.getRawParameterValue (unisonVoicesParameterId);
     unisonDetuneCentsParameter = parameters.getRawParameterValue (unisonDetuneCentsParameterId);
     outputStageParameter = parameters.getRawParameterValue (outputStageParameterId);
+    if (const auto& layerOrder = instrumentState.getLayerOrder(); ! layerOrder.empty())
+        selectedLayerId = layerOrder.front();
     updateParameterSnapshotFromAPVTS();
     syncLayerRuntimesFromState();
 }
@@ -649,6 +664,7 @@ void PolySynthAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto stateToSave = parameters.copyState();
     stateToSave.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
+    writeLayeredStateToTree (stateToSave);
 
     if (const auto xml = stateToSave.createXml())
         copyXmlToBinary (*xml, destData);
@@ -668,6 +684,7 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
                 && stateTree.hasType (parameters.state.getType()))
             {
                 parameters.replaceState (stateTree);
+                loadLayeredStateFromTree (stateTree);
             }
             else
             {
@@ -687,17 +704,14 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
             parameter->setValueNotifyingHost (parameter->getDefaultValue());
 
     auto migratedState = parameters.copyState();
-    const auto schemaVersion = static_cast<int> (legacyState.getProperty (schemaVersionPropertyId, 1));
     migrateV1ToV2 (migratedState, legacyState);
-
-    if (schemaVersion >= 2)
-        migrateV2ToV3 (migratedState, legacyState);
-
-    if (schemaVersion >= 3)
-        migrateV3ToV4 (migratedState, legacyState);
+    migrateV2ToV3 (migratedState, legacyState);
+    migrateV3ToV4 (migratedState, legacyState);
+    migrateV4ToV5 (migratedState, legacyState);
 
     migratedState.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
     parameters.replaceState (migratedState);
+    loadLayeredStateFromTree (migratedState);
 }
 
 void PolySynthAudioProcessor::migrateV1ToV2 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)
@@ -770,6 +784,76 @@ void PolySynthAudioProcessor::migrateV3ToV4 (juce::ValueTree& migratedState, con
             }
         }
     }
+}
+
+void PolySynthAudioProcessor::migrateV4ToV5 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)
+{
+    juce::ignoreUnused (sourceState);
+    writeLayeredStateToTree (migratedState);
+}
+
+void PolySynthAudioProcessor::writeLayeredStateToTree (juce::ValueTree& stateTree) const
+{
+    stateTree.removeChild (stateTree.getChildWithName (layersNodeId), nullptr);
+
+    juce::ValueTree layersNode (layersNodeId);
+    layersNode.setProperty (nextLayerIdPropertyId, static_cast<juce::int64> (instrumentState.getLayers().size() + 1), nullptr);
+    layersNode.setProperty (selectedLayerIdPropertyId, static_cast<juce::int64> (selectedLayerId), nullptr);
+
+    for (const auto& layer : instrumentState.getLayers())
+    {
+        juce::ValueTree layerNode (layerNodeId);
+        layerNode.setProperty (layerIdPropertyId, static_cast<juce::int64> (layer.layerId), nullptr);
+
+        juce::ValueTree layerStateNode (layerStateNodeId);
+        layerStateNode.setProperty (waveformParameterId, static_cast<int> (layer.waveform), nullptr);
+        layerStateNode.setProperty (maxVoicesParameterId, layer.voiceCount, nullptr);
+        layerStateNode.setProperty (stealPolicyParameterId, stealPolicyToChoiceIndex (layer.stealPolicy), nullptr);
+        layerStateNode.setProperty (attackParameterId, layer.attackSeconds, nullptr);
+        layerStateNode.setProperty (decayParameterId, layer.decaySeconds, nullptr);
+        layerStateNode.setProperty (sustainParameterId, layer.sustainLevel, nullptr);
+        layerStateNode.setProperty (releaseParameterId, layer.releaseSeconds, nullptr);
+        layerStateNode.setProperty (modulationDepthParameterId, layer.modulationDepth, nullptr);
+        layerStateNode.setProperty (modulationRateParameterId, layer.modulationRateHz, nullptr);
+        layerStateNode.setProperty (velocitySensitivityParameterId, layer.velocitySensitivity, nullptr);
+        layerStateNode.setProperty (modulationDestinationParameterId, modDestinationToChoiceIndex (layer.modulationDestination), nullptr);
+        layerStateNode.setProperty (unisonVoicesParameterId, layer.unisonVoices, nullptr);
+        layerStateNode.setProperty (unisonDetuneCentsParameterId, layer.unisonDetuneCents, nullptr);
+        layerStateNode.setProperty (outputStageParameterId, outputStageToChoiceIndex (layer.outputStage), nullptr);
+        layerStateNode.setProperty (rootNoteAbsolutePropertyId, clampMidiNote (layer.rootNoteAbsolute), nullptr);
+        layerStateNode.setProperty (mutePropertyId, layer.mute, nullptr);
+        layerStateNode.setProperty (soloPropertyId, layer.solo, nullptr);
+        layerStateNode.setProperty (layerVolumePropertyId, juce::jmax (0.0f, layer.layerVolume), nullptr);
+        layerNode.addChild (layerStateNode, -1, nullptr);
+        layersNode.addChild (layerNode, -1, nullptr);
+    }
+
+    juce::ValueTree layerOrderNode (layerOrderNodeId);
+    for (const auto layerId : instrumentState.getLayerOrder())
+    {
+        juce::ValueTree itemNode (orderItemNodeId);
+        itemNode.setProperty (orderLayerIdPropertyId, static_cast<juce::int64> (layerId), nullptr);
+        layerOrderNode.addChild (itemNode, -1, nullptr);
+    }
+    layersNode.addChild (layerOrderNode, -1, nullptr);
+
+    stateTree.addChild (layersNode, -1, nullptr);
+}
+
+void PolySynthAudioProcessor::loadLayeredStateFromTree (const juce::ValueTree& stateTree)
+{
+    if (const auto layersNode = stateTree.getChildWithName (layersNodeId); layersNode.isValid())
+    {
+        const auto restoredSelectedId = static_cast<uint64_t> (static_cast<juce::int64> (layersNode.getProperty (selectedLayerIdPropertyId, juce::var (0))));
+        if (restoredSelectedId != 0 && instrumentState.findLayerById (restoredSelectedId) != nullptr)
+        {
+            selectedLayerId = restoredSelectedId;
+            return;
+        }
+    }
+
+    if (const auto& order = instrumentState.getLayerOrder(); ! order.empty())
+        selectedLayerId = order.front();
 }
 
 std::optional<float> PolySynthAudioProcessor::findLegacyParameterValue (const juce::ValueTree& tree,

@@ -26,6 +26,13 @@ constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 constexpr auto outputStageParameterId = "outputStage";
+constexpr auto schemaVersionPropertyId = "schemaVersion";
+constexpr auto layersNodeId = "LAYERS";
+constexpr auto selectedLayerIdPropertyId = "selectedLayerId";
+constexpr auto layerNodeId = "LAYER";
+constexpr auto layerOrderNodeId = "LAYER_ORDER";
+constexpr auto layerIdPropertyId = "layerId";
+constexpr auto orderLayerIdPropertyId = "layerId";
 
 const std::vector<ParameterFixture> allUserFacingParameterFixtures {
     { waveformParameterId, 3.0f, true },
@@ -80,6 +87,44 @@ bool validatePolyParametersRoundTrip()
 
     juce::MemoryBlock state;
     source.getStateInformation (state);
+
+    if (auto xml = PolySynthAudioProcessor::getXmlFromBinary (state.getData(), static_cast<int> (state.getSize())); xml == nullptr)
+    {
+        std::cerr << "unable to parse serialized state for round-trip test" << '\n';
+        return false;
+    }
+    else
+    {
+        if (xml->getIntAttribute (schemaVersionPropertyId, -1) != 5)
+        {
+            std::cerr << "unexpected schema version in serialized state" << '\n';
+            return false;
+        }
+
+        auto* layersNode = xml->getChildByName (layersNodeId);
+        if (layersNode == nullptr)
+        {
+            std::cerr << "serialized state missing LAYERS node" << '\n';
+            return false;
+        }
+
+        auto* layerNode = layersNode->getChildByName (layerNodeId);
+        auto* layerOrder = layersNode->getChildByName (layerOrderNodeId);
+        if (layerNode == nullptr || layerOrder == nullptr || layerOrder->getNumChildElements() != 1)
+        {
+            std::cerr << "serialized layered identity/order invalid" << '\n';
+            return false;
+        }
+
+        const auto layerId = layerNode->getIntAttribute (layerIdPropertyId, 0);
+        const auto orderLayerId = layerOrder->getChildElement (0)->getIntAttribute (orderLayerIdPropertyId, -1);
+        const auto selectedLayerId = layersNode->getIntAttribute (selectedLayerIdPropertyId, -1);
+        if (layerId <= 0 || orderLayerId != layerId || selectedLayerId != layerId)
+        {
+            std::cerr << "serialized layered selection/order mismatch" << '\n';
+            return false;
+        }
+    }
 
     PolySynthAudioProcessor restored;
     restored.setStateInformation (state.getData(), static_cast<int> (state.getSize()));
