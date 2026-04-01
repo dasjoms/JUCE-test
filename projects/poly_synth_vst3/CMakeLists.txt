@@ -80,7 +80,8 @@ target_sources(PolySynthPlugin
         PolySynthAudioProcessorEditor.cpp
         PolySynthAudioProcessor.cpp
         SynthEngine.cpp
-        SynthVoice.cpp)
+        SynthVoice.cpp
+        LayeredInstrumentState.cpp)
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer
 # project, these might be passed in the 'Preprocessor Definitions' field. JUCE modules also make use
@@ -276,3 +277,19 @@ target_compile_definitions(SynthEngineOutputSafetyTest
         JUCE_WEB_BROWSER=0)
 
 add_test(NAME SynthEngineOutputSafetyTest COMMAND SynthEngineOutputSafetyTest)
+
+
+add_executable(LayeredInstrumentStateTest
+    tests/LayeredInstrumentStateTest.cpp
+    LayeredInstrumentState.cpp)
+
+target_link_libraries(LayeredInstrumentStateTest
+    PRIVATE
+        juce::juce_audio_basics)
+
+target_compile_definitions(LayeredInstrumentStateTest
+    PRIVATE
+        JUCE_USE_CURL=0
+        JUCE_WEB_BROWSER=0)
+
+add_test(NAME LayeredInstrumentStateTest COMMAND LayeredInstrumentStateTest)
