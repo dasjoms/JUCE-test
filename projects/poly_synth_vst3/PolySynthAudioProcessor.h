@@ -1,8 +1,10 @@
 #pragma once
 
+#include "LayeredInstrumentState.h"
 #include "SynthEngine.h"
 
 #include <juce_audio_processors/juce_audio_processors.h>
+#include <array>
 #include <atomic>
 #include <optional>
 
@@ -115,6 +117,19 @@ private:
     static int outputStageToChoiceIndex (SynthEngine::OutputStage outputStage) noexcept;
     static SynthEngine::OutputStage outputStageFromChoiceIndex (int choiceIndex) noexcept;
     static const juce::StringArray& getOutputStageChoices() noexcept;
+    void syncLayerRuntimesFromState() noexcept;
+    static void applyLayerStateToEngine (SynthEngine& engine, const LayerState& layerState) noexcept;
+
+    struct LayerRuntime
+    {
+        uint64_t layerId = 0;
+        LayerState snapshot;
+        SynthEngine engine;
+        juce::AudioBuffer<float> scratchBuffer;
+        bool prepared = false;
+    };
+
+    static constexpr std::size_t maxRuntimeLayers = InstrumentState::maxLayerCount;
 
     juce::AudioProcessorValueTreeState parameters;
     std::atomic<float>* waveformParameter = nullptr;
@@ -133,7 +148,13 @@ private:
     std::atomic<float>* outputStageParameter = nullptr;
     std::atomic<Waveform> waveform { Waveform::sine };
     EngineParameterSnapshot parameterSnapshot;
-    SynthEngine synthEngine;
+    InstrumentState instrumentState;
+    std::array<LayerRuntime, maxRuntimeLayers> layerRuntimes;
+    std::array<uint64_t, maxRuntimeLayers> activeLayerOrder {};
+    std::size_t activeLayerCount = 0;
+    bool isPrepared = false;
+    double preparedSampleRate = 44100.0;
+    int preparedSamplesPerBlock = 0;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessor)

@@ -90,7 +90,7 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
     unisonDetuneCentsParameter = parameters.getRawParameterValue (unisonDetuneCentsParameterId);
     outputStageParameter = parameters.getRawParameterValue (outputStageParameterId);
     updateParameterSnapshotFromAPVTS();
-    applyParameterSnapshotToEngine();
+    syncLayerRuntimesFromState();
 }
 
 PolySynthAudioProcessor::~PolySynthAudioProcessor()
@@ -164,7 +164,20 @@ void PolySynthAudioProcessor::changeProgramName (int index, const juce::String& 
 //==============================================================================
 void PolySynthAudioProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
-    synthEngine.prepare (sampleRate, samplesPerBlock);
+    preparedSampleRate = sampleRate;
+    preparedSamplesPerBlock = samplesPerBlock;
+    isPrepared = true;
+
+    syncLayerRuntimesFromState();
+
+    for (std::size_t runtimeIndex = 0; runtimeIndex < activeLayerCount; ++runtimeIndex)
+    {
+        auto& runtime = layerRuntimes[runtimeIndex];
+        runtime.scratchBuffer.setSize (getTotalNumOutputChannels(), samplesPerBlock, false, false, true);
+        runtime.scratchBuffer.clear();
+        runtime.engine.prepare (sampleRate, samplesPerBlock);
+        runtime.prepared = true;
+    }
 }
 
 void PolySynthAudioProcessor::releaseResources()
@@ -202,8 +215,53 @@ void PolySynthAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer,
         buffer.clear (i, 0, numSamples);
 
     updateParameterSnapshotFromAPVTS();
-    applyParameterSnapshotToEngine();
-    synthEngine.renderBlock (buffer, midiMessages);
+    syncLayerRuntimesFromState();
+
+    const auto numChannels = buffer.getNumChannels();
+    bool anySoloed = false;
+    for (std::size_t runtimeIndex = 0; runtimeIndex < activeLayerCount; ++runtimeIndex)
+    {
+        if (layerRuntimes[runtimeIndex].snapshot.solo)
+        {
+            anySoloed = true;
+            break;
+        }
+    }
+
+    for (std::size_t runtimeIndex = 0; runtimeIndex < activeLayerCount; ++runtimeIndex)
+    {
+        auto& runtime = layerRuntimes[runtimeIndex];
+
+        if (! runtime.prepared)
+        {
+            runtime.engine.prepare (preparedSampleRate, preparedSamplesPerBlock);
+            runtime.prepared = true;
+        }
+
+        if (runtime.scratchBuffer.getNumSamples() < numSamples
+            || runtime.scratchBuffer.getNumChannels() < numChannels)
+        {
+            runtime.scratchBuffer.setSize (numChannels, numSamples, false, false, true);
+        }
+
+        runtime.scratchBuffer.clear();
+        juce::AudioBuffer<float> layerBlockView (runtime.scratchBuffer.getArrayOfWritePointers(),
+                                                 numChannels,
+                                                 numSamples);
+        runtime.engine.renderBlock (layerBlockView, midiMessages);
+
+        const auto isAudible = anySoloed ? runtime.snapshot.solo : ! runtime.snapshot.mute;
+        if (! isAudible)
+            continue;
+
+        const auto layerGain = juce::jmax (0.0f, runtime.snapshot.layerVolume);
+        if (layerGain <= 0.0f)
+            continue;
+
+        for (int channel = 0; channel < numChannels; ++channel)
+            buffer.addFrom (channel, 0, runtime.scratchBuffer, channel, 0, numSamples, layerGain);
+    }
+
     midiMessages.clear();
 }
 
@@ -333,18 +391,70 @@ void PolySynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
 
 void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
 {
-    synthEngine.setActiveVoiceCount (parameterSnapshot.maxVoices);
-    synthEngine.setVoiceStealPolicy (parameterSnapshot.stealPolicy);
-    synthEngine.setWaveform (parameterSnapshot.waveform);
-    synthEngine.setEnvelopeTimes (parameterSnapshot.attackSeconds,
-                                  parameterSnapshot.decaySeconds,
-                                  parameterSnapshot.sustainLevel,
-                                  parameterSnapshot.releaseSeconds);
-    synthEngine.setModulationParameters (parameterSnapshot.modulationDepth, parameterSnapshot.modulationRateHz, parameterSnapshot.modulationDestination);
-    synthEngine.setVelocitySensitivity (parameterSnapshot.velocitySensitivity);
-    synthEngine.setUnisonVoices (parameterSnapshot.unisonVoices);
-    synthEngine.setUnisonDetuneCents (parameterSnapshot.unisonDetuneCents);
-    synthEngine.setOutputStage (parameterSnapshot.outputStage);
+    if (auto* baseLayer = instrumentState.findLayerById (instrumentState.getLayerOrder().front()))
+    {
+        baseLayer->waveform = parameterSnapshot.waveform;
+        baseLayer->voiceCount = parameterSnapshot.maxVoices;
+        baseLayer->stealPolicy = parameterSnapshot.stealPolicy;
+        baseLayer->attackSeconds = parameterSnapshot.attackSeconds;
+        baseLayer->decaySeconds = parameterSnapshot.decaySeconds;
+        baseLayer->sustainLevel = parameterSnapshot.sustainLevel;
+        baseLayer->releaseSeconds = parameterSnapshot.releaseSeconds;
+        baseLayer->modulationDepth = parameterSnapshot.modulationDepth;
+        baseLayer->modulationRateHz = parameterSnapshot.modulationRateHz;
+        baseLayer->modulationDestination = parameterSnapshot.modulationDestination;
+        baseLayer->velocitySensitivity = parameterSnapshot.velocitySensitivity;
+        baseLayer->unisonVoices = parameterSnapshot.unisonVoices;
+        baseLayer->unisonDetuneCents = parameterSnapshot.unisonDetuneCents;
+        baseLayer->outputStage = parameterSnapshot.outputStage;
+    }
+}
+
+void PolySynthAudioProcessor::syncLayerRuntimesFromState() noexcept
+{
+    applyParameterSnapshotToEngine();
+
+    const auto& order = instrumentState.getLayerOrder();
+    const auto cappedLayerCount = juce::jmin (order.size(), maxRuntimeLayers);
+    activeLayerCount = cappedLayerCount;
+
+    if (order.size() > maxRuntimeLayers)
+    {
+        // Fallback safety: ignore additional layers beyond the hard runtime cap.
+        // Layer management should reject these add attempts before audio rendering reaches this point.
+        jassertfalse;
+    }
+
+    for (std::size_t runtimeIndex = 0; runtimeIndex < activeLayerCount; ++runtimeIndex)
+    {
+        const auto layerId = order[runtimeIndex];
+        activeLayerOrder[runtimeIndex] = layerId;
+
+        auto& runtime = layerRuntimes[runtimeIndex];
+        runtime.layerId = layerId;
+
+        if (const auto* layer = instrumentState.findLayerById (layerId))
+        {
+            runtime.snapshot = *layer;
+            applyLayerStateToEngine (runtime.engine, runtime.snapshot);
+        }
+    }
+}
+
+void PolySynthAudioProcessor::applyLayerStateToEngine (SynthEngine& engine, const LayerState& layerState) noexcept
+{
+    engine.setActiveVoiceCount (layerState.voiceCount);
+    engine.setVoiceStealPolicy (layerState.stealPolicy);
+    engine.setWaveform (layerState.waveform);
+    engine.setEnvelopeTimes (layerState.attackSeconds,
+                             layerState.decaySeconds,
+                             layerState.sustainLevel,
+                             layerState.releaseSeconds);
+    engine.setModulationParameters (layerState.modulationDepth, layerState.modulationRateHz, layerState.modulationDestination);
+    engine.setVelocitySensitivity (layerState.velocitySensitivity);
+    engine.setUnisonVoices (layerState.unisonVoices);
+    engine.setUnisonDetuneCents (layerState.unisonDetuneCents);
+    engine.setOutputStage (layerState.outputStage);
 }
 
 PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::waveformFromParameterValue (float parameterValue) noexcept
