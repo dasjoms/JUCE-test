@@ -1,4 +1,5 @@
 #include "../PolySynthAudioProcessor.h"
+#include "../PolySynthAudioProcessorEditor.h"
 
 #include <iostream>
 
@@ -139,6 +140,59 @@ bool validateAdsrParametersPresentAndWritable()
     return true;
 }
 
+bool validateEditorControlAttachmentsForEngineParameters()
+{
+    juce::ScopedJuceInitialiser_GUI guiInitialiser;
+
+    PolySynthAudioProcessor processor;
+    PolySynthAudioProcessorEditor editor (processor);
+    editor.setSize (520, 540);
+    editor.resized();
+
+    auto* decayControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("decaySlider"));
+    auto* sustainControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("sustainSlider"));
+    auto* velocityControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("velocitySensitivitySlider"));
+    auto* destinationControl = dynamic_cast<juce::ComboBox*> (editor.findChildWithID ("modDestinationSelector"));
+    auto* unisonVoicesControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("unisonVoicesSlider"));
+    auto* unisonDetuneControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("unisonDetuneCentsSlider"));
+
+    if (decayControl == nullptr || sustainControl == nullptr || velocityControl == nullptr
+        || destinationControl == nullptr || unisonVoicesControl == nullptr || unisonDetuneControl == nullptr)
+    {
+        std::cerr << "missing one or more UI controls for engine-facing APVTS parameters" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual ((float) decayControl->getMaximum(), 5.0f)
+        || ! juce::approximatelyEqual ((float) decayControl->getInterval(), 0.001f))
+    {
+        std::cerr << "decay slider range mismatch" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual ((float) sustainControl->getMinimum(), 0.0f)
+        || ! juce::approximatelyEqual ((float) sustainControl->getMaximum(), 1.0f))
+    {
+        std::cerr << "sustain slider range mismatch" << '\n';
+        return false;
+    }
+
+    if (! juce::approximatelyEqual ((float) unisonDetuneControl->getMaximum(), 50.0f)
+        || unisonDetuneControl->getTextValueSuffix() != " cents")
+    {
+        std::cerr << "unison detune slider range/suffix mismatch" << '\n';
+        return false;
+    }
+
+    if (destinationControl->getNumItems() < 2)
+    {
+        std::cerr << "mod destination control choices missing" << '\n';
+        return false;
+    }
+
+    return true;
+}
+
 } // namespace
 
 int main()
@@ -147,6 +201,9 @@ int main()
         return 1;
 
     if (! validateAdsrParametersPresentAndWritable())
+        return 1;
+
+    if (! validateEditorControlAttachmentsForEngineParameters())
         return 1;
 
     std::cout << "poly APVTS modulation parameter validation passed." << '\n';
