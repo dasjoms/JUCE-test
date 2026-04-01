@@ -32,8 +32,17 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 - [x] Poly-focused UI affordances (voice count, steal policy, modulation controls) exposed in editor. (`PolySynthAudioProcessorEditor.h`, `PolySynthAudioProcessorEditor.cpp`)
 
 ## Immediate next steps
-1. Add modulation matrix scaffolding and parameterized routing tests.
-2. Keep the centralized schema constants in `tests/StateSchemaMigrationTest.cpp` updated first whenever `currentStateSchemaVersion` changes, then adjust migration fixtures/expectations.
+1. Replace single-LFO destination selection with a small modulation matrix (source × destination amounts), then add processor/APVTS + engine/voice tests for independent routing depths per destination.
+2. Add a poly-state regression test that exercises **all currently user-facing poly parameters together** (`maxVoices`, `stealPolicy`, `ADSR`, `modDepth`, `modRate`, `modDestination`, `velocitySensitivity`, `unisonVoices`, `unisonDetuneCents`) in one round trip fixture.
+3. Expose output-stage selection (`none` / `normalizeVoiceSum` / `softLimit`) as an APVTS parameter + editor control, and add state/migration coverage for it.
+4. Add integration coverage for note lifecycle edge cases that are not yet explicitly tested together: rapid repeated note-on of same pitch, overlapping note-off ordering, and voice-steal behavior while a unison stack is active.
+5. Keep centralized schema constants in `tests/StateSchemaMigrationTest.cpp` updated first whenever `currentStateSchemaVersion` changes, then adjust migration fixtures/expectations.
+
+## Open gaps to track against project goals
+- [ ] Add preset management UX and persistence workflow (save/load, naming, versioned metadata) on top of existing APVTS state serialization.
+- [ ] Expand modulation architecture beyond one per-voice LFO (additional sources, routings, and destination scaling policy docs/tests).
+- [ ] Add documented voice-steal strategy guidance for future policy extensions (e.g., oldest released group vs quietest energy-window variants) and corresponding behavior tests.
+- [ ] Create `projects/poly_synth_vst3/` architecture notes for DSP/allocator/modulation/preset boundaries to keep future handoffs aligned.
 
 ## State schema migration policy
 - Each persisted state must include `schemaVersion`, and `currentStateSchemaVersion` in `PolySynthAudioProcessor.cpp` is the single source of truth for the current format.
