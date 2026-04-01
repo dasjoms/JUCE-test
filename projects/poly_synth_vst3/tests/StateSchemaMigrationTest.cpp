@@ -36,6 +36,10 @@ constexpr auto selectedLayerIdPropertyId = "selectedLayerId";
 constexpr auto layerIdPropertyId = "layerId";
 constexpr auto orderLayerIdPropertyId = "layerId";
 constexpr auto rootNoteAbsolutePropertyId = "rootNoteAbsolute";
+constexpr auto mutePropertyId = "mute";
+constexpr auto soloPropertyId = "solo";
+constexpr auto layerVolumePropertyId = "layerVolume";
+constexpr auto nextLayerIdPropertyId = "nextLayerId";
 
 float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
 {
@@ -121,6 +125,24 @@ bool restoreFromFixtureXml (PolySynthAudioProcessor& processor, const juce::Stri
     PolySynthAudioProcessor::copyXmlToBinary (*fixture, serializedState);
     processor.setStateInformation (serializedState.getData(), static_cast<int> (serializedState.getSize()));
     return true;
+}
+
+juce::ValueTree getStateTreeFromBlock (const juce::MemoryBlock& state)
+{
+    auto xml = PolySynthAudioProcessor::getXmlFromBinary (state.getData(), static_cast<int> (state.getSize()));
+    return xml != nullptr ? juce::ValueTree::fromXml (*xml) : juce::ValueTree();
+}
+
+juce::ValueTree getLayerNodeById (juce::ValueTree& layersNode, juce::int64 targetLayerId)
+{
+    for (int i = 0; i < layersNode.getNumChildren(); ++i)
+    {
+        auto child = layersNode.getChild (i);
+        if (child.hasType (layerNodeId) && static_cast<juce::int64> (child.getProperty (layerIdPropertyId, 0)) == targetLayerId)
+            return child;
+    }
+
+    return {};
 }
 
 bool validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds()
@@ -409,6 +431,81 @@ bool validateCurrentVersionRoundTrip()
         && expectIntParameter (restoredProcessor, outputStageParameterId, 2, "current-version restore");
 }
 
+bool validateLayeredStateRestoreRepairsOrderAndNextLayerId()
+{
+    PolySynthAudioProcessor processor;
+    return restoreFromFixtureXml (processor,
+                                  R"xml(
+<PARAMETERS schemaVersion="6">
+  <LAYERS selectedLayerId="5000" nextLayerId="2">
+    <LAYER layerId="10">
+      <layerState waveform="1" rootNoteAbsolute="62" mute="0" solo="0" layerVolume="0.91"/>
+    </LAYER>
+    <LAYER layerId="11">
+      <layerState waveform="2" rootNoteAbsolute="63" mute="1" solo="0" layerVolume="0.33"/>
+    </LAYER>
+    <LAYER layerId="12">
+      <layerState waveform="3" rootNoteAbsolute="64" mute="0" solo="1" layerVolume="0.27"/>
+    </LAYER>
+    <LAYER_ORDER>
+      <ITEM layerId="11"/>
+      <ITEM layerId="9999"/>
+      <ITEM layerId="10"/>
+    </LAYER_ORDER>
+  </LAYERS>
+</PARAMETERS>)xml",
+                                  "layered-order repair")
+        && [&processor]
+           {
+               juce::MemoryBlock state;
+               processor.getStateInformation (state);
+               auto restoredState = getStateTreeFromBlock (state);
+               auto layersNode = restoredState.getChildWithName (layersNodeId);
+               auto orderNode = layersNode.getChildWithName (layerOrderNodeId);
+
+               const auto hasThreeLayers = static_cast<int> (processor.getLayerCount()) == 3;
+               if (! hasThreeLayers)
+               {
+                   std::cerr << "expected 3 layers after restore" << '\n';
+                   return false;
+               }
+
+               const auto order0 = static_cast<juce::int64> (orderNode.getChild (0).getProperty (orderLayerIdPropertyId, 0));
+               const auto order1 = static_cast<juce::int64> (orderNode.getChild (1).getProperty (orderLayerIdPropertyId, 0));
+               const auto order2 = static_cast<juce::int64> (orderNode.getChild (2).getProperty (orderLayerIdPropertyId, 0));
+               if (order0 != 11 || order1 != 10 || order2 != 12)
+               {
+                   std::cerr << "restored order mismatch after repair" << '\n';
+                   return false;
+               }
+
+               if (static_cast<juce::int64> (layersNode.getProperty (selectedLayerIdPropertyId, 0)) != 11)
+               {
+                   std::cerr << "selected layer did not fall back to first valid ordered layer" << '\n';
+                   return false;
+               }
+
+               if (static_cast<juce::int64> (layersNode.getProperty (nextLayerIdPropertyId, 0)) != 13)
+               {
+                   std::cerr << "next layer id was not repaired from allocator max+1" << '\n';
+                   return false;
+               }
+
+               auto layer11 = getLayerNodeById (layersNode, 11);
+               auto layerState11 = layer11.getChildWithName (layerStateNodeId);
+               if (static_cast<int> (layerState11.getProperty (rootNoteAbsolutePropertyId, -1)) != 63
+                   || ! static_cast<bool> (layerState11.getProperty (mutePropertyId, false))
+                   || static_cast<bool> (layerState11.getProperty (soloPropertyId, false))
+                   || ! juce::approximatelyEqual (static_cast<float> (layerState11.getProperty (layerVolumePropertyId, 0.0f)), 0.33f))
+               {
+                   std::cerr << "restored per-layer payload mismatch" << '\n';
+                   return false;
+               }
+
+               return true;
+           }();
+}
+
 bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
 {
     PolySynthAudioProcessor processor;
@@ -488,6 +585,9 @@ int main()
         return 1;
 
     if (! validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing())
+        return 1;
+
+    if (! validateLayeredStateRestoreRepairsOrderAndNextLayerId())
         return 1;
 
     std::cout << "state schema migration validation passed." << '\n';

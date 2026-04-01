@@ -1015,7 +1015,11 @@ void PolySynthAudioProcessor::writeLayeredStateToTree (juce::ValueTree& stateTre
     stateTree.removeChild (stateTree.getChildWithName (layersNodeId), nullptr);
 
     juce::ValueTree layersNode (layersNodeId);
-    layersNode.setProperty (nextLayerIdPropertyId, static_cast<juce::int64> (instrumentState.getLayers().size() + 1), nullptr);
+    auto nextLayerId = uint64_t { 1 };
+    for (const auto& layer : instrumentState.getLayers())
+        nextLayerId = std::max (nextLayerId, layer.layerId + 1);
+
+    layersNode.setProperty (nextLayerIdPropertyId, static_cast<juce::int64> (nextLayerId), nullptr);
     layersNode.setProperty (selectedLayerIdPropertyId, static_cast<juce::int64> (selectedLayerId), nullptr);
 
     for (const auto& layer : instrumentState.getLayers())
@@ -1062,16 +1066,105 @@ void PolySynthAudioProcessor::loadLayeredStateFromTree (const juce::ValueTree& s
 {
     if (const auto layersNode = stateTree.getChildWithName (layersNodeId); layersNode.isValid())
     {
-        const auto restoredSelectedId = static_cast<uint64_t> (static_cast<juce::int64> (layersNode.getProperty (selectedLayerIdPropertyId, juce::var (0))));
-        if (restoredSelectedId != 0 && instrumentState.findLayerById (restoredSelectedId) != nullptr)
+        std::vector<LayerState> restoredLayers;
+        restoredLayers.reserve (InstrumentState::maxLayerCount);
+
+        for (int i = 0; i < layersNode.getNumChildren(); ++i)
         {
-            selectedLayerId = restoredSelectedId;
-            return;
+            const auto layerNode = layersNode.getChild (i);
+            if (! layerNode.hasType (layerNodeId))
+                continue;
+
+            const auto parsedLayerId = static_cast<uint64_t> (static_cast<juce::int64> (layerNode.getProperty (layerIdPropertyId, juce::var (0))));
+            if (parsedLayerId == 0 || restoredLayers.size() >= InstrumentState::maxLayerCount)
+                continue;
+
+            if (std::any_of (restoredLayers.begin(), restoredLayers.end(), [parsedLayerId] (const LayerState& candidate) { return candidate.layerId == parsedLayerId; }))
+                continue;
+
+            LayerState restoredLayer;
+            restoredLayer.layerId = parsedLayerId;
+
+            if (const auto layerStateNode = layerNode.getChildWithName (layerStateNodeId); layerStateNode.isValid())
+            {
+                restoredLayer.waveform = waveformFromChoiceIndex (static_cast<int> (layerStateNode.getProperty (waveformParameterId, waveformToChoiceIndex (restoredLayer.waveform))));
+                restoredLayer.voiceCount = juce::jlimit (1, 32, static_cast<int> (layerStateNode.getProperty (maxVoicesParameterId, restoredLayer.voiceCount)));
+                restoredLayer.stealPolicy = stealPolicyFromChoiceIndex (static_cast<int> (layerStateNode.getProperty (stealPolicyParameterId, stealPolicyToChoiceIndex (restoredLayer.stealPolicy))));
+                restoredLayer.attackSeconds = juce::jlimit (0.001f, 2.0f, static_cast<float> (layerStateNode.getProperty (attackParameterId, restoredLayer.attackSeconds)));
+                restoredLayer.decaySeconds = juce::jlimit (0.001f, 2.0f, static_cast<float> (layerStateNode.getProperty (decayParameterId, restoredLayer.decaySeconds)));
+                restoredLayer.sustainLevel = juce::jlimit (0.0f, 1.0f, static_cast<float> (layerStateNode.getProperty (sustainParameterId, restoredLayer.sustainLevel)));
+                restoredLayer.releaseSeconds = juce::jlimit (0.001f, 3.0f, static_cast<float> (layerStateNode.getProperty (releaseParameterId, restoredLayer.releaseSeconds)));
+                restoredLayer.modulationDepth = juce::jlimit (0.0f, 1.0f, static_cast<float> (layerStateNode.getProperty (modulationDepthParameterId, restoredLayer.modulationDepth)));
+                restoredLayer.modulationRateHz = juce::jlimit (0.1f, 20.0f, static_cast<float> (layerStateNode.getProperty (modulationRateParameterId, restoredLayer.modulationRateHz)));
+                restoredLayer.velocitySensitivity = juce::jlimit (0.0f, 1.0f, static_cast<float> (layerStateNode.getProperty (velocitySensitivityParameterId, restoredLayer.velocitySensitivity)));
+                restoredLayer.modulationDestination = modDestinationFromChoiceIndex (static_cast<int> (layerStateNode.getProperty (modulationDestinationParameterId, modDestinationToChoiceIndex (restoredLayer.modulationDestination))));
+                restoredLayer.unisonVoices = juce::jlimit (1, 8, static_cast<int> (layerStateNode.getProperty (unisonVoicesParameterId, restoredLayer.unisonVoices)));
+                restoredLayer.unisonDetuneCents = juce::jlimit (0.0f, 50.0f, static_cast<float> (layerStateNode.getProperty (unisonDetuneCentsParameterId, restoredLayer.unisonDetuneCents)));
+                restoredLayer.outputStage = outputStageFromChoiceIndex (static_cast<int> (layerStateNode.getProperty (outputStageParameterId, outputStageToChoiceIndex (restoredLayer.outputStage))));
+                restoredLayer.rootNoteAbsolute = clampMidiNote (static_cast<int> (layerStateNode.getProperty (rootNoteAbsolutePropertyId, restoredLayer.rootNoteAbsolute)));
+                restoredLayer.mute = static_cast<bool> (layerStateNode.getProperty (mutePropertyId, restoredLayer.mute));
+                restoredLayer.solo = static_cast<bool> (layerStateNode.getProperty (soloPropertyId, restoredLayer.solo));
+                restoredLayer.layerVolume = juce::jmax (0.0f, static_cast<float> (layerStateNode.getProperty (layerVolumePropertyId, restoredLayer.layerVolume)));
+            }
+
+            restoredLayers.push_back (restoredLayer);
         }
+
+        std::vector<uint64_t> repairedOrder;
+        repairedOrder.reserve (restoredLayers.size());
+        if (const auto layerOrderNode = layersNode.getChildWithName (layerOrderNodeId); layerOrderNode.isValid())
+        {
+            for (int i = 0; i < layerOrderNode.getNumChildren(); ++i)
+            {
+                const auto itemNode = layerOrderNode.getChild (i);
+                if (! itemNode.hasType (orderItemNodeId))
+                    continue;
+
+                const auto orderedLayerId = static_cast<uint64_t> (static_cast<juce::int64> (itemNode.getProperty (orderLayerIdPropertyId, juce::var (0))));
+                if (orderedLayerId == 0)
+                    continue;
+
+                const auto hasKnownLayer = std::any_of (restoredLayers.begin(), restoredLayers.end(), [orderedLayerId] (const LayerState& layer) { return layer.layerId == orderedLayerId; });
+                const auto alreadyAdded = std::find (repairedOrder.begin(), repairedOrder.end(), orderedLayerId) != repairedOrder.end();
+                if (hasKnownLayer && ! alreadyAdded)
+                    repairedOrder.push_back (orderedLayerId);
+            }
+        }
+
+        for (const auto& layer : restoredLayers)
+        {
+            if (std::find (repairedOrder.begin(), repairedOrder.end(), layer.layerId) == repairedOrder.end())
+                repairedOrder.push_back (layer.layerId);
+        }
+
+        if (restoredLayers.empty())
+        {
+            instrumentState = InstrumentState();
+        }
+        else
+        {
+            uint64_t maxLayerId = 0;
+            for (const auto& layer : restoredLayers)
+                maxLayerId = std::max (maxLayerId, layer.layerId);
+
+            auto restoredNextLayerId = static_cast<uint64_t> (static_cast<juce::int64> (layersNode.getProperty (nextLayerIdPropertyId, juce::var (0))));
+            if (restoredNextLayerId <= maxLayerId)
+                restoredNextLayerId = maxLayerId + 1;
+
+            if (! instrumentState.restoreFromSerializedState (std::move (restoredLayers),
+                                                              std::move (repairedOrder),
+                                                              restoredNextLayerId))
+            {
+                instrumentState = InstrumentState();
+            }
+        }
+
+        const auto restoredSelectedId = static_cast<uint64_t> (static_cast<juce::int64> (layersNode.getProperty (selectedLayerIdPropertyId, juce::var (0))));
+        selectedLayerId = (restoredSelectedId != 0 && instrumentState.findLayerById (restoredSelectedId) != nullptr) ? restoredSelectedId : 0;
     }
 
-    if (const auto& order = instrumentState.getLayerOrder(); ! order.empty())
-        selectedLayerId = order.front();
+    ensureSelectedLayerIsValid();
+    syncLayerRuntimesFromState();
 }
 
 std::optional<uint64_t> PolySynthAudioProcessor::getLayerIdForVisualIndex (std::size_t visualIndex) const noexcept
