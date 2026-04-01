@@ -1,5 +1,6 @@
 #include "PolySynthAudioProcessor.h"
 #include "PolySynthAudioProcessorEditor.h"
+#include <array>
 #include <cmath>
 
 namespace
@@ -19,6 +20,41 @@ constexpr auto schemaVersionPropertyId = "schemaVersion";
 constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 constexpr int currentStateSchemaVersion = 3;
+
+constexpr std::array<const char*, 11> schemaV2ParameterIds {
+    waveformParameterId,
+    maxVoicesParameterId,
+    stealPolicyParameterId,
+    attackParameterId,
+    decayParameterId,
+    sustainParameterId,
+    releaseParameterId,
+    modulationDepthParameterId,
+    modulationRateParameterId,
+    velocitySensitivityParameterId,
+    modulationDestinationParameterId
+};
+
+constexpr std::array<const char*, 2> schemaV3ParameterIds {
+    unisonVoicesParameterId,
+    unisonDetuneCentsParameterId
+};
+
+constexpr std::array<const char*, schemaV2ParameterIds.size() + schemaV3ParameterIds.size()> allKnownParameterIds {
+    waveformParameterId,
+    maxVoicesParameterId,
+    stealPolicyParameterId,
+    attackParameterId,
+    decayParameterId,
+    sustainParameterId,
+    releaseParameterId,
+    modulationDepthParameterId,
+    modulationRateParameterId,
+    velocitySensitivityParameterId,
+    modulationDestinationParameterId,
+    unisonVoicesParameterId,
+    unisonDetuneCentsParameterId
+};
 } // namespace
 
 //==============================================================================
@@ -435,62 +471,67 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
 
 void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyState)
 {
-    auto migratedState = parameters.copyState();
-
-    for (const auto* parameterId : { waveformParameterId,
-                                     maxVoicesParameterId,
-                                     stealPolicyParameterId,
-                                     attackParameterId,
-                                     decayParameterId,
-                                     sustainParameterId,
-                                     releaseParameterId,
-                                     modulationDepthParameterId,
-                                     modulationRateParameterId,
-                                     velocitySensitivityParameterId,
-                                     modulationDestinationParameterId,
-                                     unisonVoicesParameterId,
-                                     unisonDetuneCentsParameterId })
-    {
+    for (const auto* parameterId : allKnownParameterIds)
         if (auto* parameter = parameters.getParameter (parameterId))
             parameter->setValueNotifyingHost (parameter->getDefaultValue());
-    }
 
-    migratedState = parameters.copyState();
+    auto migratedState = parameters.copyState();
+    const auto schemaVersion = static_cast<int> (legacyState.getProperty (schemaVersionPropertyId, 1));
+    migrateV1ToV2 (migratedState, legacyState);
 
-    for (const auto* parameterId : { waveformParameterId,
-                                     maxVoicesParameterId,
-                                     stealPolicyParameterId,
-                                     attackParameterId,
-                                     decayParameterId,
-                                     sustainParameterId,
-                                     releaseParameterId,
-                                     modulationDepthParameterId,
-                                     modulationRateParameterId,
-                                     velocitySensitivityParameterId,
-                                     modulationDestinationParameterId,
-                                     unisonVoicesParameterId,
-                                     unisonDetuneCentsParameterId })
-    {
-        if (const auto value = findLegacyParameterValue (legacyState, parameterId); value.has_value())
-        {
-            int childIndex = -1;
-            for (int i = 0; i < migratedState.getNumChildren(); ++i)
-            {
-                const auto node = migratedState.getChild (i);
-                if (node.hasType ("PARAM") && node.getProperty ("id").toString() == juce::String (parameterId))
-                {
-                    childIndex = i;
-                    break;
-                }
-            }
-
-            if (childIndex >= 0)
-                migratedState.getChild (childIndex).setProperty ("value", *value, nullptr);
-        }
-    }
+    if (schemaVersion >= 2)
+        migrateV2ToV3 (migratedState, legacyState);
 
     migratedState.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
     parameters.replaceState (migratedState);
+}
+
+void PolySynthAudioProcessor::migrateV1ToV2 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)
+{
+    for (const auto* parameterId : schemaV2ParameterIds)
+    {
+        if (const auto value = findLegacyParameterValue (sourceState, parameterId); value.has_value())
+        {
+            if (auto* parameter = parameters.getParameter (parameterId))
+            {
+                const auto clampedValue = parameter->convertFrom0to1 (juce::jlimit (0.0f, 1.0f, parameter->convertTo0to1 (*value)));
+
+                for (int i = 0; i < migratedState.getNumChildren(); ++i)
+                {
+                    auto node = migratedState.getChild (i);
+                    if (node.hasType ("PARAM") && node.getProperty ("id").toString() == juce::String (parameterId))
+                    {
+                        node.setProperty ("value", clampedValue, nullptr);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void PolySynthAudioProcessor::migrateV2ToV3 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)
+{
+    for (const auto* parameterId : schemaV3ParameterIds)
+    {
+        if (const auto value = findLegacyParameterValue (sourceState, parameterId); value.has_value())
+        {
+            if (auto* parameter = parameters.getParameter (parameterId))
+            {
+                const auto clampedValue = parameter->convertFrom0to1 (juce::jlimit (0.0f, 1.0f, parameter->convertTo0to1 (*value)));
+
+                for (int i = 0; i < migratedState.getNumChildren(); ++i)
+                {
+                    auto node = migratedState.getChild (i);
+                    if (node.hasType ("PARAM") && node.getProperty ("id").toString() == juce::String (parameterId))
+                    {
+                        node.setProperty ("value", clampedValue, nullptr);
+                        break;
+                    }
+                }
+            }
+        }
+    }
 }
 
 std::optional<float> PolySynthAudioProcessor::findLegacyParameterValue (const juce::ValueTree& tree,
@@ -537,6 +578,9 @@ std::optional<float> PolySynthAudioProcessor::findLegacyParameterValue (const ju
 
     if (const auto legacyMonoNode = tree.getChildWithName ("LegacyMonoState"); legacyMonoNode.isValid())
         return findLegacyParameterValue (legacyMonoNode, parameterId);
+
+    if (parameterId == juce::StringRef (modulationDepthParameterId))
+        return findLegacyParameterValue (tree, "lfoDepth");
 
     return std::nullopt;
 }

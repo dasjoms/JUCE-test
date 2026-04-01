@@ -35,6 +35,14 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 1. Add modulation matrix scaffolding and parameterized routing tests.
 2. Keep the centralized schema constants in `tests/StateSchemaMigrationTest.cpp` updated first whenever `currentStateSchemaVersion` changes, then adjust migration fixtures/expectations.
 
+## State schema migration policy
+- Each persisted state must include `schemaVersion`, and `currentStateSchemaVersion` in `PolySynthAudioProcessor.cpp` is the single source of truth for the current format.
+- Always add migrations as explicit one-step helpers (`migrateVnToVn+1`) and chain them in order during restore; avoid re-introducing monolithic "legacy restore" branches.
+- When adding a new parameter, keep default APVTS values backward compatible so older states safely hydrate missing fields from defaults.
+- If a parameter ID is renamed, preserve compatibility by mapping the old ID during migration and cover this with a fixture test.
+- Clamp migrated values through the destination parameter range to guarantee out-of-range legacy values restore safely.
+- When bumping schema: (1) increase schema version constant, (2) add migration helper, (3) add/refresh fixture coverage in `tests/StateSchemaMigrationTest.cpp` for missing, renamed (if any), clamped, and unknown future parameters.
+
 ## Modulation routing behavior
 - **Routing path:** `PolySynthAudioProcessor` reads `modDepth`, `modRate`, and `modDestination` from APVTS each block, snapshots them, then applies the snapshot to `SynthEngine`; `SynthEngine` pushes the same values to each active `SynthVoice`. This keeps per-voice behavior deterministic while allowing destination changes from host automation.
 - **LFO characteristics:** Each voice runs a deterministic per-note sine LFO reset on `noteOn`.
