@@ -104,6 +104,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     modDestinationSelector.setComponentID ("modDestinationSelector");
     modDestinationSelector.addItem ("Amplitude", 1);
     modDestinationSelector.addItem ("Pitch", 2);
+    modDestinationSelector.addItem ("Pulse Width", 3);
     addAndMakeVisible (modDestinationSelector);
 
     unisonVoicesLabel.setText ("Unison Voices", juce::dontSendNotification);

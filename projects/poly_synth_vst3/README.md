@@ -12,7 +12,7 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 ### Engine and voice runtime
 - [x] `SynthEngine` owns a fixed voice pool and exposes voice-count + steal-policy configuration. (`SynthEngine.h`, `SynthEngine.cpp`)
 - [x] `SynthVoice` encapsulates oscillator/envelope/note runtime metadata used by allocator policies. (`SynthVoice.h`, `SynthVoice.cpp`)
-- [x] Introduce modulation routing expansion points beyond current depth/rate parameters (`amplitude`, `pitch`, `pulseWidth` placeholder) and plumb APVTS destination selection through processor → engine → voices. (`PolySynthAudioProcessor.*`, `SynthEngine.*`, `SynthVoice.*`)
+- [x] Introduce modulation routing destinations (`amplitude`, `pitch`, `pulseWidth`) and plumb APVTS destination selection through processor → engine → voices. (`PolySynthAudioProcessor.*`, `SynthEngine.*`, `SynthVoice.*`)
 - [x] Current modulation semantics: per-voice, note-retriggered sine LFO. `modDepth` scales destination intensity, `modRate` controls LFO Hz, and `modDestination` selects the routed target. (`SynthVoice.h`, `SynthVoice.cpp`)
 - [x] ADSR envelope semantics are active per voice: Attack ramps from 0→1, Decay ramps 1→Sustain while note is held, Sustain holds constant until note-off, and Release ramps to idle. Defaults are `attack=0.005s`, `decay=0.08s`, `sustain=0.8`, `release=0.03s`. (`PolySynthAudioProcessor.cpp`, `SynthEngine.cpp`, `SynthVoice.cpp`)
 
@@ -49,4 +49,4 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
 - **Destination scaling ranges:**
   - `amplitude`: unipolar tremolo gain from `1.0 - modDepth` up to `1.0` (depth range `[0, 1]`).
   - `pitch`: bipolar vibrato up to `±12 semitones * modDepth` (depth range `[0, 1]`).
-  - `pulseWidth`: placeholder destination currently neutral (no audible change yet).
+  - `pulseWidth`: active for square wave by moving duty cycle around 50% with an LFO-driven offset (`0.5 ± 0.45 * modDepth`, clamped to `[0.05, 0.95]`). Other waveforms ignore pulse-width routing.
