@@ -84,6 +84,11 @@ constexpr std::array<const char*, schemaV2ParameterIds.size() + schemaV3Paramete
 
 //==============================================================================
 PolySynthAudioProcessor::PolySynthAudioProcessor()
+    : PolySynthAudioProcessor (juce::File())
+{
+}
+
+PolySynthAudioProcessor::PolySynthAudioProcessor (juce::File presetStorageRootOverride)
      : AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
                       #if ! JucePlugin_IsSynth
@@ -93,6 +98,7 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
                       #endif
                        )
      , parameters (*this, nullptr, "PARAMETERS", createParameterLayout())
+     , presetLibrary ("PolySynthVST3", currentStateSchemaVersion, std::move (presetStorageRootOverride))
 {
     waveformParameter = parameters.getRawParameterValue (waveformParameterId);
     maxVoicesParameter = parameters.getRawParameterValue (maxVoicesParameterId);
@@ -116,6 +122,70 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
 
 PolySynthAudioProcessor::~PolySynthAudioProcessor()
 {
+}
+
+juce::StringArray PolySynthAudioProcessor::listLocalPresetNames() const
+{
+    juce::StringArray names;
+
+    for (const auto& summary : presetLibrary.listPresets())
+        names.add (summary.name);
+
+    return names;
+}
+
+PolySynthAudioProcessor::PresetOperationResult PolySynthAudioProcessor::loadPresetByName (const juce::String& presetName)
+{
+    PresetOperationResult result;
+    const auto loadResult = presetLibrary.loadPreset (presetName);
+
+    if (! loadResult.success)
+    {
+        result.message = loadResult.message;
+        return result;
+    }
+
+    applyInstrumentStatePayload (loadResult.instrumentState);
+    currentPresetName = loadResult.summary.name;
+    lastPresetWarningMessage = loadResult.warnedAboutPartialLoad ? loadResult.message : juce::String();
+
+    result.success = true;
+    result.warnedAboutPartialLoad = loadResult.warnedAboutPartialLoad;
+    result.message = loadResult.message;
+    return result;
+}
+
+PolySynthAudioProcessor::PresetOperationResult PolySynthAudioProcessor::saveCurrentPresetOverwrite()
+{
+    PresetOperationResult result;
+    const auto saveResult = presetLibrary.savePreset (currentPresetName,
+                                                      createCurrentInstrumentStatePayload(),
+                                                      PresetLibrary::SaveMode::overwriteCurrent);
+
+    result.success = saveResult.code == PresetLibrary::SaveResultCode::saved;
+    result.message = saveResult.message;
+    return result;
+}
+
+PolySynthAudioProcessor::PresetOperationResult PolySynthAudioProcessor::saveCurrentPresetAsNew (const juce::String& requestedName)
+{
+    PresetOperationResult result;
+    const auto saveResult = presetLibrary.savePreset (currentPresetName,
+                                                      createCurrentInstrumentStatePayload(),
+                                                      PresetLibrary::SaveMode::saveAsNew,
+                                                      requestedName);
+
+    result.success = saveResult.code == PresetLibrary::SaveResultCode::saved;
+    result.message = saveResult.message;
+    if (result.success)
+        currentPresetName = requestedName.trim();
+
+    return result;
+}
+
+juce::String PolySynthAudioProcessor::getCurrentPresetName() const
+{
+    return currentPresetName;
 }
 
 int PolySynthAudioProcessor::getLayerCount() const noexcept
@@ -1081,6 +1151,35 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
 
     updateParameterSnapshotFromAPVTS();
     applyParameterSnapshotToEngine();
+}
+
+juce::ValueTree PolySynthAudioProcessor::createCurrentInstrumentStatePayload()
+{
+    auto state = parameters.copyState();
+    state.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
+    writeLayeredStateToTree (state);
+    return state;
+}
+
+void PolySynthAudioProcessor::applyInstrumentStatePayload (const juce::ValueTree& payload)
+{
+    if (! payload.isValid() || ! payload.hasType (parameters.state.getType()))
+        return;
+
+    const auto schemaVersion = static_cast<int> (payload.getProperty (schemaVersionPropertyId, 0));
+    if (schemaVersion < currentStateSchemaVersion)
+    {
+        restoreLegacyState (payload);
+    }
+    else
+    {
+        parameters.replaceState (payload);
+        loadLayeredStateFromTree (payload);
+    }
+
+    updateParameterSnapshotFromAPVTS();
+    applyParameterSnapshotToEngine();
+    markLayerStateDirty();
 }
 
 void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyState)

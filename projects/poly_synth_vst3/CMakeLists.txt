@@ -347,3 +347,14 @@ target_compile_definitions(PresetLibraryTest
         JUCE_WEB_BROWSER=0)
 
 add_test(NAME PresetLibraryTest COMMAND PresetLibraryTest)
+
+add_executable(PresetIntegrationTest
+    tests/PresetIntegrationTest.cpp)
+
+target_link_libraries(PresetIntegrationTest
+    PRIVATE
+        PolySynthPlugin
+        juce::juce_audio_processors
+        juce::juce_audio_utils)
+
+add_test(NAME PresetIntegrationTest COMMAND PresetIntegrationTest)
