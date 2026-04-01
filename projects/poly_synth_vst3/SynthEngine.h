@@ -16,6 +16,12 @@ public:
     };
 
     explicit SynthEngine (int maxVoices = 8);
+    enum class OutputStage
+    {
+        none = 0,
+        normalizeVoiceSum,
+        softLimit
+    };
 
     void prepare (double sampleRate, int blockSize) noexcept;
     void setWaveform (SynthVoice::Waveform waveformType) noexcept;
@@ -26,6 +32,7 @@ public:
     void setVelocitySensitivity (float sensitivity) noexcept;
     void setUnisonVoices (int voicesPerNote) noexcept;
     void setUnisonDetuneCents (float cents) noexcept;
+    void setOutputStage (OutputStage newOutputStage) noexcept;
     VoiceStealPolicy getVoiceStealPolicy() const noexcept;
 
     void renderBlock (juce::AudioBuffer<float>& buffer, const juce::MidiBuffer& midiMessages) noexcept;
@@ -66,4 +73,5 @@ private:
     int nextVoiceGroupId = 1;
     int currentUnisonVoices = 1;
     float currentUnisonDetuneCents = 0.0f;
+    OutputStage outputStage = OutputStage::normalizeVoiceSum;
 };

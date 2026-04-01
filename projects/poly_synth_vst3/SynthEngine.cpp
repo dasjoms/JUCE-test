@@ -89,6 +89,11 @@ void SynthEngine::setUnisonDetuneCents (float cents) noexcept
     currentUnisonDetuneCents = juce::jlimit (0.0f, 120.0f, cents);
 }
 
+void SynthEngine::setOutputStage (OutputStage newOutputStage) noexcept
+{
+    outputStage = newOutputStage;
+}
+
 SynthEngine::VoiceStealPolicy SynthEngine::getVoiceStealPolicy() const noexcept
 {
     return voiceStealPolicy;
@@ -117,7 +122,10 @@ void SynthEngine::renderBlock (juce::AudioBuffer<float>& buffer, const juce::Mid
 void SynthEngine::renderRange (juce::AudioBuffer<float>& buffer, int startSample, int endSample) noexcept
 {
     const auto numChannels = buffer.getNumChannels();
-    const auto gainCompensation = 1.0f / std::sqrt (static_cast<float> (juce::jmax (1, currentUnisonVoices)));
+    const auto unisonGainCompensation = 1.0f / std::sqrt (static_cast<float> (juce::jmax (1, currentUnisonVoices)));
+    const auto voiceCountNormalization = 1.0f / std::sqrt (static_cast<float> (juce::jmax (1, activeVoiceCount)));
+    constexpr auto softLimitDrive = 1.35f;
+    const auto softLimitNormalization = 1.0f / std::tanh (softLimitDrive);
 
     for (int sample = startSample; sample < endSample; ++sample)
     {
@@ -126,7 +134,16 @@ void SynthEngine::renderRange (juce::AudioBuffer<float>& buffer, int startSample
         for (auto voiceIndex = 0; voiceIndex < activeVoiceCount; ++voiceIndex)
             sampleValue += voices[static_cast<size_t> (voiceIndex)].renderSample();
 
-        sampleValue *= gainCompensation;
+        sampleValue *= unisonGainCompensation;
+
+        if (outputStage == OutputStage::normalizeVoiceSum)
+        {
+            sampleValue *= voiceCountNormalization;
+        }
+        else if (outputStage == OutputStage::softLimit)
+        {
+            sampleValue = std::tanh (sampleValue * softLimitDrive) * softLimitNormalization;
+        }
 
         for (int channel = 0; channel < numChannels; ++channel)
             buffer.setSample (channel, sample, sampleValue);
