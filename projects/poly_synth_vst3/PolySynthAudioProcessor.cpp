@@ -162,6 +162,85 @@ int PolySynthAudioProcessor::setLayerRootNoteRelativeSemitones (std::size_t laye
     return setLayerRootNoteAbsolute (layerVisualIndex, absoluteMidiNote);
 }
 
+bool PolySynthAudioProcessor::getLayerMute (std::size_t layerVisualIndex) const noexcept
+{
+    const auto& layerOrder = instrumentState.getLayerOrder();
+    if (layerVisualIndex >= layerOrder.size())
+        return false;
+
+    if (const auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+        return layer->mute;
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::getLayerSolo (std::size_t layerVisualIndex) const noexcept
+{
+    const auto& layerOrder = instrumentState.getLayerOrder();
+    if (layerVisualIndex >= layerOrder.size())
+        return false;
+
+    if (const auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+        return layer->solo;
+
+    return false;
+}
+
+float PolySynthAudioProcessor::getLayerVolume (std::size_t layerVisualIndex) const noexcept
+{
+    const auto& layerOrder = instrumentState.getLayerOrder();
+    if (layerVisualIndex >= layerOrder.size())
+        return 1.0f;
+
+    if (const auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+        return juce::jmax (0.0f, layer->layerVolume);
+
+    return 1.0f;
+}
+
+bool PolySynthAudioProcessor::setLayerMute (std::size_t layerVisualIndex, bool shouldMute) noexcept
+{
+    const auto& layerOrder = instrumentState.getLayerOrder();
+    if (layerVisualIndex >= layerOrder.size())
+        return false;
+
+    if (auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+    {
+        layer->mute = shouldMute;
+        return true;
+    }
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::setLayerSolo (std::size_t layerVisualIndex, bool shouldSolo) noexcept
+{
+    const auto& layerOrder = instrumentState.getLayerOrder();
+    if (layerVisualIndex >= layerOrder.size())
+        return false;
+
+    if (auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+    {
+        layer->solo = shouldSolo;
+        return true;
+    }
+
+    return false;
+}
+
+float PolySynthAudioProcessor::setLayerVolume (std::size_t layerVisualIndex, float volume) noexcept
+{
+    const auto clampedVolume = juce::jmax (0.0f, volume);
+    const auto& layerOrder = instrumentState.getLayerOrder();
+    if (layerVisualIndex >= layerOrder.size())
+        return clampedVolume;
+
+    if (auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+        layer->layerVolume = clampedVolume;
+
+    return clampedVolume;
+}
+
 //==============================================================================
 const juce::String PolySynthAudioProcessor::getName() const
 {

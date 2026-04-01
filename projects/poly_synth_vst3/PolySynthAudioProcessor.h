@@ -61,6 +61,12 @@ public:
     int getLayerRootNoteRelativeSemitones (std::size_t layerVisualIndex) const noexcept;
     int setLayerRootNoteAbsolute (std::size_t layerVisualIndex, int absoluteMidiNote) noexcept;
     int setLayerRootNoteRelativeSemitones (std::size_t layerVisualIndex, int relativeSemitones) noexcept;
+    bool getLayerMute (std::size_t layerVisualIndex) const noexcept;
+    bool getLayerSolo (std::size_t layerVisualIndex) const noexcept;
+    float getLayerVolume (std::size_t layerVisualIndex) const noexcept;
+    bool setLayerMute (std::size_t layerVisualIndex, bool shouldMute) noexcept;
+    bool setLayerSolo (std::size_t layerVisualIndex, bool shouldSolo) noexcept;
+    float setLayerVolume (std::size_t layerVisualIndex, float volume) noexcept;
     static int clampMidiNote (int midiNote) noexcept;
 
 private:
