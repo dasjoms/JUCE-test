@@ -32,6 +32,7 @@ public:
     void setVelocitySensitivity (float sensitivity) noexcept;
     void setUnisonVoices (int voicesPerNote) noexcept;
     void setUnisonDetuneCents (float cents) noexcept;
+    void setMidiNoteTransposeSemitones (int semitones) noexcept;
     void setOutputStage (OutputStage newOutputStage) noexcept;
     VoiceStealPolicy getVoiceStealPolicy() const noexcept;
 
@@ -56,6 +57,8 @@ private:
     float getDetuneOffsetForStackIndex (int stackIndex, int stackSize) const noexcept;
 
     std::vector<SynthVoice> voices;
+    std::vector<int> sourceMidiNotesByVoice;
+    std::vector<int> playedMidiNotesByVoice;
     int activeVoiceCount = 1;
     double currentSampleRate = 44100.0;
     int currentBlockSize = 0;
@@ -73,5 +76,6 @@ private:
     int nextVoiceGroupId = 1;
     int currentUnisonVoices = 1;
     float currentUnisonDetuneCents = 0.0f;
+    int currentMidiNoteTransposeSemitones = 0;
     OutputStage outputStage = OutputStage::normalizeVoiceSum;
 };

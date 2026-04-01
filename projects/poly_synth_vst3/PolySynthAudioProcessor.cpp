@@ -914,6 +914,8 @@ void PolySynthAudioProcessor::syncLayerRuntimesFromState() noexcept
         jassertfalse;
     }
 
+    const auto baseLayerRoot = getLayerRootNoteAbsolute (0);
+
     for (std::size_t runtimeIndex = 0; runtimeIndex < activeLayerCount; ++runtimeIndex)
     {
         const auto layerId = order[runtimeIndex];
@@ -925,7 +927,15 @@ void PolySynthAudioProcessor::syncLayerRuntimesFromState() noexcept
         if (const auto* layer = instrumentState.findLayerById (layerId))
         {
             runtime.snapshot = *layer;
+            // Phase A layer pitch mapping contract:
+            // Each layer receives the same incoming MIDI note stream, then computes
+            // layerTransposeFromBaseRoot = (layerRootAbsolute - baseLayerRootAbsolute).
+            // The synth engine applies:
+            // playedNote = clamp [0, 127] (incomingNote + layerTransposeFromBaseRoot).
+            // Clamping ensures valid MIDI note numbers at the DSP boundary.
+            runtime.midiNoteTransposeFromBaseRoot = layer->rootNoteAbsolute - baseLayerRoot;
             applyLayerStateToEngine (runtime.engine, runtime.snapshot);
+            runtime.engine.setMidiNoteTransposeSemitones (runtime.midiNoteTransposeFromBaseRoot);
         }
     }
 }

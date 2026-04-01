@@ -193,6 +193,7 @@ private:
     {
         uint64_t layerId = 0;
         LayerState snapshot;
+        int midiNoteTransposeFromBaseRoot = 0;
         SynthEngine engine;
         juce::AudioBuffer<float> scratchBuffer;
         bool prepared = false;

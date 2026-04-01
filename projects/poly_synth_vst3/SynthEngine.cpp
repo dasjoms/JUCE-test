@@ -5,6 +5,8 @@
 
 SynthEngine::SynthEngine (int maxVoices)
     : voices (static_cast<size_t> (juce::jmax (1, maxVoices)))
+    , sourceMidiNotesByVoice (voices.size(), -1)
+    , playedMidiNotesByVoice (voices.size(), -1)
 {
     setActiveVoiceCount (1);
 }
@@ -25,6 +27,8 @@ void SynthEngine::prepare (double sampleRate, int blockSize) noexcept
 
     noteStartCounter = 0;
     nextVoiceGroupId = 1;
+    std::fill (sourceMidiNotesByVoice.begin(), sourceMidiNotesByVoice.end(), -1);
+    std::fill (playedMidiNotesByVoice.begin(), playedMidiNotesByVoice.end(), -1);
 }
 
 void SynthEngine::setWaveform (SynthVoice::Waveform waveformType) noexcept
@@ -87,6 +91,11 @@ void SynthEngine::setUnisonVoices (int voicesPerNote) noexcept
 void SynthEngine::setUnisonDetuneCents (float cents) noexcept
 {
     currentUnisonDetuneCents = juce::jlimit (0.0f, 120.0f, cents);
+}
+
+void SynthEngine::setMidiNoteTransposeSemitones (int semitones) noexcept
+{
+    currentMidiNoteTransposeSemitones = juce::jlimit (-127, 127, semitones);
 }
 
 void SynthEngine::setOutputStage (OutputStage newOutputStage) noexcept
@@ -161,10 +170,18 @@ void SynthEngine::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcep
         {
             const auto voiceIndex = selectedVoices[static_cast<size_t> (stackIndex)];
             auto& voice = voices[static_cast<size_t> (voiceIndex)];
+            const auto incomingNote = midiMessage.getNoteNumber();
+            const auto mappedNote = juce::jlimit (0, 127, incomingNote + currentMidiNoteTransposeSemitones);
+            sourceMidiNotesByVoice[static_cast<size_t> (voiceIndex)] = incomingNote;
+            playedMidiNotesByVoice[static_cast<size_t> (voiceIndex)] = mappedNote;
             voice.setStartOrder (noteStartCounter++);
             voice.setVoiceGroupId (groupId);
             voice.setDetuneCents (getDetuneOffsetForStackIndex (stackIndex, static_cast<int> (selectedVoices.size())));
-            voice.noteOn (midiMessage.getNoteNumber(), midiMessage.getFloatVelocity());
+            // Phase A mapping:
+            // playedNote = clampToMidiRange (incomingNote + layerTransposeFromBaseRoot).
+            // We always store the original incoming note for note-off matching, then trigger the voice
+            // with the mapped note so per-layer pitch can diverge deterministically from the base layer.
+            voice.noteOn (mappedNote, midiMessage.getFloatVelocity());
         }
         return;
     }
@@ -172,7 +189,15 @@ void SynthEngine::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcep
     if (midiMessage.isNoteOff())
     {
         for (auto voiceIndex = 0; voiceIndex < activeVoiceCount; ++voiceIndex)
-            voices[static_cast<size_t> (voiceIndex)].noteOff (midiMessage.getNoteNumber());
+        {
+            const auto boundedVoiceIndex = static_cast<size_t> (voiceIndex);
+            if (sourceMidiNotesByVoice[boundedVoiceIndex] != midiMessage.getNoteNumber())
+                continue;
+
+            voices[boundedVoiceIndex].noteOff (playedMidiNotesByVoice[boundedVoiceIndex]);
+            sourceMidiNotesByVoice[boundedVoiceIndex] = -1;
+            playedMidiNotesByVoice[boundedVoiceIndex] = -1;
+        }
 
         return;
     }
@@ -180,7 +205,11 @@ void SynthEngine::handleMidiEvent (const juce::MidiMessage& midiMessage) noexcep
     if (midiMessage.isAllNotesOff() || midiMessage.isAllSoundOff())
     {
         for (auto voiceIndex = 0; voiceIndex < activeVoiceCount; ++voiceIndex)
+        {
             voices[static_cast<size_t> (voiceIndex)].allNotesOff();
+            sourceMidiNotesByVoice[static_cast<size_t> (voiceIndex)] = -1;
+            playedMidiNotesByVoice[static_cast<size_t> (voiceIndex)] = -1;
+        }
     }
 }
 
