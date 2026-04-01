@@ -5,6 +5,15 @@
 PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
+    auto configureLinearSlider = [] (juce::Slider& slider, double min, double max, double interval, int decimals, juce::String suffix = {})
+    {
+        slider.setSliderStyle (juce::Slider::LinearHorizontal);
+        slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 64, 20);
+        slider.setRange (min, max, interval);
+        slider.setNumDecimalPlacesToDisplay (decimals);
+        slider.setTextValueSuffix (suffix);
+    };
+
     titleLabel.setText ("Poly Synth", juce::dontSendNotification);
     titleLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (titleLabel);
@@ -23,8 +32,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     maxVoicesLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (maxVoicesLabel);
 
-    maxVoicesSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-    maxVoicesSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
+    configureLinearSlider (maxVoicesSlider, 1.0, 16.0, 1.0, 0);
     addAndMakeVisible (maxVoicesSlider);
 
     stealPolicyLabel.setText ("Steal Policy", juce::dontSendNotification);
@@ -40,39 +48,79 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     attackLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (attackLabel);
 
-    attackSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-    attackSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
+    attackSlider.setComponentID ("attackSlider");
+    configureLinearSlider (attackSlider, 0.001, 5.0, 0.001, 3, " s");
     addAndMakeVisible (attackSlider);
+
+    decayLabel.setText ("Decay (s)", juce::dontSendNotification);
+    decayLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (decayLabel);
+
+    decaySlider.setComponentID ("decaySlider");
+    configureLinearSlider (decaySlider, 0.001, 5.0, 0.001, 3, " s");
+    addAndMakeVisible (decaySlider);
+
+    sustainLabel.setText ("Sustain", juce::dontSendNotification);
+    sustainLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (sustainLabel);
+
+    sustainSlider.setComponentID ("sustainSlider");
+    configureLinearSlider (sustainSlider, 0.0, 1.0, 0.001, 3);
+    addAndMakeVisible (sustainSlider);
 
     releaseLabel.setText ("Release (s)", juce::dontSendNotification);
     releaseLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (releaseLabel);
 
-    releaseSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-    releaseSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
+    configureLinearSlider (releaseSlider, 0.005, 5.0, 0.001, 3, " s");
     addAndMakeVisible (releaseSlider);
 
     modDepthLabel.setText ("Mod Depth", juce::dontSendNotification);
     modDepthLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (modDepthLabel);
 
-    modDepthSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-    modDepthSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
-    modDepthSlider.setRange (0.0, 1.0, 0.001);
-    modDepthSlider.setTextValueSuffix ("");
-    modDepthSlider.setNumDecimalPlacesToDisplay (3);
+    configureLinearSlider (modDepthSlider, 0.0, 1.0, 0.001, 3);
     addAndMakeVisible (modDepthSlider);
 
     modRateLabel.setText ("Mod Rate", juce::dontSendNotification);
     modRateLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (modRateLabel);
 
-    modRateSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-    modRateSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 52, 20);
-    modRateSlider.setRange (0.05, 20.0, 0.01);
-    modRateSlider.setTextValueSuffix (" Hz");
-    modRateSlider.setNumDecimalPlacesToDisplay (2);
+    configureLinearSlider (modRateSlider, 0.05, 20.0, 0.01, 2, " Hz");
     addAndMakeVisible (modRateSlider);
+
+    velocitySensitivityLabel.setText ("Velocity Sensitivity", juce::dontSendNotification);
+    velocitySensitivityLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (velocitySensitivityLabel);
+
+    velocitySensitivitySlider.setComponentID ("velocitySensitivitySlider");
+    configureLinearSlider (velocitySensitivitySlider, 0.0, 1.0, 0.001, 3);
+    addAndMakeVisible (velocitySensitivitySlider);
+
+    modDestinationLabel.setText ("Mod Destination", juce::dontSendNotification);
+    modDestinationLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (modDestinationLabel);
+
+    modDestinationSelector.setComponentID ("modDestinationSelector");
+    modDestinationSelector.addItem ("Amplitude", 1);
+    modDestinationSelector.addItem ("Pitch", 2);
+    addAndMakeVisible (modDestinationSelector);
+
+    unisonVoicesLabel.setText ("Unison Voices", juce::dontSendNotification);
+    unisonVoicesLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (unisonVoicesLabel);
+
+    unisonVoicesSlider.setComponentID ("unisonVoicesSlider");
+    configureLinearSlider (unisonVoicesSlider, 1.0, 8.0, 1.0, 0);
+    addAndMakeVisible (unisonVoicesSlider);
+
+    unisonDetuneCentsLabel.setText ("Unison Detune (cents)", juce::dontSendNotification);
+    unisonDetuneCentsLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (unisonDetuneCentsLabel);
+
+    unisonDetuneCentsSlider.setComponentID ("unisonDetuneCentsSlider");
+    configureLinearSlider (unisonDetuneCentsSlider, 0.0, 50.0, 0.01, 2, " cents");
+    addAndMakeVisible (unisonDetuneCentsSlider);
 
     waveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
                                                                                                     "waveform",
@@ -89,16 +137,34 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     releaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
                                                                                                  "release",
                                                                                                  releaseSlider);
+    decayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
+                                                                                               "decay",
+                                                                                               decaySlider);
+    sustainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
+                                                                                                 "sustain",
+                                                                                                 sustainSlider);
     modDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
                                                                                                   "modDepth",
                                                                                                   modDepthSlider);
     modRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
                                                                                                  "modRate",
                                                                                                  modRateSlider);
+    velocitySensitivityAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
+                                                                                                             "velocitySensitivity",
+                                                                                                             velocitySensitivitySlider);
+    modDestinationAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
+                                                                                                          "modDestination",
+                                                                                                          modDestinationSelector);
+    unisonVoicesAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
+                                                                                                       "unisonVoices",
+                                                                                                       unisonVoicesSlider);
+    unisonDetuneCentsAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
+                                                                                                            "unisonDetuneCents",
+                                                                                                            unisonDetuneCentsSlider);
 
     setResizable (true, false);
-    setResizeLimits (360, 300, 700, 420);
-    setSize (460, 320);
+    setResizeLimits (420, 520, 760, 760);
+    setSize (520, 540);
 }
 
 PolySynthAudioProcessorEditor::~PolySynthAudioProcessorEditor()
@@ -119,7 +185,7 @@ void PolySynthAudioProcessorEditor::resized()
     titleLabel.setBounds (bounds.removeFromTop (28));
     bounds.removeFromTop (8);
 
-    const auto contentWidth = juce::jmin (520, bounds.getWidth());
+    const auto contentWidth = juce::jmin (620, bounds.getWidth());
     auto content = juce::Rectangle<int> (contentWidth, bounds.getHeight()).withCentre (bounds.getCentre());
 
     auto placeRow = [&content] (juce::Label& label, juce::Component& control)
@@ -134,7 +200,13 @@ void PolySynthAudioProcessorEditor::resized()
     placeRow (maxVoicesLabel, maxVoicesSlider);
     placeRow (stealPolicyLabel, stealPolicySelector);
     placeRow (attackLabel, attackSlider);
+    placeRow (decayLabel, decaySlider);
+    placeRow (sustainLabel, sustainSlider);
     placeRow (releaseLabel, releaseSlider);
     placeRow (modDepthLabel, modDepthSlider);
     placeRow (modRateLabel, modRateSlider);
+    placeRow (velocitySensitivityLabel, velocitySensitivitySlider);
+    placeRow (modDestinationLabel, modDestinationSelector);
+    placeRow (unisonVoicesLabel, unisonVoicesSlider);
+    placeRow (unisonDetuneCentsLabel, unisonDetuneCentsSlider);
 }
