@@ -116,6 +116,24 @@ bool InstrumentState::moveLayerDown (std::size_t visualIndex)
     return true;
 }
 
+bool InstrumentState::restoreFromSerializedState (std::vector<LayerState> restoredLayers,
+                                                  std::vector<uint64_t> restoredOrder,
+                                                  uint64_t restoredNextLayerId) noexcept
+{
+    if (restoredLayers.empty() || restoredOrder.empty() || restoredLayers.size() > maxLayerCount)
+        return false;
+
+    layers = std::move (restoredLayers);
+    layerOrder = std::move (restoredOrder);
+
+    uint64_t maxLayerId = 0;
+    for (const auto& layer : layers)
+        maxLayerId = std::max (maxLayerId, layer.layerId);
+
+    nextLayerId = std::max (maxLayerId + 1, restoredNextLayerId);
+    return true;
+}
+
 std::size_t InstrumentState::resolveSelectedLayerIndexAfterDelete (std::size_t removedVisualIndex,
                                                                    std::size_t remainingLayerCount) noexcept
 {
@@ -149,4 +167,3 @@ bool InstrumentState::appendLayer (LayerState layer)
     nextLayerId = std::max (nextLayerId, newLayerId + 1);
     return true;
 }
-

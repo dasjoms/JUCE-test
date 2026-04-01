@@ -7,6 +7,7 @@ namespace
 constexpr auto schemaVersionPropertyId = "schemaVersion";
 constexpr auto layersNodeId = "LAYERS";
 constexpr auto selectedLayerIdPropertyId = "selectedLayerId";
+constexpr auto nextLayerIdPropertyId = "nextLayerId";
 constexpr auto layerNodeId = "LAYER";
 constexpr auto layerOrderNodeId = "LAYER_ORDER";
 constexpr auto layerStateNodeId = "layerState";
@@ -67,6 +68,7 @@ bool validateLayeredStateRoundTripRetainsIdentityOrderSelectionAndParameters()
     const auto order1 = static_cast<juce::int64> (beforeOrder.getChild (1).getProperty (orderLayerIdPropertyId, 0));
     const auto order2 = static_cast<juce::int64> (beforeOrder.getChild (2).getProperty (orderLayerIdPropertyId, 0));
     const auto selectedId = static_cast<juce::int64> (beforeLayers.getProperty (selectedLayerIdPropertyId, 0));
+    const auto nextLayerId = static_cast<juce::int64> (beforeLayers.getProperty (nextLayerIdPropertyId, 0));
 
     processor.setStateInformation (before.getData(), static_cast<int> (before.getSize()));
 
@@ -98,7 +100,10 @@ bool validateLayeredStateRoundTripRetainsIdentityOrderSelectionAndParameters()
                        && expect (juce::approximatelyEqual (static_cast<float> (afterLayerState.getProperty (layerVolumePropertyId, 0.0f)), 0.42f),
                                   "round-trip layer volume mismatch");
 
-    return schemaOk && orderOk && paramsOk
+    const auto nextLayerIdOk = expect (static_cast<juce::int64> (afterLayers.getProperty (nextLayerIdPropertyId, 0)) == nextLayerId,
+                                       "round-trip nextLayerId mismatch");
+
+    return schemaOk && orderOk && paramsOk && nextLayerIdOk
         && expect (afterSelected == selectedId, "round-trip selected layer mismatch");
 }
 

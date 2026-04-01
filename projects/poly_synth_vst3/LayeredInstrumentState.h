@@ -56,6 +56,9 @@ public:
 
     bool moveLayerUp (std::size_t visualIndex);
     bool moveLayerDown (std::size_t visualIndex);
+    bool restoreFromSerializedState (std::vector<LayerState> restoredLayers,
+                                     std::vector<uint64_t> restoredOrder,
+                                     uint64_t restoredNextLayerId) noexcept;
 
     static std::size_t resolveSelectedLayerIndexAfterDelete (std::size_t removedVisualIndex,
                                                              std::size_t remainingLayerCount) noexcept;
