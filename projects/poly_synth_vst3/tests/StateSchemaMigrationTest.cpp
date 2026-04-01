@@ -506,6 +506,87 @@ bool validateLayeredStateRestoreRepairsOrderAndNextLayerId()
            }();
 }
 
+bool validateLayeredStateRestorePreservesHighEndAndLongEnvelopeValues()
+{
+    PolySynthAudioProcessor processor;
+    if (! restoreFromFixtureXml (processor,
+                                 R"xml(
+<PARAMETERS schemaVersion="6">
+  <LAYERS selectedLayerId="101" nextLayerId="102">
+    <LAYER layerId="101">
+      <layerState waveform="2" maxVoices="16" attack="4.75" decay="5.0" sustain="1.0" release="4.2" modDepth="1.0" modRate="20.0" velocitySensitivity="1.0" modDestination="3" unisonVoices="8" unisonDetuneCents="50.0" outputStage="2"/>
+    </LAYER>
+    <LAYER_ORDER>
+      <ITEM layerId="101"/>
+    </LAYER_ORDER>
+  </LAYERS>
+</PARAMETERS>)xml",
+                                 "layered-high-end restore"))
+    {
+        return false;
+    }
+
+    const auto layer = processor.getLayerStateByVisualIndex (0);
+    if (! layer.has_value())
+    {
+        std::cerr << "missing restored layer for layered-high-end restore" << '\n';
+        return false;
+    }
+
+    return expectIntParameter (processor, maxVoicesParameterId, 16, "layered-high-end restore")
+        && expectFloatParameter (processor, attackParameterId, 4.75f, "layered-high-end restore")
+        && expectFloatParameter (processor, decayParameterId, 5.0f, "layered-high-end restore")
+        && expectFloatParameter (processor, releaseParameterId, 4.2f, "layered-high-end restore")
+        && expectFloatParameter (processor, modulationRateParameterId, 20.0f, "layered-high-end restore")
+        && expectIntParameter (processor, unisonVoicesParameterId, 8, "layered-high-end restore")
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 50.0f, "layered-high-end restore")
+        && juce::approximatelyEqual (layer->attackSeconds, 4.75f)
+        && juce::approximatelyEqual (layer->decaySeconds, 5.0f)
+        && juce::approximatelyEqual (layer->releaseSeconds, 4.2f);
+}
+
+bool validateLayeredStateRestoreClampsInvalidValuesPredictably()
+{
+    PolySynthAudioProcessor processor;
+    if (! restoreFromFixtureXml (processor,
+                                 R"xml(
+<PARAMETERS schemaVersion="6">
+  <LAYERS selectedLayerId="201" nextLayerId="202">
+    <LAYER layerId="201">
+      <layerState maxVoices="99" attack="-0.5" decay="-0.2" sustain="2.0" release="0.001" modDepth="2.0" modRate="0.001" velocitySensitivity="-1.0" unisonVoices="0" unisonDetuneCents="-15.0"/>
+    </LAYER>
+    <LAYER_ORDER>
+      <ITEM layerId="201"/>
+    </LAYER_ORDER>
+  </LAYERS>
+</PARAMETERS>)xml",
+                                 "layered-invalid clamp restore"))
+    {
+        return false;
+    }
+
+    const auto layer = processor.getLayerStateByVisualIndex (0);
+    if (! layer.has_value())
+    {
+        std::cerr << "missing restored layer for layered-invalid clamp restore" << '\n';
+        return false;
+    }
+
+    return expectIntParameter (processor, maxVoicesParameterId, 16, "layered-invalid clamp restore")
+        && expectFloatParameter (processor, attackParameterId, 0.001f, "layered-invalid clamp restore")
+        && expectFloatParameter (processor, decayParameterId, 0.001f, "layered-invalid clamp restore")
+        && expectFloatParameter (processor, sustainParameterId, 1.0f, "layered-invalid clamp restore")
+        && expectFloatParameter (processor, releaseParameterId, 0.005f, "layered-invalid clamp restore")
+        && expectFloatParameter (processor, modulationDepthParameterId, 1.0f, "layered-invalid clamp restore")
+        && expectFloatParameter (processor, modulationRateParameterId, 0.05f, "layered-invalid clamp restore")
+        && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "layered-invalid clamp restore")
+        && expectIntParameter (processor, unisonVoicesParameterId, 1, "layered-invalid clamp restore")
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "layered-invalid clamp restore")
+        && juce::approximatelyEqual (layer->attackSeconds, 0.001f)
+        && juce::approximatelyEqual (layer->decaySeconds, 0.001f)
+        && juce::approximatelyEqual (layer->releaseSeconds, 0.005f);
+}
+
 bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
 {
     PolySynthAudioProcessor processor;
@@ -588,6 +669,12 @@ int main()
         return 1;
 
     if (! validateLayeredStateRestoreRepairsOrderAndNextLayerId())
+        return 1;
+
+    if (! validateLayeredStateRestorePreservesHighEndAndLongEnvelopeValues())
+        return 1;
+
+    if (! validateLayeredStateRestoreClampsInvalidValuesPredictably())
         return 1;
 
     std::cout << "state schema migration validation passed." << '\n';
