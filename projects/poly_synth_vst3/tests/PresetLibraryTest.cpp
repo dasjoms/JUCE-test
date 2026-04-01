@@ -30,45 +30,57 @@ int main()
     auto saveAsLead = library.savePreset ("", makeState (10), PresetLibrary::SaveMode::saveAsNew, "Lead");
     ok = expect (saveAsLead.code == PresetLibrary::SaveResultCode::saved, "initial save-as-new should succeed") && ok;
 
-    auto duplicateLead = library.savePreset ("", makeState (11), PresetLibrary::SaveMode::saveAsNew, "Lead");
+    auto duplicateLead = library.savePreset ("", makeState (11), PresetLibrary::SaveMode::saveAsNew, "lead");
     ok = expect (duplicateLead.code == PresetLibrary::SaveResultCode::duplicateNameRejected,
-                 "save-as-new should reject duplicate name")
+                 "save-as-new should reject duplicate name case-insensitively")
          && ok;
 
+    auto saveAsBass = library.savePreset ("Lead", makeState (12), PresetLibrary::SaveMode::saveAsNew, "Bass");
+    ok = expect (saveAsBass.code == PresetLibrary::SaveResultCode::saved, "save-as-new should allow unique names") && ok;
+
     auto overwriteLead = library.savePreset ("Lead", makeState (99), PresetLibrary::SaveMode::overwriteCurrent);
-    ok = expect (overwriteLead.code == PresetLibrary::SaveResultCode::saved, "save should overwrite existing preset") && ok;
+    ok = expect (overwriteLead.code == PresetLibrary::SaveResultCode::saved, "overwrite mode should update current preset") && ok;
+
+    auto invalidOverwrite = library.savePreset ("", makeState (20), PresetLibrary::SaveMode::overwriteCurrent);
+    ok = expect (invalidOverwrite.code == PresetLibrary::SaveResultCode::invalidName,
+                 "overwrite should reject empty current preset name")
+         && ok;
 
     const auto list = library.listPresets();
-    ok = expect (list.size() == 1, "list should contain exactly one preset") && ok;
-    ok = expect (list[0].name == "Lead", "listed preset name mismatch") && ok;
+    ok = expect (list.size() == 2, "list should contain both Lead and Bass presets") && ok;
 
-    const auto loaded = library.loadPreset ("Lead");
-    ok = expect (loaded.success, "load should succeed for saved preset") && ok;
-    if (loaded.instrumentState.isValid())
-        ok = expect (static_cast<int> (loaded.instrumentState.getProperty ("value")) == 99,
+    const auto loadedLead = library.loadPreset ("Lead");
+    ok = expect (loadedLead.success, "load should succeed for overwritten preset") && ok;
+    if (loadedLead.instrumentState.isValid())
+        ok = expect (static_cast<int> (loadedLead.instrumentState.getProperty ("value")) == 99,
                      "overwritten state should be loaded")
              && ok;
 
-    ok = expect (library.deletePreset ("Lead"), "delete should remove preset") && ok;
-    ok = expect (library.listPresets().isEmpty(), "list should be empty after delete") && ok;
+    PresetLibrary warningLibrary ("PolySynthTestsWarn", 1, root.getChildFile ("warn"));
+    auto warningSave = warningLibrary.savePreset ("", makeState (5), PresetLibrary::SaveMode::saveAsNew, "Future");
+    ok = expect (warningSave.code == PresetLibrary::SaveResultCode::saved, "warning fixture save should succeed") && ok;
 
-    PresetLibrary partialWarnLibrary ("PolySynthTestsWarn", 1, root.getChildFile ("warn"));
-    auto warnSave = partialWarnLibrary.savePreset ("", makeState (5), PresetLibrary::SaveMode::saveAsNew, "Future");
-    ok = expect (warnSave.code == PresetLibrary::SaveResultCode::saved, "warning test preset save should succeed") && ok;
-
-    auto presetFile = partialWarnLibrary.getStorageDirectory().getChildFile ("Future.jucepreset");
+    auto presetFile = warningLibrary.getStorageDirectory().getChildFile ("Future.jucepreset");
     if (auto xml = juce::XmlDocument::parse (presetFile))
     {
         auto payload = juce::ValueTree::fromXml (*xml);
         payload.setProperty ("schemaVersion", 2, nullptr);
         payload.setProperty ("futureField", true, nullptr);
+
+        juce::ValueTree unknownChild ("UNHANDLED_CHILD");
+        payload.addChild (unknownChild, -1, nullptr);
+
         if (const auto modified = payload.createXml())
             modified->writeTo (presetFile);
     }
 
-    const auto warnedLoad = partialWarnLibrary.loadPreset ("Future");
-    ok = expect (warnedLoad.success, "partial-load path should still succeed") && ok;
-    ok = expect (warnedLoad.warnedAboutPartialLoad, "partial-load path should emit warning") && ok;
+    const auto warnedLoad = warningLibrary.loadPreset ("Future");
+    ok = expect (warnedLoad.success, "partial/unknown preset load should still succeed") && ok;
+    ok = expect (warnedLoad.warnedAboutPartialLoad, "partial/unknown preset fields should emit warning") && ok;
+
+    ok = expect (library.deletePreset ("Lead"), "delete should remove Lead preset") && ok;
+    ok = expect (library.deletePreset ("Bass"), "delete should remove Bass preset") && ok;
+    ok = expect (library.listPresets().isEmpty(), "list should be empty after deleting all presets") && ok;
 
     root.deleteRecursively();
 

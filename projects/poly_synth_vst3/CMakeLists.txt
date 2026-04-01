@@ -296,6 +296,31 @@ target_compile_definitions(LayeredInstrumentStateTest
 add_test(NAME LayeredInstrumentStateTest COMMAND LayeredInstrumentStateTest)
 
 
+
+add_executable(PolyLayerAudioBehaviorTest
+    tests/PolyLayerAudioBehaviorTest.cpp)
+
+target_link_libraries(PolyLayerAudioBehaviorTest
+    PRIVATE
+        PolySynthPlugin
+        juce::juce_audio_processors
+        juce::juce_audio_utils)
+
+add_test(NAME PolyLayerAudioBehaviorTest COMMAND PolyLayerAudioBehaviorTest)
+
+
+add_executable(RootNoteSynchronizationTest
+    tests/RootNoteSynchronizationTest.cpp)
+
+target_link_libraries(RootNoteSynchronizationTest
+    PRIVATE
+        PolySynthPlugin
+        juce::juce_audio_processors
+        juce::juce_audio_utils)
+
+add_test(NAME RootNoteSynchronizationTest COMMAND RootNoteSynchronizationTest)
+
+
 add_executable(PresetLibraryTest
     tests/PresetLibraryTest.cpp
     PresetLibrary.cpp)
