@@ -45,6 +45,7 @@ public:
 
     const std::vector<LayerState>& getLayers() const noexcept;
     const std::vector<uint64_t>& getLayerOrder() const noexcept;
+    uint64_t getNextLayerId() const noexcept;
 
     LayerState* findLayerById (uint64_t layerId) noexcept;
     const LayerState* findLayerById (uint64_t layerId) const noexcept;

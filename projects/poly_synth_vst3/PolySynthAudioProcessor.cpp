@@ -1329,11 +1329,7 @@ void PolySynthAudioProcessor::writeLayeredStateToTree (juce::ValueTree& stateTre
     stateTree.removeChild (stateTree.getChildWithName (layersNodeId), nullptr);
 
     juce::ValueTree layersNode (layersNodeId);
-    auto nextLayerId = uint64_t { 1 };
-    for (const auto& layer : instrumentState.getLayers())
-        nextLayerId = std::max (nextLayerId, layer.layerId + 1);
-
-    layersNode.setProperty (nextLayerIdPropertyId, static_cast<juce::int64> (nextLayerId), nullptr);
+    layersNode.setProperty (nextLayerIdPropertyId, static_cast<juce::int64> (instrumentState.getNextLayerId()), nullptr);
     layersNode.setProperty (selectedLayerIdPropertyId, static_cast<juce::int64> (selectedLayerId), nullptr);
 
     for (const auto& layer : instrumentState.getLayers())
