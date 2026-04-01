@@ -74,6 +74,24 @@ public:
     bool moveLayerDown (std::size_t layerVisualIndex) noexcept;
     bool selectLayerByVisualIndex (std::size_t layerVisualIndex) noexcept;
     std::size_t getSelectedLayerVisualIndex() const noexcept;
+    std::optional<LayerState> getLayerStateByVisualIndex (std::size_t layerVisualIndex) const noexcept;
+    std::optional<LayerState> getLayerStateById (uint64_t layerId) const noexcept;
+    bool setLayerWaveformByVisualIndex (std::size_t layerVisualIndex, Waveform waveformType) noexcept;
+    bool setLayerWaveformById (uint64_t layerId, Waveform waveformType) noexcept;
+    bool setLayerVoiceCountByVisualIndex (std::size_t layerVisualIndex, int voiceCount) noexcept;
+    bool setLayerVoiceCountById (uint64_t layerId, int voiceCount) noexcept;
+    bool setLayerStealPolicyByVisualIndex (std::size_t layerVisualIndex, SynthEngine::VoiceStealPolicy policy) noexcept;
+    bool setLayerStealPolicyById (uint64_t layerId, SynthEngine::VoiceStealPolicy policy) noexcept;
+    bool setLayerAdsrByVisualIndex (std::size_t layerVisualIndex, float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept;
+    bool setLayerAdsrById (uint64_t layerId, float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept;
+    bool setLayerModParametersByVisualIndex (std::size_t layerVisualIndex, float modulationDepth, float modulationRateHz, SynthVoice::ModulationDestination destination) noexcept;
+    bool setLayerModParametersById (uint64_t layerId, float modulationDepth, float modulationRateHz, SynthVoice::ModulationDestination destination) noexcept;
+    bool setLayerVelocitySensitivityByVisualIndex (std::size_t layerVisualIndex, float velocitySensitivity) noexcept;
+    bool setLayerVelocitySensitivityById (uint64_t layerId, float velocitySensitivity) noexcept;
+    bool setLayerUnisonByVisualIndex (std::size_t layerVisualIndex, int unisonVoices, float unisonDetuneCents) noexcept;
+    bool setLayerUnisonById (uint64_t layerId, int unisonVoices, float unisonDetuneCents) noexcept;
+    bool setLayerOutputStageByVisualIndex (std::size_t layerVisualIndex, SynthEngine::OutputStage outputStage) noexcept;
+    bool setLayerOutputStageById (uint64_t layerId, SynthEngine::OutputStage outputStage) noexcept;
     static int clampMidiNote (int midiNote) noexcept;
 
 private:
@@ -146,6 +164,9 @@ private:
     static SynthEngine::OutputStage outputStageFromChoiceIndex (int choiceIndex) noexcept;
     static const juce::StringArray& getOutputStageChoices() noexcept;
     void syncLayerRuntimesFromState() noexcept;
+    void markLayerStateDirty() noexcept;
+    LayerState* findLayerByVisualIndex (std::size_t layerVisualIndex) noexcept;
+    const LayerState* findLayerByVisualIndex (std::size_t layerVisualIndex) const noexcept;
     static void applyLayerStateToEngine (SynthEngine& engine, const LayerState& layerState) noexcept;
     std::optional<uint64_t> getLayerIdForVisualIndex (std::size_t visualIndex) const noexcept;
     std::size_t getVisualIndexForLayerId (uint64_t layerId) const noexcept;
@@ -187,6 +208,7 @@ private:
     bool isPrepared = false;
     double preparedSampleRate = 44100.0;
     int preparedSamplesPerBlock = 0;
+    uint64_t layerStateRevision = 0;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessor)

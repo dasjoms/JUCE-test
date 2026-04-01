@@ -246,6 +246,17 @@ target_link_libraries(PolyModParametersApvtsTest
 
 add_test(NAME PolyModParametersApvtsTest COMMAND PolyModParametersApvtsTest)
 
+add_executable(LayerSelectionEditingTest
+    tests/LayerSelectionEditingTest.cpp)
+
+target_link_libraries(LayerSelectionEditingTest
+    PRIVATE
+        PolySynthPlugin
+        juce::juce_audio_processors
+        juce::juce_audio_utils)
+
+add_test(NAME LayerSelectionEditingTest COMMAND LayerSelectionEditingTest)
+
 
 add_executable(SynthEngineUnisonTest
     tests/SynthEngineUnisonTest.cpp

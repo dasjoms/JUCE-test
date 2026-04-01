@@ -34,6 +34,7 @@ constexpr auto rootNoteAbsolutePropertyId = "rootNoteAbsolute";
 constexpr auto mutePropertyId = "mute";
 constexpr auto soloPropertyId = "solo";
 constexpr auto layerVolumePropertyId = "layerVolume";
+constexpr auto layerStateRevisionPropertyId = "layerStateRevision";
 constexpr int currentStateSchemaVersion = 6;
 
 constexpr std::array<const char*, 11> schemaV2ParameterIds {
@@ -155,7 +156,10 @@ int PolySynthAudioProcessor::setLayerRootNoteAbsolute (std::size_t layerVisualIn
         return clampedMidiNote;
 
     if (auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+    {
         layer->rootNoteAbsolute = clampedMidiNote;
+        markLayerStateDirty();
+    }
 
     return clampedMidiNote;
 }
@@ -212,6 +216,7 @@ bool PolySynthAudioProcessor::setLayerMute (std::size_t layerVisualIndex, bool s
     if (auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
     {
         layer->mute = shouldMute;
+        markLayerStateDirty();
         return true;
     }
 
@@ -227,6 +232,7 @@ bool PolySynthAudioProcessor::setLayerSolo (std::size_t layerVisualIndex, bool s
     if (auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
     {
         layer->solo = shouldSolo;
+        markLayerStateDirty();
         return true;
     }
 
@@ -241,7 +247,10 @@ float PolySynthAudioProcessor::setLayerVolume (std::size_t layerVisualIndex, flo
         return clampedVolume;
 
     if (auto* layer = instrumentState.findLayerById (layerOrder[layerVisualIndex]))
+    {
         layer->layerVolume = clampedVolume;
+        markLayerStateDirty();
+    }
 
     return clampedVolume;
 }
@@ -253,6 +262,7 @@ bool PolySynthAudioProcessor::addDefaultLayerAndSelect() noexcept
         return false;
 
     selectedLayerId = *createdLayerId;
+    markLayerStateDirty();
     syncLayerRuntimesFromState();
     return true;
 }
@@ -268,6 +278,7 @@ bool PolySynthAudioProcessor::duplicateLayerAndSelect (std::size_t sourceLayerVi
         return false;
 
     selectedLayerId = *duplicateLayerId;
+    markLayerStateDirty();
     syncLayerRuntimesFromState();
     return true;
 }
@@ -284,6 +295,7 @@ bool PolySynthAudioProcessor::removeLayerWithSelectionFallback (std::size_t laye
     const auto fallbackIndex = InstrumentState::resolveSelectedLayerIndexAfterDelete (layerVisualIndex,
                                                                                       instrumentState.getLayerOrder().size());
     selectLayerByVisualIndex (fallbackIndex);
+    markLayerStateDirty();
     syncLayerRuntimesFromState();
     return true;
 }
@@ -299,6 +311,7 @@ bool PolySynthAudioProcessor::moveLayerUp (std::size_t layerVisualIndex) noexcep
     else if (selectedIndexBeforeMove + 1 == layerVisualIndex)
         selectedLayerId = instrumentState.getLayerOrder()[layerVisualIndex];
 
+    markLayerStateDirty();
     syncLayerRuntimesFromState();
     return true;
 }
@@ -314,6 +327,7 @@ bool PolySynthAudioProcessor::moveLayerDown (std::size_t layerVisualIndex) noexc
     else if (selectedIndexBeforeMove == layerVisualIndex + 1)
         selectedLayerId = instrumentState.getLayerOrder()[layerVisualIndex];
 
+    markLayerStateDirty();
     syncLayerRuntimesFromState();
     return true;
 }
@@ -326,6 +340,172 @@ bool PolySynthAudioProcessor::selectLayerByVisualIndex (std::size_t layerVisualI
 
     selectedLayerId = *layerId;
     return true;
+}
+
+std::optional<LayerState> PolySynthAudioProcessor::getLayerStateByVisualIndex (std::size_t layerVisualIndex) const noexcept
+{
+    if (const auto* layer = findLayerByVisualIndex (layerVisualIndex))
+        return *layer;
+
+    return std::nullopt;
+}
+
+std::optional<LayerState> PolySynthAudioProcessor::getLayerStateById (uint64_t layerId) const noexcept
+{
+    if (const auto* layer = instrumentState.findLayerById (layerId))
+        return *layer;
+
+    return std::nullopt;
+}
+
+bool PolySynthAudioProcessor::setLayerWaveformByVisualIndex (std::size_t layerVisualIndex, Waveform waveformType) noexcept
+{
+    const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);
+    return layerId.has_value() && setLayerWaveformById (*layerId, waveformType);
+}
+
+bool PolySynthAudioProcessor::setLayerWaveformById (uint64_t layerId, Waveform waveformType) noexcept
+{
+    if (auto* layer = instrumentState.findLayerById (layerId))
+    {
+        layer->waveform = waveformType;
+        markLayerStateDirty();
+        return true;
+    }
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::setLayerVoiceCountByVisualIndex (std::size_t layerVisualIndex, int voiceCount) noexcept
+{
+    const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);
+    return layerId.has_value() && setLayerVoiceCountById (*layerId, voiceCount);
+}
+
+bool PolySynthAudioProcessor::setLayerVoiceCountById (uint64_t layerId, int voiceCount) noexcept
+{
+    if (auto* layer = instrumentState.findLayerById (layerId))
+    {
+        layer->voiceCount = juce::jlimit (1, 16, voiceCount);
+        markLayerStateDirty();
+        return true;
+    }
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::setLayerStealPolicyByVisualIndex (std::size_t layerVisualIndex, SynthEngine::VoiceStealPolicy policy) noexcept
+{
+    const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);
+    return layerId.has_value() && setLayerStealPolicyById (*layerId, policy);
+}
+
+bool PolySynthAudioProcessor::setLayerStealPolicyById (uint64_t layerId, SynthEngine::VoiceStealPolicy policy) noexcept
+{
+    if (auto* layer = instrumentState.findLayerById (layerId))
+    {
+        layer->stealPolicy = policy;
+        markLayerStateDirty();
+        return true;
+    }
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::setLayerAdsrByVisualIndex (std::size_t layerVisualIndex, float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept
+{
+    const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);
+    return layerId.has_value() && setLayerAdsrById (*layerId, attackSeconds, decaySeconds, sustainLevel, releaseSeconds);
+}
+
+bool PolySynthAudioProcessor::setLayerAdsrById (uint64_t layerId, float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds) noexcept
+{
+    if (auto* layer = instrumentState.findLayerById (layerId))
+    {
+        layer->attackSeconds = juce::jlimit (0.001f, 5.0f, attackSeconds);
+        layer->decaySeconds = juce::jlimit (0.001f, 5.0f, decaySeconds);
+        layer->sustainLevel = juce::jlimit (0.0f, 1.0f, sustainLevel);
+        layer->releaseSeconds = juce::jlimit (0.005f, 5.0f, releaseSeconds);
+        markLayerStateDirty();
+        return true;
+    }
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::setLayerModParametersByVisualIndex (std::size_t layerVisualIndex, float modulationDepth, float modulationRateHz, SynthVoice::ModulationDestination destination) noexcept
+{
+    const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);
+    return layerId.has_value() && setLayerModParametersById (*layerId, modulationDepth, modulationRateHz, destination);
+}
+
+bool PolySynthAudioProcessor::setLayerModParametersById (uint64_t layerId, float modulationDepth, float modulationRateHz, SynthVoice::ModulationDestination destination) noexcept
+{
+    if (auto* layer = instrumentState.findLayerById (layerId))
+    {
+        layer->modulationDepth = juce::jlimit (0.0f, 1.0f, modulationDepth);
+        layer->modulationRateHz = juce::jlimit (0.05f, 20.0f, modulationRateHz);
+        layer->modulationDestination = destination;
+        markLayerStateDirty();
+        return true;
+    }
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::setLayerVelocitySensitivityByVisualIndex (std::size_t layerVisualIndex, float velocitySensitivity) noexcept
+{
+    const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);
+    return layerId.has_value() && setLayerVelocitySensitivityById (*layerId, velocitySensitivity);
+}
+
+bool PolySynthAudioProcessor::setLayerVelocitySensitivityById (uint64_t layerId, float velocitySensitivity) noexcept
+{
+    if (auto* layer = instrumentState.findLayerById (layerId))
+    {
+        layer->velocitySensitivity = juce::jlimit (0.0f, 1.0f, velocitySensitivity);
+        markLayerStateDirty();
+        return true;
+    }
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::setLayerUnisonByVisualIndex (std::size_t layerVisualIndex, int unisonVoices, float unisonDetuneCents) noexcept
+{
+    const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);
+    return layerId.has_value() && setLayerUnisonById (*layerId, unisonVoices, unisonDetuneCents);
+}
+
+bool PolySynthAudioProcessor::setLayerUnisonById (uint64_t layerId, int unisonVoices, float unisonDetuneCents) noexcept
+{
+    if (auto* layer = instrumentState.findLayerById (layerId))
+    {
+        layer->unisonVoices = juce::jlimit (1, 8, unisonVoices);
+        layer->unisonDetuneCents = juce::jlimit (0.0f, 50.0f, unisonDetuneCents);
+        markLayerStateDirty();
+        return true;
+    }
+
+    return false;
+}
+
+bool PolySynthAudioProcessor::setLayerOutputStageByVisualIndex (std::size_t layerVisualIndex, SynthEngine::OutputStage outputStage) noexcept
+{
+    const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);
+    return layerId.has_value() && setLayerOutputStageById (*layerId, outputStage);
+}
+
+bool PolySynthAudioProcessor::setLayerOutputStageById (uint64_t layerId, SynthEngine::OutputStage outputStage) noexcept
+{
+    if (auto* layer = instrumentState.findLayerById (layerId))
+    {
+        layer->outputStage = outputStage;
+        markLayerStateDirty();
+        return true;
+    }
+
+    return false;
 }
 
 std::size_t PolySynthAudioProcessor::getSelectedLayerVisualIndex() const noexcept
@@ -649,6 +829,8 @@ void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
 void PolySynthAudioProcessor::syncLayerRuntimesFromState() noexcept
 {
     ensureSelectedLayerIsValid();
+    // APVTS parameters remain host-automatable base-layer controls.
+    // Layer inspector controls are direct layer-state edits keyed by selected layer.
     applyParameterSnapshotToEngine();
 
     const auto& order = instrumentState.getLayerOrder();
@@ -676,6 +858,29 @@ void PolySynthAudioProcessor::syncLayerRuntimesFromState() noexcept
             applyLayerStateToEngine (runtime.engine, runtime.snapshot);
         }
     }
+}
+
+void PolySynthAudioProcessor::markLayerStateDirty() noexcept
+{
+    ++layerStateRevision;
+    parameters.state.setProperty (layerStateRevisionPropertyId, static_cast<juce::int64> (layerStateRevision), nullptr);
+    updateHostDisplay (juce::AudioProcessorListener::ChangeDetails().withParameterInfoChanged (true));
+}
+
+LayerState* PolySynthAudioProcessor::findLayerByVisualIndex (std::size_t layerVisualIndex) noexcept
+{
+    if (const auto layerId = getLayerIdForVisualIndex (layerVisualIndex); layerId.has_value())
+        return instrumentState.findLayerById (*layerId);
+
+    return nullptr;
+}
+
+const LayerState* PolySynthAudioProcessor::findLayerByVisualIndex (std::size_t layerVisualIndex) const noexcept
+{
+    if (const auto layerId = getLayerIdForVisualIndex (layerVisualIndex); layerId.has_value())
+        return instrumentState.findLayerById (*layerId);
+
+    return nullptr;
 }
 
 void PolySynthAudioProcessor::applyLayerStateToEngine (SynthEngine& engine, const LayerState& layerState) noexcept

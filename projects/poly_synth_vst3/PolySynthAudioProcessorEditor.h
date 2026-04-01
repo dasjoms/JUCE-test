@@ -35,6 +35,7 @@ private:
     void timerCallback() override;
     void syncRootNoteControlsFromProcessor();
     void syncLayerListFromProcessor();
+    void syncInspectorControlsFromSelectedLayer();
     void updateInspectorBindingState();
     void selectLayer (std::size_t layerIndex);
     void showAddLayerMenu();
@@ -93,25 +94,12 @@ private:
     juce::Slider absoluteRootNoteSlider;
     juce::Slider relativeRootSemitoneSlider;
     juce::ComboBox outputStageSelector;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveformAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> stealPolicyAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> maxVoicesAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> attackAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> decayAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> sustainAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> releaseAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> modDepthAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> modRateAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> velocitySensitivityAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modDestinationAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> unisonVoicesAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> unisonDetuneCentsAttachment;
-    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> outputStageAttachment;
     static constexpr std::size_t maxLayerRows = InstrumentState::maxLayerCount;
     std::array<LayerRow, maxLayerRows> layerRows;
     std::size_t visibleLayerCount = 0;
     std::size_t selectedLayerIndex = 0;
     bool suppressRootNoteCallbacks = false;
+    bool suppressInspectorCallbacks = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };
