@@ -124,6 +124,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     waveformSelector.addItem ("Saw", 2);
     waveformSelector.addItem ("Square", 3);
     waveformSelector.addItem ("Triangle", 4);
+    waveformSelector.setComponentID ("waveformSelector");
     addAndMakeVisible (waveformSelector);
 
     maxVoicesLabel.setText ("Voice Count", juce::dontSendNotification);
@@ -131,6 +132,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (maxVoicesLabel);
 
     configureLinearSlider (maxVoicesSlider, 1.0, 16.0, 1.0, 0);
+    maxVoicesSlider.setComponentID ("maxVoicesSlider");
     addAndMakeVisible (maxVoicesSlider);
 
     stealPolicyLabel.setText ("Steal Policy", juce::dontSendNotification);
@@ -140,6 +142,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     stealPolicySelector.addItem ("Released First", 1);
     stealPolicySelector.addItem ("Oldest", 2);
     stealPolicySelector.addItem ("Quietest", 3);
+    stealPolicySelector.setComponentID ("stealPolicySelector");
     addAndMakeVisible (stealPolicySelector);
 
     attackLabel.setText ("Attack (s)", juce::dontSendNotification);
@@ -171,6 +174,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (releaseLabel);
 
     configureLinearSlider (releaseSlider, 0.005, 5.0, 0.001, 3, " s");
+    releaseSlider.setComponentID ("releaseSlider");
     addAndMakeVisible (releaseSlider);
 
     modDepthLabel.setText ("Mod Depth", juce::dontSendNotification);
@@ -263,48 +267,64 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     rootNoteFeedbackLabel.setJustificationType (juce::Justification::centredRight);
     addAndMakeVisible (rootNoteFeedbackLabel);
 
-    waveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
-                                                                                                    "waveform",
-                                                                                                    waveformSelector);
-    maxVoicesAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                   "maxVoices",
-                                                                                                   maxVoicesSlider);
-    stealPolicyAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
-                                                                                                       "stealPolicy",
-                                                                                                       stealPolicySelector);
-    attackAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                "attack",
-                                                                                                attackSlider);
-    releaseAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                 "release",
-                                                                                                 releaseSlider);
-    decayAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                               "decay",
-                                                                                               decaySlider);
-    sustainAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                 "sustain",
-                                                                                                 sustainSlider);
-    modDepthAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                  "modDepth",
-                                                                                                  modDepthSlider);
-    modRateAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                 "modRate",
-                                                                                                 modRateSlider);
-    velocitySensitivityAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                             "velocitySensitivity",
-                                                                                                             velocitySensitivitySlider);
-    modDestinationAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
-                                                                                                          "modDestination",
-                                                                                                          modDestinationSelector);
-    unisonVoicesAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                       "unisonVoices",
-                                                                                                       unisonVoicesSlider);
-    unisonDetuneCentsAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
-                                                                                                            "unisonDetuneCents",
-                                                                                                            unisonDetuneCentsSlider);
-    outputStageAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
-                                                                                                        "outputStage",
-                                                                                                        outputStageSelector);
+    waveformSelector.onChange = [this]
+    {
+        if (! suppressInspectorCallbacks)
+            processorRef.setLayerWaveformByVisualIndex (selectedLayerIndex, PolySynthAudioProcessor::Waveform (waveformSelector.getSelectedItemIndex()));
+    };
+    maxVoicesSlider.onValueChange = [this]
+    {
+        if (! suppressInspectorCallbacks)
+            processorRef.setLayerVoiceCountByVisualIndex (selectedLayerIndex, juce::roundToInt (maxVoicesSlider.getValue()));
+    };
+    stealPolicySelector.onChange = [this]
+    {
+        if (! suppressInspectorCallbacks)
+            processorRef.setLayerStealPolicyByVisualIndex (selectedLayerIndex, SynthEngine::VoiceStealPolicy (stealPolicySelector.getSelectedItemIndex()));
+    };
+    auto updateAdsr = [this]
+    {
+        if (! suppressInspectorCallbacks)
+            processorRef.setLayerAdsrByVisualIndex (selectedLayerIndex,
+                                                    static_cast<float> (attackSlider.getValue()),
+                                                    static_cast<float> (decaySlider.getValue()),
+                                                    static_cast<float> (sustainSlider.getValue()),
+                                                    static_cast<float> (releaseSlider.getValue()));
+    };
+    attackSlider.onValueChange = updateAdsr;
+    decaySlider.onValueChange = updateAdsr;
+    sustainSlider.onValueChange = updateAdsr;
+    releaseSlider.onValueChange = updateAdsr;
+    auto updateModulation = [this]
+    {
+        if (! suppressInspectorCallbacks)
+            processorRef.setLayerModParametersByVisualIndex (selectedLayerIndex,
+                                                             static_cast<float> (modDepthSlider.getValue()),
+                                                             static_cast<float> (modRateSlider.getValue()),
+                                                             SynthVoice::ModulationDestination (modDestinationSelector.getSelectedItemIndex()));
+    };
+    modDepthSlider.onValueChange = updateModulation;
+    modRateSlider.onValueChange = updateModulation;
+    modDestinationSelector.onChange = updateModulation;
+    velocitySensitivitySlider.onValueChange = [this]
+    {
+        if (! suppressInspectorCallbacks)
+            processorRef.setLayerVelocitySensitivityByVisualIndex (selectedLayerIndex, static_cast<float> (velocitySensitivitySlider.getValue()));
+    };
+    auto updateUnison = [this]
+    {
+        if (! suppressInspectorCallbacks)
+            processorRef.setLayerUnisonByVisualIndex (selectedLayerIndex,
+                                                      juce::roundToInt (unisonVoicesSlider.getValue()),
+                                                      static_cast<float> (unisonDetuneCentsSlider.getValue()));
+    };
+    unisonVoicesSlider.onValueChange = updateUnison;
+    unisonDetuneCentsSlider.onValueChange = updateUnison;
+    outputStageSelector.onChange = [this]
+    {
+        if (! suppressInspectorCallbacks)
+            processorRef.setLayerOutputStageByVisualIndex (selectedLayerIndex, SynthEngine::OutputStage (outputStageSelector.getSelectedItemIndex()));
+    };
 
     for (std::size_t i = 0; i < layerRows.size(); ++i)
     {
@@ -335,6 +355,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     setSize (920, 700);
 
     syncLayerListFromProcessor();
+    syncInspectorControlsFromSelectedLayer();
     syncRootNoteControlsFromProcessor();
     updateInspectorBindingState();
     startTimerHz (15);
@@ -429,6 +450,7 @@ void PolySynthAudioProcessorEditor::resized()
 void PolySynthAudioProcessorEditor::timerCallback()
 {
     syncLayerListFromProcessor();
+    syncInspectorControlsFromSelectedLayer();
     syncRootNoteControlsFromProcessor();
 }
 
@@ -475,6 +497,33 @@ void PolySynthAudioProcessorEditor::syncLayerListFromProcessor()
 
     updateInspectorBindingState();
     resized();
+}
+
+void PolySynthAudioProcessorEditor::syncInspectorControlsFromSelectedLayer()
+{
+    if (visibleLayerCount == 0 || selectedLayerIndex >= visibleLayerCount)
+        return;
+
+    const auto selectedLayerState = processorRef.getLayerStateByVisualIndex (selectedLayerIndex);
+    if (! selectedLayerState.has_value())
+        return;
+
+    suppressInspectorCallbacks = true;
+    waveformSelector.setSelectedItemIndex (static_cast<int> (selectedLayerState->waveform), juce::dontSendNotification);
+    maxVoicesSlider.setValue (selectedLayerState->voiceCount, juce::dontSendNotification);
+    stealPolicySelector.setSelectedItemIndex (static_cast<int> (selectedLayerState->stealPolicy), juce::dontSendNotification);
+    attackSlider.setValue (selectedLayerState->attackSeconds, juce::dontSendNotification);
+    decaySlider.setValue (selectedLayerState->decaySeconds, juce::dontSendNotification);
+    sustainSlider.setValue (selectedLayerState->sustainLevel, juce::dontSendNotification);
+    releaseSlider.setValue (selectedLayerState->releaseSeconds, juce::dontSendNotification);
+    modDepthSlider.setValue (selectedLayerState->modulationDepth, juce::dontSendNotification);
+    modRateSlider.setValue (selectedLayerState->modulationRateHz, juce::dontSendNotification);
+    velocitySensitivitySlider.setValue (selectedLayerState->velocitySensitivity, juce::dontSendNotification);
+    modDestinationSelector.setSelectedItemIndex (static_cast<int> (selectedLayerState->modulationDestination), juce::dontSendNotification);
+    unisonVoicesSlider.setValue (selectedLayerState->unisonVoices, juce::dontSendNotification);
+    unisonDetuneCentsSlider.setValue (selectedLayerState->unisonDetuneCents, juce::dontSendNotification);
+    outputStageSelector.setSelectedItemIndex (static_cast<int> (selectedLayerState->outputStage), juce::dontSendNotification);
+    suppressInspectorCallbacks = false;
 }
 
 void PolySynthAudioProcessorEditor::updateInspectorBindingState()
@@ -529,6 +578,7 @@ void PolySynthAudioProcessorEditor::selectLayer (std::size_t layerIndex)
         return;
 
     selectedLayerIndex = processorRef.getSelectedLayerVisualIndex();
+    syncInspectorControlsFromSelectedLayer();
     syncRootNoteControlsFromProcessor();
     syncLayerListFromProcessor();
 }
