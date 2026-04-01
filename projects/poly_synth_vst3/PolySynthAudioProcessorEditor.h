@@ -31,6 +31,7 @@ private:
     juce::Label modDestinationLabel;
     juce::Label unisonVoicesLabel;
     juce::Label unisonDetuneCentsLabel;
+    juce::Label outputStageLabel;
     juce::ComboBox waveformSelector;
     juce::ComboBox stealPolicySelector;
     juce::Slider maxVoicesSlider;
@@ -44,6 +45,7 @@ private:
     juce::ComboBox modDestinationSelector;
     juce::Slider unisonVoicesSlider;
     juce::Slider unisonDetuneCentsSlider;
+    juce::ComboBox outputStageSelector;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> waveformAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> stealPolicyAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> maxVoicesAttachment;
@@ -57,6 +59,7 @@ private:
     std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> modDestinationAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> unisonVoicesAttachment;
     std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> unisonDetuneCentsAttachment;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::ComboBoxAttachment> outputStageAttachment;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };

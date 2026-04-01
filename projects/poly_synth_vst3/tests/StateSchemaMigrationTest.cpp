@@ -6,8 +6,8 @@ namespace
 {
 struct SchemaExpectation
 {
-    int currentSchemaVersion = 3;
-    int futureExpansionFixtureVersion = 4;
+    int currentSchemaVersion = 4;
+    int futureExpansionFixtureVersion = 5;
 };
 
 constexpr SchemaExpectation expectedSchema {};
@@ -25,6 +25,7 @@ constexpr auto velocitySensitivityParameterId = "velocitySensitivity";
 constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
+constexpr auto outputStageParameterId = "outputStage";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
 
 float getRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId)
@@ -135,7 +136,8 @@ bool validateLegacyMonoStateMigrationPreservesBackwardsCompatibleIds()
         && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "legacy migration default")
         && expectIntParameter (processor, modulationDestinationParameterId, 0, "legacy migration default")
         && expectIntParameter (processor, unisonVoicesParameterId, 1, "legacy migration default")
-        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "legacy migration default");
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "legacy migration default")
+        && expectIntParameter (processor, outputStageParameterId, 1, "legacy migration default");
 }
 
 bool validateSchemaV2MissingParametersDefaultAndKnownParametersRestore()
@@ -158,7 +160,8 @@ bool validateSchemaV2MissingParametersDefaultAndKnownParametersRestore()
         && expectFloatParameter (processor, attackParameterId, 0.11f, "schema-v2 known restore")
         && expectFloatParameter (processor, modulationDepthParameterId, 0.48f, "schema-v2 known restore")
         && expectIntParameter (processor, unisonVoicesParameterId, 1, "schema-v2 missing default")
-        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "schema-v2 missing default");
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "schema-v2 missing default")
+        && expectIntParameter (processor, outputStageParameterId, 1, "schema-v2 missing default");
 }
 
 bool validateRenamedLegacyParameterRestoresPredictably()
@@ -213,7 +216,8 @@ bool validateCurrentVersionRoundTrip()
         || ! setRawParameterValue (sourceProcessor, velocitySensitivityParameterId, 0.63f)
         || ! setRawParameterValue (sourceProcessor, modulationDestinationParameterId, 2.0f)
         || ! setRawParameterValue (sourceProcessor, unisonVoicesParameterId, 4.0f)
-        || ! setRawParameterValue (sourceProcessor, unisonDetuneCentsParameterId, 16.5f))
+        || ! setRawParameterValue (sourceProcessor, unisonDetuneCentsParameterId, 16.5f)
+        || ! setRawParameterValue (sourceProcessor, outputStageParameterId, 2.0f))
     {
         std::cerr << "unable to set one or more parameters on source processor" << '\n';
         return false;
@@ -240,7 +244,8 @@ bool validateCurrentVersionRoundTrip()
         && expectFloatParameter (restoredProcessor, velocitySensitivityParameterId, 0.63f, "current-version restore")
         && expectIntParameter (restoredProcessor, modulationDestinationParameterId, 2, "current-version restore")
         && expectIntParameter (restoredProcessor, unisonVoicesParameterId, 4, "current-version restore")
-        && expectFloatParameter (restoredProcessor, unisonDetuneCentsParameterId, 16.5f, "current-version restore");
+        && expectFloatParameter (restoredProcessor, unisonDetuneCentsParameterId, 16.5f, "current-version restore")
+        && expectIntParameter (restoredProcessor, outputStageParameterId, 2, "current-version restore");
 }
 
 bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
@@ -248,7 +253,7 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
     PolySynthAudioProcessor processor;
 
     auto futureFixtureXml = juce::parseXML (R"xml(
-<PARAMETERS schemaVersion="4">
+<PARAMETERS schemaVersion="5">
   <PARAM id="waveform" value="1"/>
   <PARAM id="maxVoices" value="12"/>
   <PARAM id="stealPolicy" value="1"/>
@@ -289,7 +294,8 @@ bool validateFuturePolyExpansionFixtureRestoresKnownIdsAndDefaultsMissing()
         && expectFloatParameter (processor, velocitySensitivityParameterId, 0.0f, "future fixture missing-param default")
         && expectIntParameter (processor, modulationDestinationParameterId, 0, "future fixture missing-param default")
         && expectIntParameter (processor, unisonVoicesParameterId, 1, "future fixture missing-param default")
-        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "future fixture missing-param default");
+        && expectFloatParameter (processor, unisonDetuneCentsParameterId, 0.0f, "future fixture missing-param default")
+        && expectIntParameter (processor, outputStageParameterId, 1, "future fixture missing-param default");
 }
 
 } // namespace

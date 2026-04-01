@@ -19,7 +19,8 @@ constexpr auto modulationDestinationParameterId = "modDestination";
 constexpr auto schemaVersionPropertyId = "schemaVersion";
 constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
-constexpr int currentStateSchemaVersion = 3;
+constexpr auto outputStageParameterId = "outputStage";
+constexpr int currentStateSchemaVersion = 4;
 
 constexpr std::array<const char*, 11> schemaV2ParameterIds {
     waveformParameterId,
@@ -40,7 +41,11 @@ constexpr std::array<const char*, 2> schemaV3ParameterIds {
     unisonDetuneCentsParameterId
 };
 
-constexpr std::array<const char*, schemaV2ParameterIds.size() + schemaV3ParameterIds.size()> allKnownParameterIds {
+constexpr std::array<const char*, 1> schemaV4ParameterIds {
+    outputStageParameterId
+};
+
+constexpr std::array<const char*, schemaV2ParameterIds.size() + schemaV3ParameterIds.size() + schemaV4ParameterIds.size()> allKnownParameterIds {
     waveformParameterId,
     maxVoicesParameterId,
     stealPolicyParameterId,
@@ -53,7 +58,8 @@ constexpr std::array<const char*, schemaV2ParameterIds.size() + schemaV3Paramete
     velocitySensitivityParameterId,
     modulationDestinationParameterId,
     unisonVoicesParameterId,
-    unisonDetuneCentsParameterId
+    unisonDetuneCentsParameterId,
+    outputStageParameterId
 };
 } // namespace
 
@@ -82,6 +88,7 @@ PolySynthAudioProcessor::PolySynthAudioProcessor()
     modulationDestinationParameter = parameters.getRawParameterValue (modulationDestinationParameterId);
     unisonVoicesParameter = parameters.getRawParameterValue (unisonVoicesParameterId);
     unisonDetuneCentsParameter = parameters.getRawParameterValue (unisonDetuneCentsParameterId);
+    outputStageParameter = parameters.getRawParameterValue (outputStageParameterId);
     updateParameterSnapshotFromAPVTS();
     applyParameterSnapshotToEngine();
 }
@@ -267,6 +274,10 @@ juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::cre
                                                                     juce::NormalisableRange<float> (0.0f, 50.0f, 0.01f),
                                                                     0.0f,
                                                                     juce::AudioParameterFloatAttributes().withLabel ("cents")));
+    layout.push_back (std::make_unique<juce::AudioParameterChoice> (outputStageParameterId,
+                                                                     "Output Stage",
+                                                                     getOutputStageChoices(),
+                                                                     outputStageToChoiceIndex (SynthEngine::OutputStage::normalizeVoiceSum)));
     return { layout.begin(), layout.end() };
 }
 
@@ -315,6 +326,9 @@ void PolySynthAudioProcessor::updateParameterSnapshotFromAPVTS() noexcept
 
     if (unisonDetuneCentsParameter != nullptr)
         parameterSnapshot.unisonDetuneCents = unisonDetuneCentsParameter->load (std::memory_order_relaxed);
+
+    if (outputStageParameter != nullptr)
+        parameterSnapshot.outputStage = outputStageFromParameterValue (outputStageParameter->load (std::memory_order_relaxed));
 }
 
 void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
@@ -330,6 +344,7 @@ void PolySynthAudioProcessor::applyParameterSnapshotToEngine() noexcept
     synthEngine.setVelocitySensitivity (parameterSnapshot.velocitySensitivity);
     synthEngine.setUnisonVoices (parameterSnapshot.unisonVoices);
     synthEngine.setUnisonDetuneCents (parameterSnapshot.unisonDetuneCents);
+    synthEngine.setOutputStage (parameterSnapshot.outputStage);
 }
 
 PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::waveformFromParameterValue (float parameterValue) noexcept
@@ -421,6 +436,42 @@ const juce::StringArray& PolySynthAudioProcessor::getModDestinationChoices() noe
     return choices;
 }
 
+SynthEngine::OutputStage PolySynthAudioProcessor::outputStageFromParameterValue (float parameterValue) noexcept
+{
+    return outputStageFromChoiceIndex (juce::roundToInt (parameterValue));
+}
+
+int PolySynthAudioProcessor::outputStageToChoiceIndex (SynthEngine::OutputStage outputStage) noexcept
+{
+    switch (outputStage)
+    {
+        case SynthEngine::OutputStage::none: return 0;
+        case SynthEngine::OutputStage::normalizeVoiceSum: return 1;
+        case SynthEngine::OutputStage::softLimit: return 2;
+    }
+
+    return 1;
+}
+
+SynthEngine::OutputStage PolySynthAudioProcessor::outputStageFromChoiceIndex (int choiceIndex) noexcept
+{
+    switch (choiceIndex)
+    {
+        case static_cast<int> (OutputStageParameterChoice::none): return SynthEngine::OutputStage::none;
+        case static_cast<int> (OutputStageParameterChoice::normalizeVoiceSum): return SynthEngine::OutputStage::normalizeVoiceSum;
+        case static_cast<int> (OutputStageParameterChoice::softLimit): return SynthEngine::OutputStage::softLimit;
+        default: break;
+    }
+
+    return SynthEngine::OutputStage::normalizeVoiceSum;
+}
+
+const juce::StringArray& PolySynthAudioProcessor::getOutputStageChoices() noexcept
+{
+    static const juce::StringArray choices { "None", "Normalize Voice Sum", "Soft Limit" };
+    return choices;
+}
+
 
 //==============================================================================
 bool PolySynthAudioProcessor::hasEditor() const
@@ -482,6 +533,9 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
     if (schemaVersion >= 2)
         migrateV2ToV3 (migratedState, legacyState);
 
+    if (schemaVersion >= 3)
+        migrateV3ToV4 (migratedState, legacyState);
+
     migratedState.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
     parameters.replaceState (migratedState);
 }
@@ -513,6 +567,30 @@ void PolySynthAudioProcessor::migrateV1ToV2 (juce::ValueTree& migratedState, con
 void PolySynthAudioProcessor::migrateV2ToV3 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)
 {
     for (const auto* parameterId : schemaV3ParameterIds)
+    {
+        if (const auto value = findLegacyParameterValue (sourceState, parameterId); value.has_value())
+        {
+            if (auto* parameter = parameters.getParameter (parameterId))
+            {
+                const auto clampedValue = parameter->convertFrom0to1 (juce::jlimit (0.0f, 1.0f, parameter->convertTo0to1 (*value)));
+
+                for (int i = 0; i < migratedState.getNumChildren(); ++i)
+                {
+                    auto node = migratedState.getChild (i);
+                    if (node.hasType ("PARAM") && node.getProperty ("id").toString() == juce::String (parameterId))
+                    {
+                        node.setProperty ("value", clampedValue, nullptr);
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+void PolySynthAudioProcessor::migrateV3ToV4 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)
+{
+    for (const auto* parameterId : schemaV4ParameterIds)
     {
         if (const auto value = findLegacyParameterValue (sourceState, parameterId); value.has_value())
         {

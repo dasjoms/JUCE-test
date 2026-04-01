@@ -123,6 +123,16 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     configureLinearSlider (unisonDetuneCentsSlider, 0.0, 50.0, 0.01, 2, " cents");
     addAndMakeVisible (unisonDetuneCentsSlider);
 
+    outputStageLabel.setText ("Output Stage", juce::dontSendNotification);
+    outputStageLabel.setJustificationType (juce::Justification::centredLeft);
+    addAndMakeVisible (outputStageLabel);
+
+    outputStageSelector.setComponentID ("outputStageSelector");
+    outputStageSelector.addItem ("None", 1);
+    outputStageSelector.addItem ("Normalize Voice Sum", 2);
+    outputStageSelector.addItem ("Soft Limit", 3);
+    addAndMakeVisible (outputStageSelector);
+
     waveformAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
                                                                                                     "waveform",
                                                                                                     waveformSelector);
@@ -162,10 +172,13 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     unisonDetuneCentsAttachment = std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment> (processorRef.getValueTreeState(),
                                                                                                             "unisonDetuneCents",
                                                                                                             unisonDetuneCentsSlider);
+    outputStageAttachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (processorRef.getValueTreeState(),
+                                                                                                        "outputStage",
+                                                                                                        outputStageSelector);
 
     setResizable (true, false);
-    setResizeLimits (420, 520, 760, 760);
-    setSize (520, 540);
+    setResizeLimits (420, 560, 760, 760);
+    setSize (520, 570);
 }
 
 PolySynthAudioProcessorEditor::~PolySynthAudioProcessorEditor()
@@ -210,4 +223,5 @@ void PolySynthAudioProcessorEditor::resized()
     placeRow (modDestinationLabel, modDestinationSelector);
     placeRow (unisonVoicesLabel, unisonVoicesSlider);
     placeRow (unisonDetuneCentsLabel, unisonDetuneCentsSlider);
+    placeRow (outputStageLabel, outputStageSelector);
 }
