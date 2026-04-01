@@ -240,6 +240,9 @@ float SynthVoice::renderSample() noexcept
 
         switch (modulationDestination)
         {
+            case ModulationDestination::off:
+                break;
+
             case ModulationDestination::amplitude:
                 modulationGain = (1.0f - modulationDepth) + (modulationDepth * unipolarLfo);
                 break;

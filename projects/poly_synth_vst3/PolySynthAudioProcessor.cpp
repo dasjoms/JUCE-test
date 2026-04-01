@@ -34,7 +34,7 @@ constexpr auto rootNoteAbsolutePropertyId = "rootNoteAbsolute";
 constexpr auto mutePropertyId = "mute";
 constexpr auto soloPropertyId = "solo";
 constexpr auto layerVolumePropertyId = "layerVolume";
-constexpr int currentStateSchemaVersion = 5;
+constexpr int currentStateSchemaVersion = 6;
 
 constexpr std::array<const char*, 11> schemaV2ParameterIds {
     waveformParameterId,
@@ -57,6 +57,10 @@ constexpr std::array<const char*, 2> schemaV3ParameterIds {
 
 constexpr std::array<const char*, 1> schemaV4ParameterIds {
     outputStageParameterId
+};
+
+constexpr std::array<const char*, 1> schemaV5ParameterIds {
+    modulationDestinationParameterId
 };
 
 constexpr std::array<const char*, schemaV2ParameterIds.size() + schemaV3ParameterIds.size() + schemaV4ParameterIds.size()> allKnownParameterIds {
@@ -553,7 +557,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::cre
     layout.push_back (std::make_unique<juce::AudioParameterChoice> (modulationDestinationParameterId,
                                                                      "Mod Destination",
                                                                      getModDestinationChoices(),
-                                                                     modDestinationToChoiceIndex (SynthVoice::ModulationDestination::amplitude)));
+                                                                     modDestinationToChoiceIndex (SynthVoice::ModulationDestination::off)));
     layout.push_back (std::make_unique<juce::AudioParameterInt> (unisonVoicesParameterId,
                                                                   "Unison Voices",
                                                                   1,
@@ -757,25 +761,34 @@ const juce::StringArray& PolySynthAudioProcessor::getStealPolicyChoices() noexce
 }
 int PolySynthAudioProcessor::modDestinationToChoiceIndex (SynthVoice::ModulationDestination destination) noexcept
 {
-    return static_cast<int> (destination);
+    switch (destination)
+    {
+        case SynthVoice::ModulationDestination::off: return static_cast<int> (ModDestinationParameterChoice::off);
+        case SynthVoice::ModulationDestination::amplitude: return static_cast<int> (ModDestinationParameterChoice::amplitude);
+        case SynthVoice::ModulationDestination::pitch: return static_cast<int> (ModDestinationParameterChoice::pitch);
+        case SynthVoice::ModulationDestination::pulseWidth: return static_cast<int> (ModDestinationParameterChoice::pulseWidth);
+    }
+
+    return static_cast<int> (ModDestinationParameterChoice::off);
 }
 
 SynthVoice::ModulationDestination PolySynthAudioProcessor::modDestinationFromChoiceIndex (int choiceIndex) noexcept
 {
     switch (choiceIndex)
     {
+        case static_cast<int> (ModDestinationParameterChoice::off): return SynthVoice::ModulationDestination::off;
         case static_cast<int> (ModDestinationParameterChoice::amplitude): return SynthVoice::ModulationDestination::amplitude;
         case static_cast<int> (ModDestinationParameterChoice::pitch): return SynthVoice::ModulationDestination::pitch;
         case static_cast<int> (ModDestinationParameterChoice::pulseWidth): return SynthVoice::ModulationDestination::pulseWidth;
         default: break;
     }
 
-    return SynthVoice::ModulationDestination::amplitude;
+    return SynthVoice::ModulationDestination::off;
 }
 
 const juce::StringArray& PolySynthAudioProcessor::getModDestinationChoices() noexcept
 {
-    static const juce::StringArray choices { "Amplitude", "Pitch", "Pulse Width" };
+    static const juce::StringArray choices { "Off", "Amplitude", "Pitch", "Pulse Width" };
     return choices;
 }
 
@@ -876,6 +889,7 @@ void PolySynthAudioProcessor::restoreLegacyState (const juce::ValueTree& legacyS
     migrateV2ToV3 (migratedState, legacyState);
     migrateV3ToV4 (migratedState, legacyState);
     migrateV4ToV5 (migratedState, legacyState);
+    migrateV5ToV6 (migratedState, legacyState);
 
     migratedState.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
     parameters.replaceState (migratedState);
@@ -958,6 +972,42 @@ void PolySynthAudioProcessor::migrateV4ToV5 (juce::ValueTree& migratedState, con
 {
     juce::ignoreUnused (sourceState);
     writeLayeredStateToTree (migratedState);
+}
+
+void PolySynthAudioProcessor::migrateV5ToV6 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)
+{
+    const auto sourceSchemaVersion = static_cast<int> (sourceState.getProperty (schemaVersionPropertyId, 0));
+
+    for (const auto* parameterId : schemaV5ParameterIds)
+    {
+        if (juce::StringRef (parameterId) != juce::StringRef (modulationDestinationParameterId))
+            continue;
+
+        const auto legacyValue = findLegacyParameterValue (sourceState, parameterId);
+        if (! legacyValue.has_value())
+            continue;
+
+        // Schema v5 and earlier encoded: 0=Amplitude, 1=Pitch, 2=Pulse Width.
+        // Schema v6 inserts Off at index 0, so explicit legacy values are shifted by +1 to preserve sound.
+        auto mappedChoice = juce::roundToInt (*legacyValue);
+        if (sourceSchemaVersion <= 5)
+            mappedChoice = juce::jlimit (0, 2, mappedChoice) + 1;
+
+        if (auto* parameter = parameters.getParameter (parameterId))
+        {
+            const auto clampedValue = parameter->convertFrom0to1 (juce::jlimit (0.0f, 1.0f, parameter->convertTo0to1 (static_cast<float> (mappedChoice))));
+
+            for (int i = 0; i < migratedState.getNumChildren(); ++i)
+            {
+                auto node = migratedState.getChild (i);
+                if (node.hasType ("PARAM") && node.getProperty ("id").toString() == juce::String (parameterId))
+                {
+                    node.setProperty ("value", clampedValue, nullptr);
+                    break;
+                }
+            }
+        }
+    }
 }
 
 void PolySynthAudioProcessor::writeLayeredStateToTree (juce::ValueTree& stateTree) const

@@ -16,7 +16,8 @@ public:
 
     enum class ModulationDestination
     {
-        amplitude = 0,
+        off = 0,
+        amplitude,
         pitch,
         pulseWidth
     };
@@ -97,7 +98,7 @@ private:
     float velocitySensitivity = 0.0f;
     float currentNoteOnVelocity = 1.0f;
     float pendingNoteOnVelocity = 1.0f;
-    ModulationDestination modulationDestination = ModulationDestination::amplitude;
+    ModulationDestination modulationDestination = ModulationDestination::off;
     double lfoPhase = 0.0;
     double lfoPhaseIncrement = 0.0;
     float currentAmplitude = 0.0f;
