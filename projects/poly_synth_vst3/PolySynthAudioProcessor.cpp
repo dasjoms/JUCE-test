@@ -1295,6 +1295,9 @@ juce::AudioProcessorEditor* PolySynthAudioProcessor::createEditor()
 //==============================================================================
 void PolySynthAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
+    updateParameterSnapshotFromAPVTS();
+    applyParameterSnapshotToEngine();
+
     auto stateToSave = parameters.copyState();
     stateToSave.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
     writeLayeredStateToTree (stateToSave);
@@ -1318,7 +1321,16 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
             {
                 parameters.replaceState (stateTree);
                 loadLayeredStateFromTree (stateTree);
-                syncBaseLayerParametersToAPVTS (false);
+
+                if (stateTree.getChildWithName (layersNodeId).isValid())
+                {
+                    syncBaseLayerParametersToAPVTS (false);
+                }
+                else
+                {
+                    updateParameterSnapshotFromAPVTS();
+                    applyParameterSnapshotToEngine();
+                }
             }
             else
             {
@@ -1333,6 +1345,9 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
 
 juce::ValueTree PolySynthAudioProcessor::createCurrentInstrumentStatePayload()
 {
+    updateParameterSnapshotFromAPVTS();
+    applyParameterSnapshotToEngine();
+
     auto state = parameters.copyState();
     state.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
     writeLayeredStateToTree (state);
@@ -1353,7 +1368,16 @@ void PolySynthAudioProcessor::applyInstrumentStatePayload (const juce::ValueTree
     {
         parameters.replaceState (payload);
         loadLayeredStateFromTree (payload);
-        syncBaseLayerParametersToAPVTS (false);
+
+        if (payload.getChildWithName (layersNodeId).isValid())
+        {
+            syncBaseLayerParametersToAPVTS (false);
+        }
+        else
+        {
+            updateParameterSnapshotFromAPVTS();
+            applyParameterSnapshotToEngine();
+        }
     }
 
     updateParameterSnapshotFromAPVTS();
@@ -1454,7 +1478,54 @@ void PolySynthAudioProcessor::migrateV3ToV4 (juce::ValueTree& migratedState, con
 
 void PolySynthAudioProcessor::migrateV4ToV5 (juce::ValueTree& migratedState, const juce::ValueTree& sourceState)
 {
-    juce::ignoreUnused (sourceState);
+    if (const auto& layerOrder = instrumentState.getLayerOrder(); ! layerOrder.empty())
+    {
+        if (auto* baseLayer = instrumentState.findLayerById (layerOrder.front()))
+        {
+            if (const auto waveformValue = findLegacyParameterValue (migratedState, waveformParameterId); waveformValue.has_value())
+                baseLayer->waveform = waveformFromChoiceIndex (juce::roundToInt (*waveformValue));
+
+            if (const auto voiceCount = findLegacyParameterValue (migratedState, maxVoicesParameterId); voiceCount.has_value())
+                baseLayer->voiceCount = clampVoiceCount (juce::roundToInt (*voiceCount));
+
+            if (const auto stealPolicy = findLegacyParameterValue (migratedState, stealPolicyParameterId); stealPolicy.has_value())
+                baseLayer->stealPolicy = stealPolicyFromChoiceIndex (juce::roundToInt (*stealPolicy));
+
+            if (const auto attack = findLegacyParameterValue (migratedState, attackParameterId); attack.has_value())
+                baseLayer->attackSeconds = clampAttackSeconds (*attack);
+
+            if (const auto decay = findLegacyParameterValue (migratedState, decayParameterId); decay.has_value())
+                baseLayer->decaySeconds = clampDecaySeconds (*decay);
+
+            if (const auto sustain = findLegacyParameterValue (migratedState, sustainParameterId); sustain.has_value())
+                baseLayer->sustainLevel = clampSustainLevel (*sustain);
+
+            if (const auto release = findLegacyParameterValue (migratedState, releaseParameterId); release.has_value())
+                baseLayer->releaseSeconds = clampReleaseSeconds (*release);
+
+            if (const auto modulationDepth = findLegacyParameterValue (migratedState, modulationDepthParameterId); modulationDepth.has_value())
+                baseLayer->modulationDepth = clampModulationDepth (*modulationDepth);
+
+            if (const auto modulationRate = findLegacyParameterValue (migratedState, modulationRateParameterId); modulationRate.has_value())
+                baseLayer->modulationRateHz = clampModulationRateHz (*modulationRate);
+
+            if (const auto velocitySensitivity = findLegacyParameterValue (migratedState, velocitySensitivityParameterId); velocitySensitivity.has_value())
+                baseLayer->velocitySensitivity = clampVelocitySensitivity (*velocitySensitivity);
+
+            if (const auto modulationDestination = findLegacyParameterValue (sourceState, modulationDestinationParameterId); modulationDestination.has_value())
+                baseLayer->modulationDestination = modDestinationFromChoiceIndex (juce::jlimit (0, 2, juce::roundToInt (*modulationDestination)) + 1);
+
+            if (const auto unisonVoices = findLegacyParameterValue (migratedState, unisonVoicesParameterId); unisonVoices.has_value())
+                baseLayer->unisonVoices = clampUnisonVoices (juce::roundToInt (*unisonVoices));
+
+            if (const auto unisonDetuneCents = findLegacyParameterValue (migratedState, unisonDetuneCentsParameterId); unisonDetuneCents.has_value())
+                baseLayer->unisonDetuneCents = clampUnisonDetuneCents (*unisonDetuneCents);
+
+            if (const auto outputStage = findLegacyParameterValue (migratedState, outputStageParameterId); outputStage.has_value())
+                baseLayer->outputStage = outputStageFromChoiceIndex (juce::roundToInt (*outputStage));
+        }
+    }
+
     writeLayeredStateToTree (migratedState);
 }
 
