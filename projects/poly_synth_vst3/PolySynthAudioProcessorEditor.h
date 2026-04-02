@@ -78,6 +78,10 @@ private:
     juce::Label inspectorTitleLabel;
     juce::Label emptyInspectorLabel;
     juce::Label titleLabel;
+    juce::GroupComponent oscillatorCard;
+    juce::GroupComponent envelopeCard;
+    juce::GroupComponent modulationCard;
+    juce::GroupComponent outputVoicingCard;
     juce::Label waveformLabel;
     juce::Label maxVoicesLabel;
     juce::Label stealPolicyLabel;

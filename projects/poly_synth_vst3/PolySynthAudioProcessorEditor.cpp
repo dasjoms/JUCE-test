@@ -63,10 +63,18 @@ void PolySynthAudioProcessorEditor::LayerRow::resized()
 PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProcessor& p)
     : AudioProcessorEditor (&p), processorRef (p)
 {
-    auto configureLinearSlider = [] (juce::Slider& slider, double min, double max, double interval, int decimals, juce::String suffix = {})
+    auto configurePrimaryKnob = [] (juce::Slider& slider, double min, double max, double interval, int decimals, juce::String suffix = {})
     {
-        slider.setSliderStyle (juce::Slider::LinearHorizontal);
-        slider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 64, 20);
+        slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+        slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 72, 18);
+        slider.setRange (min, max, interval);
+        slider.setNumDecimalPlacesToDisplay (decimals);
+        slider.setTextValueSuffix (suffix);
+    };
+    auto configureSecondaryKnob = [] (juce::Slider& slider, double min, double max, double interval, int decimals, juce::String suffix = {})
+    {
+        slider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+        slider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 64, 18);
         slider.setRange (min, max, interval);
         slider.setNumDecimalPlacesToDisplay (decimals);
         slider.setTextValueSuffix (suffix);
@@ -164,8 +172,20 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     emptyInspectorLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (emptyInspectorLabel);
 
+    oscillatorCard.setText ("Oscillator");
+    addAndMakeVisible (oscillatorCard);
+
+    envelopeCard.setText ("Envelope");
+    addAndMakeVisible (envelopeCard);
+
+    modulationCard.setText ("Modulation");
+    addAndMakeVisible (modulationCard);
+
+    outputVoicingCard.setText ("Output / Voicing");
+    addAndMakeVisible (outputVoicingCard);
+
     waveformLabel.setText ("Waveform", juce::dontSendNotification);
-    waveformLabel.setJustificationType (juce::Justification::centredLeft);
+    waveformLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (waveformLabel);
 
     waveformSelector.addItem ("Sine", 1);
@@ -176,15 +196,15 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (waveformSelector);
 
     maxVoicesLabel.setText ("Voice Count", juce::dontSendNotification);
-    maxVoicesLabel.setJustificationType (juce::Justification::centredLeft);
+    maxVoicesLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (maxVoicesLabel);
 
-    configureLinearSlider (maxVoicesSlider, 1.0, 16.0, 1.0, 0);
+    configureSecondaryKnob (maxVoicesSlider, 1.0, 16.0, 1.0, 0);
     maxVoicesSlider.setComponentID ("maxVoicesSlider");
     addAndMakeVisible (maxVoicesSlider);
 
     stealPolicyLabel.setText ("Steal Policy", juce::dontSendNotification);
-    stealPolicyLabel.setJustificationType (juce::Justification::centredLeft);
+    stealPolicyLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (stealPolicyLabel);
 
     stealPolicySelector.addItem ("Released First", 1);
@@ -194,61 +214,61 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (stealPolicySelector);
 
     attackLabel.setText ("Attack (s)", juce::dontSendNotification);
-    attackLabel.setJustificationType (juce::Justification::centredLeft);
+    attackLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (attackLabel);
 
     attackSlider.setComponentID ("attackSlider");
-    configureLinearSlider (attackSlider, 0.001, 5.0, 0.001, 3, " s");
+    configurePrimaryKnob (attackSlider, 0.001, 5.0, 0.001, 3, " s");
     addAndMakeVisible (attackSlider);
 
     decayLabel.setText ("Decay (s)", juce::dontSendNotification);
-    decayLabel.setJustificationType (juce::Justification::centredLeft);
+    decayLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (decayLabel);
 
     decaySlider.setComponentID ("decaySlider");
-    configureLinearSlider (decaySlider, 0.001, 5.0, 0.001, 3, " s");
+    configurePrimaryKnob (decaySlider, 0.001, 5.0, 0.001, 3, " s");
     addAndMakeVisible (decaySlider);
 
     sustainLabel.setText ("Sustain", juce::dontSendNotification);
-    sustainLabel.setJustificationType (juce::Justification::centredLeft);
+    sustainLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (sustainLabel);
 
     sustainSlider.setComponentID ("sustainSlider");
-    configureLinearSlider (sustainSlider, 0.0, 1.0, 0.001, 3);
+    configurePrimaryKnob (sustainSlider, 0.0, 1.0, 0.001, 3);
     addAndMakeVisible (sustainSlider);
 
     releaseLabel.setText ("Release (s)", juce::dontSendNotification);
-    releaseLabel.setJustificationType (juce::Justification::centredLeft);
+    releaseLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (releaseLabel);
 
-    configureLinearSlider (releaseSlider, 0.005, 5.0, 0.001, 3, " s");
+    configurePrimaryKnob (releaseSlider, 0.005, 5.0, 0.001, 3, " s");
     releaseSlider.setComponentID ("releaseSlider");
     addAndMakeVisible (releaseSlider);
 
     modDepthLabel.setText ("Mod Depth", juce::dontSendNotification);
-    modDepthLabel.setJustificationType (juce::Justification::centredLeft);
+    modDepthLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (modDepthLabel);
 
-    configureLinearSlider (modDepthSlider, 0.0, 1.0, 0.001, 3);
+    configurePrimaryKnob (modDepthSlider, 0.0, 1.0, 0.001, 3);
     addAndMakeVisible (modDepthSlider);
 
     modRateLabel.setText ("Mod Rate", juce::dontSendNotification);
-    modRateLabel.setJustificationType (juce::Justification::centredLeft);
+    modRateLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (modRateLabel);
 
-    configureLinearSlider (modRateSlider, 0.05, 20.0, 0.01, 2, " Hz");
+    configurePrimaryKnob (modRateSlider, 0.05, 20.0, 0.01, 2, " Hz");
     addAndMakeVisible (modRateSlider);
 
     velocitySensitivityLabel.setText ("Velocity Sensitivity", juce::dontSendNotification);
-    velocitySensitivityLabel.setJustificationType (juce::Justification::centredLeft);
+    velocitySensitivityLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (velocitySensitivityLabel);
 
     velocitySensitivitySlider.setComponentID ("velocitySensitivitySlider");
-    configureLinearSlider (velocitySensitivitySlider, 0.0, 1.0, 0.001, 3);
+    configureSecondaryKnob (velocitySensitivitySlider, 0.0, 1.0, 0.001, 3);
     addAndMakeVisible (velocitySensitivitySlider);
 
     modDestinationLabel.setText ("Mod Destination", juce::dontSendNotification);
-    modDestinationLabel.setJustificationType (juce::Justification::centredLeft);
+    modDestinationLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (modDestinationLabel);
 
     modDestinationSelector.setComponentID ("modDestinationSelector");
@@ -259,23 +279,23 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (modDestinationSelector);
 
     unisonVoicesLabel.setText ("Unison Voices", juce::dontSendNotification);
-    unisonVoicesLabel.setJustificationType (juce::Justification::centredLeft);
+    unisonVoicesLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (unisonVoicesLabel);
 
     unisonVoicesSlider.setComponentID ("unisonVoicesSlider");
-    configureLinearSlider (unisonVoicesSlider, 1.0, 8.0, 1.0, 0);
+    configureSecondaryKnob (unisonVoicesSlider, 1.0, 8.0, 1.0, 0);
     addAndMakeVisible (unisonVoicesSlider);
 
     unisonDetuneCentsLabel.setText ("Unison Detune (cents)", juce::dontSendNotification);
-    unisonDetuneCentsLabel.setJustificationType (juce::Justification::centredLeft);
+    unisonDetuneCentsLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (unisonDetuneCentsLabel);
 
     unisonDetuneCentsSlider.setComponentID ("unisonDetuneCentsSlider");
-    configureLinearSlider (unisonDetuneCentsSlider, 0.0, 50.0, 0.01, 2, " cents");
+    configurePrimaryKnob (unisonDetuneCentsSlider, 0.0, 50.0, 0.01, 2, " cents");
     addAndMakeVisible (unisonDetuneCentsSlider);
 
     outputStageLabel.setText ("Output Stage", juce::dontSendNotification);
-    outputStageLabel.setJustificationType (juce::Justification::centredLeft);
+    outputStageLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (outputStageLabel);
 
     outputStageSelector.setComponentID ("outputStageSelector");
@@ -285,11 +305,11 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (outputStageSelector);
 
     absoluteRootNoteLabel.setText ("Root Note", juce::dontSendNotification);
-    absoluteRootNoteLabel.setJustificationType (juce::Justification::centredLeft);
+    absoluteRootNoteLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (absoluteRootNoteLabel);
 
-    absoluteRootNoteSlider.setSliderStyle (juce::Slider::IncDecButtons);
-    absoluteRootNoteSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 96, 20);
+    absoluteRootNoteSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+    absoluteRootNoteSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 96, 18);
     absoluteRootNoteSlider.setRange (PolySynthAudioProcessor::minimumMidiNote,
                                      PolySynthAudioProcessor::maximumMidiNote,
                                      1.0);
@@ -301,11 +321,11 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (absoluteRootNoteSlider);
 
     relativeRootSemitoneLabel.setText ("Relative (st)", juce::dontSendNotification);
-    relativeRootSemitoneLabel.setJustificationType (juce::Justification::centredLeft);
+    relativeRootSemitoneLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (relativeRootSemitoneLabel);
 
-    relativeRootSemitoneSlider.setSliderStyle (juce::Slider::LinearHorizontal);
-    relativeRootSemitoneSlider.setTextBoxStyle (juce::Slider::TextBoxRight, false, 80, 20);
+    relativeRootSemitoneSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
+    relativeRootSemitoneSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 18);
     relativeRootSemitoneSlider.setRange (-127.0, 127.0, 1.0);
     relativeRootSemitoneSlider.setNumDecimalPlacesToDisplay (0);
     relativeRootSemitoneSlider.setTextValueSuffix (" st");
@@ -499,33 +519,71 @@ void PolySynthAudioProcessorEditor::resized()
     inspectorTitleLabel.setBounds (content.removeFromTop (24));
     content.removeFromTop (6);
 
-    auto placeRow = [&content] (juce::Label& label, juce::Component& control)
+    auto cardRowTop = content.removeFromTop (juce::jmax (256, (content.getHeight() - 34) / 2));
+    content.removeFromTop (10);
+    auto cardRowBottom = content;
+
+    auto oscillatorBounds = cardRowTop.removeFromLeft (cardRowTop.getWidth() / 2).reduced (4);
+    auto envelopeBounds = cardRowTop.reduced (4);
+    auto modulationBounds = cardRowBottom.removeFromLeft (cardRowBottom.getWidth() / 2).reduced (4);
+    auto outputVoicingBounds = cardRowBottom.reduced (4);
+
+    oscillatorCard.setBounds (oscillatorBounds);
+    envelopeCard.setBounds (envelopeBounds);
+    modulationCard.setBounds (modulationBounds);
+    outputVoicingCard.setBounds (outputVoicingBounds);
+
+    auto placeCardTopRow = [] (juce::Rectangle<int> area, juce::Label& leftLabel, juce::Component& leftControl, juce::Label& rightLabel, juce::Component& rightControl)
     {
-        auto row = content.removeFromTop (32);
-        row.removeFromBottom (6);
-        label.setBounds (row.removeFromLeft (112));
-        control.setBounds (row.reduced (4, 0));
+        auto row = area.removeFromTop (34);
+        auto left = row.removeFromLeft (row.getWidth() / 2).reduced (4, 0);
+        auto right = row.reduced (4, 0);
+        leftLabel.setBounds (left.removeFromTop (14));
+        leftControl.setBounds (left);
+        rightLabel.setBounds (right.removeFromTop (14));
+        rightControl.setBounds (right);
+    };
+    auto placeKnob = [] (juce::Rectangle<int> area, juce::Label& label, juce::Slider& slider, bool primary)
+    {
+        constexpr int primaryKnobSize = 84;
+        constexpr int secondaryKnobSize = 68;
+        const auto knobSize = primary ? primaryKnobSize : secondaryKnobSize;
+        auto centered = area.withSizeKeepingCentre (knobSize, knobSize + 34);
+        slider.setBounds (centered.removeFromTop (knobSize));
+        label.setBounds (centered.removeFromTop (18));
     };
 
-    placeRow (waveformLabel, waveformSelector);
-    placeRow (maxVoicesLabel, maxVoicesSlider);
-    placeRow (stealPolicyLabel, stealPolicySelector);
-    placeRow (attackLabel, attackSlider);
-    placeRow (decayLabel, decaySlider);
-    placeRow (sustainLabel, sustainSlider);
-    placeRow (releaseLabel, releaseSlider);
-    placeRow (modDepthLabel, modDepthSlider);
-    placeRow (modRateLabel, modRateSlider);
-    placeRow (velocitySensitivityLabel, velocitySensitivitySlider);
-    placeRow (modDestinationLabel, modDestinationSelector);
-    placeRow (unisonVoicesLabel, unisonVoicesSlider);
-    placeRow (unisonDetuneCentsLabel, unisonDetuneCentsSlider);
-    placeRow (outputStageLabel, outputStageSelector);
-    placeRow (absoluteRootNoteLabel, absoluteRootNoteSlider);
-    placeRow (relativeRootSemitoneLabel, relativeRootSemitoneSlider);
+    auto oscContent = oscillatorBounds.reduced (10, 26);
+    placeCardTopRow (oscContent.removeFromTop (56), waveformLabel, waveformSelector, stealPolicyLabel, stealPolicySelector);
+    auto oscKnobArea = oscContent.reduced (6, 4);
+    auto oscLeft = oscKnobArea.removeFromLeft (oscKnobArea.getWidth() / 2);
+    auto oscRight = oscKnobArea;
+    placeKnob (oscLeft.removeFromTop (108), maxVoicesLabel, maxVoicesSlider, false);
+    placeKnob (oscLeft, unisonVoicesLabel, unisonVoicesSlider, false);
+    placeKnob (oscRight.removeFromTop (108), unisonDetuneCentsLabel, unisonDetuneCentsSlider, true);
+    placeKnob (oscRight, absoluteRootNoteLabel, absoluteRootNoteSlider, false);
 
-    auto feedbackBounds = content.removeFromTop (24);
-    rootNoteFeedbackLabel.setBounds (feedbackBounds);
+    auto envContent = envelopeBounds.reduced (10, 30);
+    auto envTop = envContent.removeFromTop (envContent.getHeight() / 2);
+    auto envBottom = envContent;
+    placeKnob (envTop.removeFromLeft (envTop.getWidth() / 2), attackLabel, attackSlider, true);
+    placeKnob (envTop, decayLabel, decaySlider, true);
+    placeKnob (envBottom.removeFromLeft (envBottom.getWidth() / 2), sustainLabel, sustainSlider, true);
+    placeKnob (envBottom, releaseLabel, releaseSlider, true);
+
+    auto modContent = modulationBounds.reduced (10, 26);
+    placeCardTopRow (modContent.removeFromTop (56), modDestinationLabel, modDestinationSelector, velocitySensitivityLabel, velocitySensitivitySlider);
+    auto modKnobs = modContent.reduced (6, 4);
+    placeKnob (modKnobs.removeFromLeft (modKnobs.getWidth() / 2), modRateLabel, modRateSlider, true);
+    placeKnob (modKnobs, modDepthLabel, modDepthSlider, true);
+
+    auto outContent = outputVoicingBounds.reduced (10, 26);
+    auto outputRow = outContent.removeFromTop (34);
+    outputStageLabel.setBounds (outputRow.removeFromTop (14));
+    outputStageSelector.setBounds (outputRow.reduced (4, 0));
+    auto tuneArea = outContent.removeFromTop (132);
+    placeKnob (tuneArea, relativeRootSemitoneLabel, relativeRootSemitoneSlider, false);
+    rootNoteFeedbackLabel.setBounds (outContent.removeFromTop (26));
     emptyInspectorLabel.setBounds (mainArea.reduced (12, 24));
 }
 
