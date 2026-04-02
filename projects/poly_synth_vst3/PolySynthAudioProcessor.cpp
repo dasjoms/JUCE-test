@@ -498,6 +498,34 @@ std::optional<LayerState> PolySynthAudioProcessor::getLayerStateById (uint64_t l
     return std::nullopt;
 }
 
+std::vector<PolySynthAudioProcessor::Waveform> PolySynthAudioProcessor::getAllLayerWaveforms() const
+{
+    std::vector<Waveform> waveforms;
+    for (const auto layerId : instrumentState.getLayerOrder())
+    {
+        if (const auto* layer = instrumentState.findLayerById (layerId))
+            waveforms.push_back (layer->waveform);
+    }
+
+    return waveforms;
+}
+
+bool PolySynthAudioProcessor::isLayerNoteActive (std::size_t layerVisualIndex) const noexcept
+{
+    if (layerVisualIndex >= activeLayerCount)
+        return false;
+
+    const auto& runtime = layerRuntimes[layerVisualIndex];
+    const auto voiceCount = juce::jmax (1, runtime.snapshot.voiceCount);
+    for (int voiceIndex = 0; voiceIndex < voiceCount; ++voiceIndex)
+    {
+        if (runtime.engine.getVoiceMetadata (voiceIndex).isActive)
+            return true;
+    }
+
+    return false;
+}
+
 bool PolySynthAudioProcessor::setLayerWaveformByVisualIndex (std::size_t layerVisualIndex, Waveform waveformType) noexcept
 {
     const auto layerId = getLayerIdForVisualIndex (layerVisualIndex);

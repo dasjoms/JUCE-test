@@ -91,6 +91,8 @@ public:
     std::size_t getSelectedLayerVisualIndex() const noexcept;
     std::optional<LayerState> getLayerStateByVisualIndex (std::size_t layerVisualIndex) const noexcept;
     std::optional<LayerState> getLayerStateById (uint64_t layerId) const noexcept;
+    std::vector<Waveform> getAllLayerWaveforms() const;
+    bool isLayerNoteActive (std::size_t layerVisualIndex) const noexcept;
     bool setLayerWaveformByVisualIndex (std::size_t layerVisualIndex, Waveform waveformType) noexcept;
     bool setLayerWaveformById (uint64_t layerId, Waveform waveformType) noexcept;
     bool setLayerVoiceCountByVisualIndex (std::size_t layerVisualIndex, int voiceCount) noexcept;
