@@ -1,0 +1,15 @@
+{
+  "editorWidth": 980,
+  "editorHeight": 760,
+  "scaleFactor": 1.0,
+  "page": "main",
+  "densityMode": "basic",
+  "showGlobalPanel": false,
+  "selectedLayer": 0,
+  "crop": {
+    "x": 16,
+    "y": 110,
+    "width": 300,
+    "height": 620
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "editorWidth": 1000,
+  "editorHeight": 760,
+  "scaleFactor": 1.0,
+  "page": "main",
+  "densityMode": "advanced",
+  "voicePanelExpanded": true,
+  "outputPanelExpanded": false,
+  "selectedLayer": 0,
+  "parameters": {
+    "waveform": 3,
+    "maxVoices": 6,
+    "attack": 0.01,
+    "decay": 0.08,
+    "sustain": 0.85,
+    "release": 0.12
+  },
+  "crop": {
+    "x": 350,
+    "y": 120,
+    "width": 520,
+    "height": 300
+  }
+}

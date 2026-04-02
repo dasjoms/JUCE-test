@@ -59,3 +59,8 @@ This project is the polyphonic continuation of `projects/mono_synth_vst3`, while
   - `amplitude`: unipolar tremolo gain from `1.0 - modDepth` up to `1.0` (depth range `[0, 1]`).
   - `pitch`: bipolar vibrato up to `±12 semitones * modDepth` (depth range `[0, 1]`).
   - `pulseWidth`: active for square wave by moving duty cycle around 50% with an LFO-driven offset (`0.5 ± 0.45 * modDepth`, clamped to `[0.05, 0.95]`). Other waveforms ignore pulse-width routing.
+
+## UI Capture App (manual tool)
+- The UI capture utility is at `tools/ui_capture_app/README.md`.
+- Agent-centric usage instructions and command loop are at `tools/ui_capture_app/AGENT_WORKFLOW.md`.
+- This tool is **manual-only** and intentionally not part of CI/test gates.

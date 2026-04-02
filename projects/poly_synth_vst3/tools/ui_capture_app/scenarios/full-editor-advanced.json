@@ -1,0 +1,25 @@
+{
+  "editorWidth": 1100,
+  "editorHeight": 820,
+  "scaleFactor": 1.0,
+  "page": "main",
+  "densityMode": "advanced",
+  "showGlobalPanel": true,
+  "voicePanelExpanded": true,
+  "outputPanelExpanded": true,
+  "selectedLayer": 0,
+  "parameters": {
+    "waveform": 2,
+    "maxVoices": 12,
+    "attack": 0.03,
+    "decay": 0.4,
+    "sustain": 0.62,
+    "release": 0.7,
+    "modDepth": 0.41,
+    "modRate": 7.5,
+    "velocitySensitivity": 0.58,
+    "unisonVoices": 4,
+    "unisonDetuneCents": 18,
+    "outputStage": 1
+  }
+}

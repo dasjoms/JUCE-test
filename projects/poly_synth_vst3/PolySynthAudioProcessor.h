@@ -53,6 +53,7 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
     juce::AudioProcessorValueTreeState& getValueTreeState() noexcept { return parameters; }
+    bool setParameterValueById (juce::StringRef parameterId, float value, juce::String& errorMessage);
     Waveform getWaveform() const noexcept;
     static constexpr int minimumMidiNote = 0;
     static constexpr int maximumMidiNote = 127;
