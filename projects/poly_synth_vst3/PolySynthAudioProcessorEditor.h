@@ -129,6 +129,8 @@ private:
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     PolySynthAudioProcessor& processorRef;
+    juce::Component sidebarContainer;
+    juce::Component workspaceContainer;
     juce::ToggleButton globalPanelToggle;
     juce::GroupComponent globalPanel;
     juce::Label globalPanelPlaceholderLabel;
