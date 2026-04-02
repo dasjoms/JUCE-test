@@ -392,6 +392,8 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     addAndMakeVisible (sidebarContainer);
     addAndMakeVisible (workspaceContainer);
+    addAndMakeVisible (libraryPageContainer);
+    libraryPageContainer.setVisible (false);
 
     sidebarPanel.setText ("Sidebar");
     sidebarContainer.addAndMakeVisible (sidebarPanel);
@@ -401,9 +403,6 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     presetPanel.setText ("Preset Browser");
     sidebarContainer.addAndMakeVisible (presetPanel);
-
-    marketplacePanel.setText ("Marketplace");
-    sidebarContainer.addAndMakeVisible (marketplacePanel);
 
     addLayerButton.setButtonText ("Add Layer");
     addLayerButton.onClick = [this] { showAddLayerMenu(); };
@@ -432,25 +431,36 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     presetSaveAsNewButton.onClick = [this] { savePresetAsNew(); };
     sidebarContainer.addAndMakeVisible (presetSaveAsNewButton);
 
+    viewLibraryButton.setButtonText ("View Library");
+    viewLibraryButton.onClick = [this] { showLibraryPage (true); };
+    sidebarContainer.addAndMakeVisible (viewLibraryButton);
+
     presetStatusLabel.setJustificationType (juce::Justification::centredLeft);
     presetStatusLabel.setColour (juce::Label::textColourId, juce::Colours::lightgoldenrodyellow);
     sidebarContainer.addAndMakeVisible (presetStatusLabel);
 
-    marketplaceBrowseButton.setButtonText ("Browse");
-    marketplaceBrowseButton.setEnabled (false);
-    sidebarContainer.addAndMakeVisible (marketplaceBrowseButton);
+    backToSynthPageButton.setButtonText ("Back to Synth");
+    backToSynthPageButton.onClick = [this] { showLibraryPage (false); };
+    libraryPageContainer.addAndMakeVisible (backToSynthPageButton);
 
-    marketplaceUploadButton.setButtonText ("Upload");
-    marketplaceUploadButton.setEnabled (false);
-    sidebarContainer.addAndMakeVisible (marketplaceUploadButton);
+    libraryMarketplacePanel.setText ("Marketplace");
+    libraryPageContainer.addAndMakeVisible (libraryMarketplacePanel);
 
-    marketplaceSyncButton.setButtonText ("Sync");
-    marketplaceSyncButton.setEnabled (false);
-    sidebarContainer.addAndMakeVisible (marketplaceSyncButton);
+    libraryMarketplaceBrowseButton.setButtonText ("Browse");
+    libraryMarketplaceBrowseButton.setEnabled (false);
+    libraryPageContainer.addAndMakeVisible (libraryMarketplaceBrowseButton);
 
-    marketplaceLoginStatusLabel.setText ("Login: Not connected", juce::dontSendNotification);
-    marketplaceLoginStatusLabel.setJustificationType (juce::Justification::centredLeft);
-    sidebarContainer.addAndMakeVisible (marketplaceLoginStatusLabel);
+    libraryMarketplaceUploadButton.setButtonText ("Upload");
+    libraryMarketplaceUploadButton.setEnabled (false);
+    libraryPageContainer.addAndMakeVisible (libraryMarketplaceUploadButton);
+
+    libraryMarketplaceSyncButton.setButtonText ("Sync");
+    libraryMarketplaceSyncButton.setEnabled (false);
+    libraryPageContainer.addAndMakeVisible (libraryMarketplaceSyncButton);
+
+    libraryMarketplaceLoginStatusLabel.setText ("Login: Not connected", juce::dontSendNotification);
+    libraryMarketplaceLoginStatusLabel.setJustificationType (juce::Justification::centredLeft);
+    libraryPageContainer.addAndMakeVisible (libraryMarketplaceLoginStatusLabel);
 
     inspectorTitleLabel.setText ("Selected Layer Controls", juce::dontSendNotification);
     inspectorTitleLabel.setJustificationType (juce::Justification::centredLeft);
@@ -797,6 +807,19 @@ PolySynthAudioProcessorEditor::~PolySynthAudioProcessorEditor()
 {
 }
 
+void PolySynthAudioProcessorEditor::showLibraryPage (bool shouldShowLibraryPage)
+{
+    showingLibraryPage = shouldShowLibraryPage;
+    titleLabel.setVisible (! showingLibraryPage);
+    globalPanelToggle.setVisible (! showingLibraryPage);
+    globalPanel.setVisible (! showingLibraryPage && globalPanelToggle.getToggleState());
+    globalPanelPlaceholderLabel.setVisible (! showingLibraryPage && globalPanelToggle.getToggleState());
+    sidebarContainer.setVisible (! showingLibraryPage);
+    workspaceContainer.setVisible (! showingLibraryPage);
+    libraryPageContainer.setVisible (showingLibraryPage);
+    resized();
+}
+
 //==============================================================================
 void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
 {
@@ -859,15 +882,49 @@ void PolySynthAudioProcessorEditor::resized()
 
     sidebarContainer.setBounds (sidebarBounds);
     workspaceContainer.setBounds (workspaceBounds);
+    libraryPageContainer.setBounds (mainArea);
+
+    if (showingLibraryPage)
+    {
+        auto libraryBounds = libraryPageContainer.getLocalBounds().reduced (LayoutTokens::rowSpacing, 16);
+        backToSynthPageButton.setBounds (libraryBounds.removeFromTop (30).removeFromLeft (140));
+        libraryBounds.removeFromTop (LayoutTokens::rowSpacing);
+        libraryMarketplacePanel.setBounds (libraryBounds);
+
+        auto marketplaceContent = libraryBounds.reduced (8, 28);
+        auto marketplaceButtonsRow = marketplaceContent.removeFromTop (28);
+        libraryMarketplaceBrowseButton.setBounds (marketplaceButtonsRow.removeFromLeft (90).reduced (1, 0));
+        libraryMarketplaceUploadButton.setBounds (marketplaceButtonsRow.removeFromLeft (90).reduced (1, 0));
+        libraryMarketplaceSyncButton.setBounds (marketplaceButtonsRow.removeFromLeft (90).reduced (1, 0));
+        marketplaceContent.removeFromTop (LayoutTokens::controlGap);
+        libraryMarketplaceLoginStatusLabel.setBounds (marketplaceContent.removeFromTop (22));
+        return;
+    }
 
     auto sidebarLayout = sidebarContainer.getLocalBounds();
     sidebarPanel.setBounds (sidebarLayout);
 
     auto sidebarContent = sidebarLayout.reduced (LayoutTokens::rowSpacing, 28);
-    auto layersBounds = sidebarContent.removeFromTop (juce::jmin (300, sidebarContent.getHeight() / 2));
-    layerListPanel.setBounds (layersBounds);
+    auto presetBounds = sidebarContent.removeFromTop (154);
+    presetPanel.setBounds (presetBounds);
+    auto presetContent = presetBounds.reduced (8, 28);
+    auto presetRow = presetContent.removeFromTop (28);
+    presetLabel.setBounds (presetRow.removeFromLeft (54));
+    presetSelector.setBounds (presetRow);
+    presetContent.removeFromTop (LayoutTokens::controlGap - 2);
+    auto presetButtonsRow = presetContent.removeFromTop (28);
+    presetLoadButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
+    presetSaveButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
+    presetSaveAsNewButton.setBounds (presetButtonsRow.reduced (1, 0));
+    presetContent.removeFromTop (LayoutTokens::controlGap);
+    viewLibraryButton.setBounds (presetContent.removeFromTop (28));
+    presetContent.removeFromTop (LayoutTokens::controlGap);
+    presetStatusLabel.setBounds (presetContent);
 
-    auto rowArea = layersBounds.reduced (8, 28);
+    sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
+    layerListPanel.setBounds (sidebarContent);
+
+    auto rowArea = sidebarContent.reduced (8, 28);
     addLayerButton.setBounds (rowArea.removeFromTop (28));
     rowArea.removeFromTop (LayoutTokens::controlGap - 2);
     actionStatusLabel.setBounds (rowArea.removeFromTop (20));
@@ -880,31 +937,6 @@ void PolySynthAudioProcessorEditor::resized()
         else
             row.setBounds ({});
     }
-
-    sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
-    auto presetBounds = sidebarContent.removeFromTop (124);
-    presetPanel.setBounds (presetBounds);
-    auto presetContent = presetBounds.reduced (8, 28);
-    auto presetRow = presetContent.removeFromTop (28);
-    presetLabel.setBounds (presetRow.removeFromLeft (54));
-    presetSelector.setBounds (presetRow);
-    presetContent.removeFromTop (LayoutTokens::controlGap - 2);
-    auto presetButtonsRow = presetContent.removeFromTop (28);
-    presetLoadButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
-    presetSaveButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
-    presetSaveAsNewButton.setBounds (presetButtonsRow.reduced (1, 0));
-    presetContent.removeFromTop (LayoutTokens::controlGap - 2);
-    presetStatusLabel.setBounds (presetContent.removeFromTop (34));
-
-    sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
-    marketplacePanel.setBounds (sidebarContent);
-    auto marketplaceContent = sidebarContent.reduced (8, 28);
-    auto marketplaceButtonsRow = marketplaceContent.removeFromTop (28);
-    marketplaceBrowseButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
-    marketplaceUploadButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
-    marketplaceSyncButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
-    marketplaceContent.removeFromTop (LayoutTokens::controlGap);
-    marketplaceLoginStatusLabel.setBounds (marketplaceContent.removeFromTop (22));
 
     auto content = workspaceContainer.getLocalBounds().reduced (12, 0);
     auto inspectorHeader = content.removeFromTop (24);

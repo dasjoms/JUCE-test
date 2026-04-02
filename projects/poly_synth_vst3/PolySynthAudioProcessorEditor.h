@@ -123,12 +123,14 @@ private:
     void savePresetOverwrite();
     void savePresetAsNew();
     void loadSelectedPreset();
+    void showLibraryPage (bool shouldShowLibraryPage);
     void refreshDensityUiState();
     static juce::String midiNoteToDisplayString (int midiNote);
 
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.
     PolySynthAudioProcessor& processorRef;
+    juce::Component libraryPageContainer;
     juce::Component sidebarContainer;
     juce::Component workspaceContainer;
     juce::ToggleButton globalPanelToggle;
@@ -137,7 +139,7 @@ private:
     juce::GroupComponent sidebarPanel;
     juce::GroupComponent layerListPanel;
     juce::GroupComponent presetPanel;
-    juce::GroupComponent marketplacePanel;
+    juce::TextButton viewLibraryButton;
     juce::TextButton addLayerButton;
     juce::Label actionStatusLabel;
     juce::Label presetLabel;
@@ -146,10 +148,12 @@ private:
     juce::TextButton presetSaveButton;
     juce::TextButton presetSaveAsNewButton;
     juce::Label presetStatusLabel;
-    juce::TextButton marketplaceBrowseButton;
-    juce::TextButton marketplaceUploadButton;
-    juce::TextButton marketplaceSyncButton;
-    juce::Label marketplaceLoginStatusLabel;
+    juce::TextButton backToSynthPageButton;
+    juce::GroupComponent libraryMarketplacePanel;
+    juce::TextButton libraryMarketplaceBrowseButton;
+    juce::TextButton libraryMarketplaceUploadButton;
+    juce::TextButton libraryMarketplaceSyncButton;
+    juce::Label libraryMarketplaceLoginStatusLabel;
     juce::Label inspectorTitleLabel;
     juce::Label densityModeLabel;
     juce::ComboBox densityModeSelector;
@@ -207,6 +211,7 @@ private:
     float waveformAnimationPhase = 0.0f;
     float adsrAnimationProgress = 0.0f;
     bool usingAdvancedDensity = false;
+    bool showingLibraryPage = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };
