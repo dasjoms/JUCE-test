@@ -839,6 +839,162 @@ PolySynthAudioProcessorEditor::~PolySynthAudioProcessorEditor()
 {
 }
 
+bool PolySynthAudioProcessorEditor::setCapturePageByName (juce::StringRef pageName, juce::String& errorMessage)
+{
+    const auto normalized = juce::String (pageName).trim().toLowerCase();
+    if (normalized == "main")
+    {
+        showMainPage();
+        return true;
+    }
+
+    if (normalized == "library")
+    {
+        showLibraryPage();
+        return true;
+    }
+
+    errorMessage = "Unsupported page: " + normalized;
+    return false;
+}
+
+bool PolySynthAudioProcessorEditor::setDensityModeByName (juce::StringRef densityMode, juce::String& errorMessage)
+{
+    const auto normalized = juce::String (densityMode).trim().toLowerCase();
+    if (normalized == "basic")
+    {
+        processorRef.setUiDensityMode (PolySynthAudioProcessor::UiDensityMode::basic);
+    }
+    else if (normalized == "advanced")
+    {
+        processorRef.setUiDensityMode (PolySynthAudioProcessor::UiDensityMode::advanced);
+    }
+    else
+    {
+        errorMessage = "Unsupported density mode: " + normalized;
+        return false;
+    }
+
+    syncUiForCapture();
+    return true;
+}
+
+void PolySynthAudioProcessorEditor::setVoiceAdvancedPanelExpandedForCapture (bool shouldExpand)
+{
+    processorRef.setVoiceAdvancedPanelExpanded (shouldExpand);
+    syncUiForCapture();
+}
+
+void PolySynthAudioProcessorEditor::setOutputAdvancedPanelExpandedForCapture (bool shouldExpand)
+{
+    processorRef.setOutputAdvancedPanelExpanded (shouldExpand);
+    syncUiForCapture();
+}
+
+void PolySynthAudioProcessorEditor::setGlobalPanelVisibleForCapture (bool shouldShow)
+{
+    globalPanelToggle.setToggleState (shouldShow, juce::dontSendNotification);
+    globalPanel.setVisible (shouldShow);
+    globalPanelPlaceholderLabel.setVisible (shouldShow);
+    resized();
+}
+
+bool PolySynthAudioProcessorEditor::selectLayerByVisualIndexForCapture (std::size_t layerIndex)
+{
+    return processorRef.selectLayerByVisualIndex (layerIndex);
+}
+
+bool PolySynthAudioProcessorEditor::loadPresetForCapture (juce::StringRef presetName, juce::String& errorMessage)
+{
+    const auto result = processorRef.loadPresetByName (juce::String (presetName).trim());
+    if (! result.success)
+    {
+        errorMessage = result.message;
+        return false;
+    }
+
+    syncUiForCapture();
+    return true;
+}
+
+bool PolySynthAudioProcessorEditor::setControlValueByComponentIdForCapture (juce::StringRef componentId, const juce::var& value, juce::String& errorMessage)
+{
+    if (auto* component = findChildWithID (componentId))
+    {
+        if (auto* slider = dynamic_cast<juce::Slider*> (component))
+        {
+            if (! value.isDouble() && ! value.isInt() && ! value.isInt64())
+            {
+                errorMessage = "Component " + component->getComponentID() + " expects numeric value";
+                return false;
+            }
+
+            slider->setValue (static_cast<double> (value), juce::sendNotificationSync);
+            return true;
+        }
+
+        if (auto* comboBox = dynamic_cast<juce::ComboBox*> (component))
+        {
+            if (value.isString())
+            {
+                int matchIndex = -1;
+                for (int itemIndex = 0; itemIndex < comboBox->getNumItems(); ++itemIndex)
+                {
+                    if (comboBox->getItemText (itemIndex) == value.toString())
+                    {
+                        matchIndex = itemIndex;
+                        break;
+                    }
+                }
+
+                if (matchIndex < 0)
+                {
+                    errorMessage = "Unknown combo item text for " + component->getComponentID() + ": " + value.toString();
+                    return false;
+                }
+
+                comboBox->setSelectedItemIndex (matchIndex, juce::sendNotificationSync);
+                return true;
+            }
+
+            if (value.isInt() || value.isInt64() || value.isDouble())
+            {
+                comboBox->setSelectedItemIndex (juce::roundToInt (static_cast<double> (value)), juce::sendNotificationSync);
+                return true;
+            }
+        }
+
+        if (auto* toggleButton = dynamic_cast<juce::ToggleButton*> (component))
+        {
+            if (! value.isBool())
+            {
+                errorMessage = "Component " + component->getComponentID() + " expects boolean value";
+                return false;
+            }
+
+            toggleButton->setToggleState (static_cast<bool> (value), juce::sendNotificationSync);
+            return true;
+        }
+
+        errorMessage = "Unsupported control type for component id: " + component->getComponentID();
+        return false;
+    }
+
+    errorMessage = "Unknown component id: " + juce::String (componentId);
+    return false;
+}
+
+void PolySynthAudioProcessorEditor::syncUiForCapture()
+{
+    syncLayerListFromProcessor();
+    syncInspectorControlsFromSelectedLayer();
+    syncRootNoteControlsFromProcessor();
+    refreshPresetControls();
+    refreshDensityUiState();
+    updateInspectorBindingState();
+    resized();
+}
+
 void PolySynthAudioProcessorEditor::showMainPage()
 {
     currentPage = EditorPage::main;

@@ -15,6 +15,15 @@ public:
     //==============================================================================
     void paint (juce::Graphics&) override;
     void resized() override;
+    bool setCapturePageByName (juce::StringRef pageName, juce::String& errorMessage);
+    bool setDensityModeByName (juce::StringRef densityMode, juce::String& errorMessage);
+    void setVoiceAdvancedPanelExpandedForCapture (bool shouldExpand);
+    void setOutputAdvancedPanelExpandedForCapture (bool shouldExpand);
+    void setGlobalPanelVisibleForCapture (bool shouldShow);
+    bool selectLayerByVisualIndexForCapture (std::size_t layerIndex);
+    bool loadPresetForCapture (juce::StringRef presetName, juce::String& errorMessage);
+    bool setControlValueByComponentIdForCapture (juce::StringRef componentId, const juce::var& value, juce::String& errorMessage);
+    void syncUiForCapture();
 
 private:
     enum class EditorPage

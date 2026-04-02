@@ -904,6 +904,22 @@ PolySynthAudioProcessor::Waveform PolySynthAudioProcessor::getWaveform() const n
     return waveform.load (std::memory_order_relaxed);
 }
 
+bool PolySynthAudioProcessor::setParameterValueById (juce::StringRef parameterId, float value, juce::String& errorMessage)
+{
+    auto* parameter = parameters.getParameter (parameterId);
+    if (parameter == nullptr)
+    {
+        errorMessage = "Unknown parameter id: " + parameterId;
+        return false;
+    }
+
+    const auto normalisableRange = parameter->getNormalisableRange();
+    const auto clampedValue = juce::jlimit (normalisableRange.start, normalisableRange.end, value);
+    parameter->setValueNotifyingHost (normalisableRange.convertTo0to1 (clampedValue));
+    errorMessage.clear();
+    return true;
+}
+
 juce::AudioProcessorValueTreeState::ParameterLayout PolySynthAudioProcessor::createParameterLayout()
 {
     std::vector<std::unique_ptr<juce::RangedAudioParameter>> layout;

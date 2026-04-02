@@ -1,0 +1,22 @@
+{
+  "editorWidth": 1000,
+  "editorHeight": 760,
+  "scaleFactor": 1.0,
+  "page": "main",
+  "densityMode": "advanced",
+  "voicePanelExpanded": true,
+  "outputPanelExpanded": true,
+  "selectedLayer": 0,
+  "parameters": {
+    "modDepth": 0.73,
+    "modRate": 11.4,
+    "modDestination": 2,
+    "velocitySensitivity": 0.37
+  },
+  "crop": {
+    "x": 600,
+    "y": 310,
+    "width": 360,
+    "height": 330
+  }
+}

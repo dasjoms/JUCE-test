@@ -18,6 +18,8 @@ project(POLY_SYNTH_VST3 VERSION 0.0.1)
 
 include(CTest)
 
+option(POLYSYNTH_ENABLE_UI_CAPTURE_APP "Build the manual PolySynth UI capture utility." OFF)
+
 # If you've installed JUCE somehow (via a package manager, or directly using the CMake install
 # target), you'll need to tell this project that it depends on the installed copy of JUCE. If you've
 # included JUCE directly in your source tree (perhaps as a submodule), you'll need to tell CMake to
@@ -369,3 +371,39 @@ target_link_libraries(PresetIntegrationTest
         juce::juce_audio_utils)
 
 add_test(NAME PresetIntegrationTest COMMAND PresetIntegrationTest)
+
+if (POLYSYNTH_ENABLE_UI_CAPTURE_APP)
+    add_executable(PolySynthUiCaptureApp
+        tools/ui_capture_app/Main.cpp
+        tools/ui_capture_app/ScenarioLoader.cpp
+        tools/ui_capture_app/EditorStateApplier.cpp
+        PolySynthAudioProcessorEditor.cpp
+        PolySynthAudioProcessor.cpp
+        SynthEngine.cpp
+        SynthVoice.cpp
+        LayeredInstrumentState.cpp
+        PresetLibrary.cpp)
+
+    target_compile_definitions(PolySynthUiCaptureApp
+        PRIVATE
+            JUCE_USE_CURL=0
+            JUCE_WEB_BROWSER=0
+            JucePlugin_IsSynth=1
+            JucePlugin_WantsMidiInput=1
+            JucePlugin_ProducesMidiOutput=0
+            JucePlugin_IsMidiEffect=0
+            JucePlugin_Name=\"PolySynth\")
+
+    target_link_libraries(PolySynthUiCaptureApp
+        PRIVATE
+            juce::juce_audio_utils
+            juce::juce_gui_basics
+            juce::juce_graphics
+            juce::juce_events
+            juce::juce_data_structures
+            juce::juce_core
+        PUBLIC
+            juce::juce_recommended_config_flags
+            juce::juce_recommended_lto_flags
+            juce::juce_recommended_warning_flags)
+endif()
