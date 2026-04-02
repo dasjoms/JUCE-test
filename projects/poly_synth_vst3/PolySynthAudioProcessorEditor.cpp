@@ -63,6 +63,33 @@ void PolySynthAudioProcessorEditor::SectionPanel::setTitle (juce::String newTitl
     repaint();
 }
 
+PolySynthAudioProcessorEditor::PaneComponent::PaneComponent (Style paneStyle)
+    : style (paneStyle)
+{
+    setOpaque (true);
+}
+
+void PolySynthAudioProcessorEditor::PaneComponent::paint (juce::Graphics& g)
+{
+    const auto area = getLocalBounds();
+
+    if (style == Style::sidebar)
+    {
+        g.fillAll (juce::Colours::black.withAlpha (0.22f));
+        g.setColour (juce::Colours::white.withAlpha (0.2f));
+        g.drawRect (area, 1);
+
+        constexpr int separatorWidth = 2;
+        g.setColour (juce::Colours::white.withAlpha (0.35f));
+        g.fillRect (juce::Rectangle<int> (area.getRight() - separatorWidth, area.getY(), separatorWidth, area.getHeight()));
+        return;
+    }
+
+    g.fillAll (juce::Colours::darkslategrey.withAlpha (0.14f));
+    g.setColour (juce::Colours::white.withAlpha (0.1f));
+    g.drawRect (area, 1);
+}
+
 juce::Rectangle<int> PolySynthAudioProcessorEditor::SectionPanel::getContentBounds() const
 {
     auto bounds = getLocalBounds().reduced (LayoutTokens::sectionPadding);
@@ -1048,24 +1075,6 @@ void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-
-    const auto sidebarArea = sidebarContainer.getBounds().toFloat();
-    if (sidebarContainer.isVisible() && ! sidebarArea.isEmpty())
-    {
-        g.setColour (juce::Colours::black.withAlpha (0.22f));
-        g.fillRoundedRectangle (sidebarArea, 9.0f);
-        g.setColour (juce::Colours::white.withAlpha (0.18f));
-        g.drawRoundedRectangle (sidebarArea, 9.0f, 1.0f);
-    }
-
-    const auto workspaceArea = workspaceContainer.getBounds().toFloat();
-    if (workspaceContainer.isVisible() && ! workspaceArea.isEmpty())
-    {
-        g.setColour (juce::Colours::darkslategrey.withAlpha (0.14f));
-        g.fillRoundedRectangle (workspaceArea, 9.0f);
-        g.setColour (juce::Colours::white.withAlpha (0.08f));
-        g.drawRoundedRectangle (workspaceArea, 9.0f, 1.0f);
-    }
 }
 
 void PolySynthAudioProcessorEditor::resized()
