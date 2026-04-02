@@ -18,6 +18,37 @@ struct LayoutTokens
     static constexpr int sectionFooterPadding = 10;
 };
 
+struct SidebarLayoutTokens
+{
+    static constexpr int panelHorizontalInset = 8;
+    static constexpr int panelVerticalInset = 28;
+    static constexpr int compactControlRowHeight = 28;
+    static constexpr int presetLabelWidth = 54;
+
+    static constexpr int presetSelectorGap = LayoutTokens::controlGap - 2;
+    static constexpr int presetButtonsToLibraryGap = LayoutTokens::controlGap;
+    static constexpr int layerHeaderGap = LayoutTokens::controlGap - 2;
+    static constexpr int layerStatusGap = LayoutTokens::controlGap - 2;
+
+    static constexpr int actionStatusRowHeight = 20;
+    static constexpr int layerRowHeight = 36;
+    static constexpr int minimumVisibleLayerRows = 1;
+
+    static constexpr int minimumPresetContentHeight = compactControlRowHeight
+                                                    + presetSelectorGap
+                                                    + compactControlRowHeight
+                                                    + presetButtonsToLibraryGap
+                                                    + compactControlRowHeight;
+    static constexpr int minimumLayerContentHeight = compactControlRowHeight
+                                                   + layerHeaderGap
+                                                   + actionStatusRowHeight
+                                                   + layerStatusGap
+                                                   + (minimumVisibleLayerRows * layerRowHeight);
+
+    static constexpr int minimumPresetBlockHeight = minimumPresetContentHeight + (panelVerticalInset * 2);
+    static constexpr int minimumLayerBlockHeight = minimumLayerContentHeight + (panelVerticalInset * 2);
+};
+
 juce::Rectangle<int> mapSectionLocalBoundsToEditor (const juce::Component& editor,
                                                     const juce::Component& section,
                                                     juce::Rectangle<int> sectionLocalBounds)
@@ -936,36 +967,45 @@ void PolySynthAudioProcessorEditor::resized()
     auto sidebarLayout = sidebarContainer.getLocalBounds();
     sidebarPanel.setBounds (sidebarLayout);
 
-    auto sidebarContent = sidebarLayout.reduced (LayoutTokens::rowSpacing, 28);
-    auto presetBounds = sidebarContent.removeFromTop (154);
+    auto sidebarContent = sidebarLayout.reduced (LayoutTokens::rowSpacing, SidebarLayoutTokens::panelVerticalInset);
+
+    const auto availableSidebarHeight = sidebarContent.getHeight();
+    const auto minimumSidebarContentHeight = SidebarLayoutTokens::minimumPresetBlockHeight
+                                           + LayoutTokens::rowSpacing
+                                           + SidebarLayoutTokens::minimumLayerBlockHeight;
+    const auto sidebarExtraHeight = juce::jmax (0, availableSidebarHeight - minimumSidebarContentHeight);
+    const auto presetBlockHeight = SidebarLayoutTokens::minimumPresetBlockHeight;
+    const auto layerBlockHeight = SidebarLayoutTokens::minimumLayerBlockHeight + sidebarExtraHeight;
+
+    auto presetBounds = sidebarContent.removeFromTop (juce::jmin (presetBlockHeight, sidebarContent.getHeight()));
     presetPanel.setBounds (presetBounds);
-    auto presetContent = presetBounds.reduced (8, 28);
-    auto presetRow = presetContent.removeFromTop (28);
-    presetLabel.setBounds (presetRow.removeFromLeft (54));
+    auto presetContent = presetBounds.reduced (SidebarLayoutTokens::panelHorizontalInset, SidebarLayoutTokens::panelVerticalInset);
+    auto presetRow = presetContent.removeFromTop (SidebarLayoutTokens::compactControlRowHeight);
+    presetLabel.setBounds (presetRow.removeFromLeft (SidebarLayoutTokens::presetLabelWidth));
     presetSelector.setBounds (presetRow);
-    presetContent.removeFromTop (LayoutTokens::controlGap - 2);
-    auto presetButtonsRow = presetContent.removeFromTop (28);
+    presetContent.removeFromTop (SidebarLayoutTokens::presetSelectorGap);
+    auto presetButtonsRow = presetContent.removeFromTop (SidebarLayoutTokens::compactControlRowHeight);
     presetLoadButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
     presetSaveButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
     presetSaveAsNewButton.setBounds (presetButtonsRow.reduced (1, 0));
-    presetContent.removeFromTop (LayoutTokens::controlGap);
-    viewLibraryButton.setBounds (presetContent.removeFromTop (28));
+    presetContent.removeFromTop (SidebarLayoutTokens::presetButtonsToLibraryGap);
+    viewLibraryButton.setBounds (presetContent.removeFromTop (SidebarLayoutTokens::compactControlRowHeight));
     presetContent.removeFromTop (LayoutTokens::controlGap);
     presetStatusLabel.setBounds (presetContent);
 
     sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
-    layerListPanel.setBounds (sidebarContent);
+    layerListPanel.setBounds (sidebarContent.removeFromTop (juce::jmin (layerBlockHeight, sidebarContent.getHeight())));
 
-    auto rowArea = sidebarContent.reduced (8, 28);
-    addLayerButton.setBounds (rowArea.removeFromTop (28));
-    rowArea.removeFromTop (LayoutTokens::controlGap - 2);
-    actionStatusLabel.setBounds (rowArea.removeFromTop (20));
-    rowArea.removeFromTop (LayoutTokens::controlGap - 2);
+    auto rowArea = layerListPanel.getBounds().reduced (SidebarLayoutTokens::panelHorizontalInset, SidebarLayoutTokens::panelVerticalInset);
+    addLayerButton.setBounds (rowArea.removeFromTop (SidebarLayoutTokens::compactControlRowHeight));
+    rowArea.removeFromTop (SidebarLayoutTokens::layerHeaderGap);
+    actionStatusLabel.setBounds (rowArea.removeFromTop (SidebarLayoutTokens::actionStatusRowHeight));
+    rowArea.removeFromTop (SidebarLayoutTokens::layerStatusGap);
     for (std::size_t i = 0; i < layerRows.size(); ++i)
     {
         auto& row = layerRows[i];
         if (i < visibleLayerCount)
-            row.setBounds (rowArea.removeFromTop (36));
+            row.setBounds (rowArea.removeFromTop (SidebarLayoutTokens::layerRowHeight));
         else
             row.setBounds ({});
     }
