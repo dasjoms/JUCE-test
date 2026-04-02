@@ -10,7 +10,7 @@ constexpr std::array<const char*, 12> pitchClassNames { "C", "C#", "D", "D#", "E
 
 struct LayoutTokens
 {
-    static constexpr int outerPadding = 16;
+    static constexpr int outerPadding = 0;
     static constexpr int sectionPadding = 10;
     static constexpr int rowSpacing = 8;
     static constexpr int controlGap = 6;
@@ -75,19 +75,15 @@ void PolySynthAudioProcessorEditor::PaneComponent::paint (juce::Graphics& g)
 
     if (style == Style::sidebar)
     {
-        g.fillAll (juce::Colours::black.withAlpha (0.22f));
-        g.setColour (juce::Colours::white.withAlpha (0.2f));
-        g.drawRect (area, 1);
+        g.fillAll (juce::Colours::white);
 
         constexpr int separatorWidth = 2;
-        g.setColour (juce::Colours::white.withAlpha (0.35f));
+        g.setColour (juce::Colours::lightgrey);
         g.fillRect (juce::Rectangle<int> (area.getRight() - separatorWidth, area.getY(), separatorWidth, area.getHeight()));
         return;
     }
 
-    g.fillAll (juce::Colours::darkslategrey.withAlpha (0.14f));
-    g.setColour (juce::Colours::white.withAlpha (0.1f));
-    g.drawRect (area, 1);
+    g.fillAll (juce::Colours::white);
 }
 
 juce::Rectangle<int> PolySynthAudioProcessorEditor::SectionPanel::getContentBounds() const
