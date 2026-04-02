@@ -1092,16 +1092,23 @@ void PolySynthAudioProcessorEditor::resized()
     }
 
     auto mainArea = bounds;
-    constexpr int sidebarMinWidth = 320;
-    constexpr int sidebarMaxWidth = 380;
-    constexpr int sidebarFixedWidth = 336;
-    constexpr int workspaceMinWidth = 300;
-    const auto desiredSidebarWidth = juce::jlimit (sidebarMinWidth, sidebarMaxWidth, sidebarFixedWidth);
-    const auto maxSidebarWidthForWindow = juce::jmax (sidebarMinWidth, mainArea.getWidth() - workspaceMinWidth);
-    const auto resolvedSidebarWidth = juce::jmin (desiredSidebarWidth, maxSidebarWidthForWindow);
-    auto sidebarBounds = mainArea.removeFromLeft (resolvedSidebarWidth);
-    mainArea.removeFromLeft (LayoutTokens::rowSpacing);
-    auto workspaceBounds = mainArea;
+    auto sidebarBounds = juce::Rectangle<int> {};
+    auto workspaceBounds = juce::Rectangle<int> {};
+
+    if (isMainPage)
+    {
+        constexpr float targetSidebarRatio = 0.33f;
+        constexpr int sidebarMinWidth = 320;
+        constexpr int sidebarMaxWidth = 380;
+        constexpr int workspaceMinWidth = 300;
+        const auto targetSidebarWidth = juce::roundToInt (static_cast<float> (mainArea.getWidth()) * targetSidebarRatio);
+        const auto desiredSidebarWidth = juce::jlimit (sidebarMinWidth, sidebarMaxWidth, targetSidebarWidth);
+        const auto maxSidebarWidthForWindow = juce::jmax (sidebarMinWidth, mainArea.getWidth() - workspaceMinWidth);
+        const auto resolvedSidebarWidth = juce::jmin (desiredSidebarWidth, maxSidebarWidthForWindow);
+        sidebarBounds = mainArea.removeFromLeft (resolvedSidebarWidth);
+        mainArea.removeFromLeft (LayoutTokens::rowSpacing);
+        workspaceBounds = mainArea;
+    }
 
     sidebarContainer.setBounds (isMainPage ? sidebarBounds : juce::Rectangle<int> {});
     workspaceContainer.setBounds (isMainPage ? workspaceBounds : juce::Rectangle<int> {});
