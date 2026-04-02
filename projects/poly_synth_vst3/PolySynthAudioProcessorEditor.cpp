@@ -17,6 +17,13 @@ struct LayoutTokens
     static constexpr int sectionHeaderHeight = 26;
     static constexpr int sectionFooterPadding = 10;
 };
+
+juce::Rectangle<int> mapSectionLocalBoundsToEditor (const juce::Component& editor,
+                                                    const juce::Component& section,
+                                                    juce::Rectangle<int> sectionLocalBounds)
+{
+    return editor.getLocalArea (&section, sectionLocalBounds);
+}
 }
 
 void PolySynthAudioProcessorEditor::SectionPanel::setTitle (juce::String newTitle)
@@ -452,6 +459,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     densityModeSelector.addItem ("Basic", 1);
     densityModeSelector.addItem ("Advanced", 2);
+    densityModeSelector.setComponentID ("densityModeSelector");
     densityModeSelector.onChange = [this]
     {
         const auto selected = densityModeSelector.getSelectedItemIndex() <= 0
@@ -469,21 +477,27 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (emptyInspectorLabel);
 
     oscillatorSection.setTitle ("Oscillator");
+    oscillatorSection.setComponentID ("oscillatorSection");
     addAndMakeVisible (oscillatorSection);
 
     voiceUnisonSection.setTitle ("Voice / Unison");
+    voiceUnisonSection.setComponentID ("voiceUnisonSection");
     addAndMakeVisible (voiceUnisonSection);
 
     envelopeSection.setTitle ("Envelope");
+    envelopeSection.setComponentID ("envelopeSection");
     addAndMakeVisible (envelopeSection);
 
     modulationSection.setTitle ("Modulation");
+    modulationSection.setComponentID ("modulationSection");
     addAndMakeVisible (modulationSection);
 
     outputSection.setTitle ("Output");
+    outputSection.setComponentID ("outputSection");
     addAndMakeVisible (outputSection);
 
     tuningAdvancedSection.setTitle ("Tuning / Advanced");
+    tuningAdvancedSection.setComponentID ("tuningAdvancedSection");
     addAndMakeVisible (tuningAdvancedSection);
 
     waveformLabel.setText ("Waveform", juce::dontSendNotification);
@@ -517,6 +531,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (stealPolicySelector);
 
     voiceAdvancedPanelToggle.setButtonText ("Voice & policy details");
+    voiceAdvancedPanelToggle.setComponentID ("voiceAdvancedPanelToggle");
     voiceAdvancedPanelToggle.setClickingTogglesState (true);
     voiceAdvancedPanelToggle.onClick = [this]
     {
@@ -619,6 +634,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (outputStageSelector);
 
     outputAdvancedPanelToggle.setButtonText ("Output & tuning details");
+    outputAdvancedPanelToggle.setComponentID ("outputAdvancedPanelToggle");
     outputAdvancedPanelToggle.setClickingTogglesState (true);
     outputAdvancedPanelToggle.onClick = [this]
     {
@@ -650,6 +666,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     relativeRootSemitoneSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     relativeRootSemitoneSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 18);
+    relativeRootSemitoneSlider.setComponentID ("relativeRootSemitoneSlider");
     relativeRootSemitoneSlider.setRange (-127.0, 127.0, 1.0);
     relativeRootSemitoneSlider.setNumDecimalPlacesToDisplay (0);
     relativeRootSemitoneSlider.setTextValueSuffix (" st");
@@ -933,14 +950,15 @@ void PolySynthAudioProcessorEditor::resized()
         label.setBounds (centered.removeFromTop (18));
     };
 
-    auto oscContent = oscillatorSection.getContentBounds();
+    auto oscContent = mapSectionLocalBoundsToEditor (*this, oscillatorSection, oscillatorSection.getContentBounds());
     auto oscTop = oscContent.removeFromTop (56);
     waveformLabel.setBounds (oscTop.removeFromTop (14));
     waveformSelector.setBounds (oscTop.reduced (4, 0));
     oscContent.removeFromTop (LayoutTokens::controlGap);
     waveformDisplayPanel.setBounds (oscContent.removeFromTop (88).reduced (4, 2));
 
-    auto voiceContent = voiceUnisonSection.getContentBounds().reduced (LayoutTokens::controlGap, 0);
+    auto voiceContent = mapSectionLocalBoundsToEditor (*this, voiceUnisonSection, voiceUnisonSection.getContentBounds())
+                            .reduced (LayoutTokens::controlGap, 0);
     voiceAdvancedPanelToggle.setBounds (voiceContent.removeFromTop (26));
     voiceContent.removeFromTop (LayoutTokens::controlGap);
     if (usingAdvancedDensity && voiceAdvancedPanelToggle.getToggleState())
@@ -957,7 +975,7 @@ void PolySynthAudioProcessorEditor::resized()
         placeKnob (voiceLowerKnobs, absoluteRootNoteLabel, absoluteRootNoteSlider, false);
     }
 
-    auto envContent = envelopeSection.getContentBounds();
+    auto envContent = mapSectionLocalBoundsToEditor (*this, envelopeSection, envelopeSection.getContentBounds());
     adsrGraphPanel.setBounds (envContent.removeFromTop (108));
     envContent.removeFromTop (LayoutTokens::controlGap);
     auto envTop = envContent.removeFromTop (envContent.getHeight() / 2);
@@ -967,14 +985,14 @@ void PolySynthAudioProcessorEditor::resized()
     placeKnob (envBottom.removeFromLeft (envBottom.getWidth() / 2), sustainLabel, sustainSlider, true);
     placeKnob (envBottom, releaseLabel, releaseSlider, true);
 
-    auto modContent = modulationSection.getContentBounds();
+    auto modContent = mapSectionLocalBoundsToEditor (*this, modulationSection, modulationSection.getContentBounds());
     placeCardTopRow (modContent.removeFromTop (56), modDestinationLabel, modDestinationSelector, velocitySensitivityLabel, velocitySensitivitySlider);
     modContent.removeFromTop (LayoutTokens::controlGap);
     auto modKnobs = modContent.reduced (6, 4);
     placeKnob (modKnobs.removeFromLeft (modKnobs.getWidth() / 2), modRateLabel, modRateSlider, true);
     placeKnob (modKnobs, modDepthLabel, modDepthSlider, true);
 
-    auto outContent = outputSection.getContentBounds();
+    auto outContent = mapSectionLocalBoundsToEditor (*this, outputSection, outputSection.getContentBounds());
     outputAdvancedPanelToggle.setBounds (outContent.removeFromTop (26));
     outContent.removeFromTop (LayoutTokens::controlGap);
     if (usingAdvancedDensity && outputAdvancedPanelToggle.getToggleState())
@@ -984,7 +1002,8 @@ void PolySynthAudioProcessorEditor::resized()
         outputStageSelector.setBounds (outputRow.reduced (4, 0));
     }
 
-    auto tuneContent = tuningAdvancedSection.getContentBounds().reduced (LayoutTokens::controlGap, 0);
+    auto tuneContent = mapSectionLocalBoundsToEditor (*this, tuningAdvancedSection, tuningAdvancedSection.getContentBounds())
+                           .reduced (LayoutTokens::controlGap, 0);
     if (usingAdvancedDensity && outputAdvancedPanelToggle.getToggleState())
     {
         auto tuneArea = tuneContent.removeFromTop (132);
