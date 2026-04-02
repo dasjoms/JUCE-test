@@ -1073,33 +1073,22 @@ void PolySynthAudioProcessorEditor::resized()
     auto bounds = getLocalBounds().reduced (LayoutTokens::outerPadding);
     const auto isMainPage = currentPage == EditorPage::main;
 
+    titleLabel.setBounds ({});
+    globalPanelToggle.setBounds ({});
+    globalPanel.setBounds ({});
+    globalPanelPlaceholderLabel.setBounds ({});
+    titleLabel.setVisible (false);
+    globalPanelToggle.setVisible (false);
+    globalPanel.setVisible (false);
+    globalPanelPlaceholderLabel.setVisible (false);
+
     if (isMainPage)
     {
-        titleLabel.setBounds (bounds.removeFromTop (28));
-        bounds.removeFromTop (LayoutTokens::rowSpacing);
-
-        globalPanelToggle.setBounds (bounds.removeFromTop (26));
-        bounds.removeFromTop (LayoutTokens::rowSpacing);
-
-        if (globalPanelToggle.getToggleState())
-        {
-            auto globalBounds = bounds.removeFromTop (84);
-            globalPanel.setBounds (globalBounds);
-            globalPanelPlaceholderLabel.setBounds (globalBounds.reduced (12, 24));
-            bounds.removeFromTop (LayoutTokens::rowSpacing + 2);
-        }
-        else
-        {
-            globalPanel.setBounds ({});
-            globalPanelPlaceholderLabel.setBounds ({});
-        }
+        // Main page starts immediately after the outer padding.
     }
     else
     {
-        titleLabel.setBounds ({});
-        globalPanelToggle.setBounds ({});
-        globalPanel.setBounds ({});
-        globalPanelPlaceholderLabel.setBounds ({});
+        // Library page keeps these header/global controls hidden.
     }
 
     auto mainArea = bounds;
