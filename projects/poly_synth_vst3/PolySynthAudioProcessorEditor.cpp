@@ -1,10 +1,237 @@
 #include "PolySynthAudioProcessor.h"
 #include "PolySynthAudioProcessorEditor.h"
 #include <array>
+#include <cmath>
 
 namespace
 {
 constexpr std::array<const char*, 12> pitchClassNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+}
+
+void PolySynthAudioProcessorEditor::WaveformDisplayPanel::setLayerWaveforms (const std::vector<SynthVoice::Waveform>& waveformsToDraw)
+{
+    waveforms = waveformsToDraw;
+    repaint();
+}
+
+void PolySynthAudioProcessorEditor::WaveformDisplayPanel::setAnimatedMode (bool shouldAnimate, float animationPhaseToUse)
+{
+    animate = shouldAnimate;
+    animationPhase = animationPhaseToUse;
+    repaint();
+}
+
+float PolySynthAudioProcessorEditor::WaveformDisplayPanel::evaluateWaveformSample (SynthVoice::Waveform waveformType, float phase) noexcept
+{
+    const auto wrappedPhase = phase - std::floor (phase);
+    constexpr auto twoPi = juce::MathConstants<float>::twoPi;
+
+    switch (waveformType)
+    {
+        case SynthVoice::Waveform::saw:
+            return wrappedPhase * 2.0f - 1.0f;
+        case SynthVoice::Waveform::square:
+            return wrappedPhase < 0.5f ? 1.0f : -1.0f;
+        case SynthVoice::Waveform::triangle:
+            return 1.0f - 4.0f * std::abs (wrappedPhase - 0.5f);
+        case SynthVoice::Waveform::sine:
+        default:
+            return std::sin (wrappedPhase * twoPi);
+    }
+}
+
+void PolySynthAudioProcessorEditor::WaveformDisplayPanel::paint (juce::Graphics& g)
+{
+    auto area = getLocalBounds().toFloat().reduced (6.0f);
+    g.setColour (juce::Colours::black.withAlpha (0.22f));
+    g.fillRoundedRectangle (area, 6.0f);
+
+    g.setColour (juce::Colours::white.withAlpha (0.16f));
+    g.drawHorizontalLine (juce::roundToInt (area.getCentreY()), area.getX(), area.getRight());
+    g.drawRoundedRectangle (area, 6.0f, 1.0f);
+
+    if (waveforms.empty())
+    {
+        g.setColour (juce::Colours::lightgrey.withAlpha (0.8f));
+        g.drawFittedText ("No waveform", getLocalBounds(), juce::Justification::centred, 1);
+        return;
+    }
+
+    const auto drawSingle = [this, area, &g] (SynthVoice::Waveform waveformType, juce::Colour colour, float strokeWidth)
+    {
+        juce::Path path;
+        constexpr int sampleCount = 256;
+        for (int i = 0; i < sampleCount; ++i)
+        {
+            const auto normalizedX = static_cast<float> (i) / static_cast<float> (sampleCount - 1);
+            const auto phase = normalizedX + (animate ? animationPhase : 0.0f);
+            const auto value = evaluateWaveformSample (waveformType, phase);
+            const auto x = area.getX() + normalizedX * area.getWidth();
+            const auto y = area.getCentreY() - value * (area.getHeight() * 0.42f);
+
+            if (i == 0)
+                path.startNewSubPath (x, y);
+            else
+                path.lineTo (x, y);
+        }
+
+        g.setColour (colour);
+        g.strokePath (path, juce::PathStrokeType (strokeWidth, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+    };
+
+    if (waveforms.size() == 1)
+    {
+        drawSingle (waveforms.front(), juce::Colours::deepskyblue, 2.4f);
+    }
+    else
+    {
+        for (const auto waveform : waveforms)
+            drawSingle (waveform, juce::Colours::lightslategrey.withAlpha (0.45f), 1.3f);
+        drawSingle (waveforms.front(), juce::Colours::deepskyblue.withAlpha (0.95f), 2.2f);
+    }
+}
+
+void PolySynthAudioProcessorEditor::AdsrGraphPanel::setEnvelope (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds)
+{
+    attack = juce::jlimit (0.001f, 5.0f, attackSeconds);
+    decay = juce::jlimit (0.001f, 5.0f, decaySeconds);
+    sustain = juce::jlimit (0.0f, 1.0f, sustainLevel);
+    release = juce::jlimit (0.005f, 5.0f, releaseSeconds);
+    repaint();
+}
+
+void PolySynthAudioProcessorEditor::AdsrGraphPanel::setAnimatedMode (bool shouldAnimate, float animationProgressToUse)
+{
+    animate = shouldAnimate;
+    animationProgress = juce::jlimit (0.0f, 1.0f, animationProgressToUse);
+    repaint();
+}
+
+void PolySynthAudioProcessorEditor::AdsrGraphPanel::setEnvelopeChangedCallback (EnvelopeChangedCallback callback)
+{
+    envelopeChangedCallback = std::move (callback);
+}
+
+juce::Rectangle<float> PolySynthAudioProcessorEditor::AdsrGraphPanel::getContentBounds() const
+{
+    return getLocalBounds().toFloat().reduced (10.0f);
+}
+
+PolySynthAudioProcessorEditor::AdsrGraphPanel::EnvelopePoints PolySynthAudioProcessorEditor::AdsrGraphPanel::computeEnvelopePoints (juce::Rectangle<float> area) const
+{
+    const auto totalTime = juce::jmax (0.001f, attack + decay + release);
+    const auto attackPortion = attack / totalTime;
+    const auto decayPortion = decay / totalTime;
+    const auto releasePortion = release / totalTime;
+
+    EnvelopePoints points;
+    points.start = { area.getX(), area.getBottom() };
+    points.attackPeak = { area.getX() + area.getWidth() * attackPortion, area.getY() };
+    points.decaySustain = { points.attackPeak.x + area.getWidth() * decayPortion, area.getBottom() - sustain * area.getHeight() };
+    points.releaseEnd = { points.decaySustain.x + area.getWidth() * releasePortion, area.getBottom() };
+    points.releaseEnd.x = juce::jlimit (area.getX(), area.getRight(), points.releaseEnd.x);
+    return points;
+}
+
+void PolySynthAudioProcessorEditor::AdsrGraphPanel::paint (juce::Graphics& g)
+{
+    const auto content = getContentBounds();
+    g.setColour (juce::Colours::black.withAlpha (0.22f));
+    g.fillRoundedRectangle (content, 6.0f);
+    g.setColour (juce::Colours::white.withAlpha (0.14f));
+    g.drawRoundedRectangle (content, 6.0f, 1.0f);
+
+    g.setColour (juce::Colours::white.withAlpha (0.08f));
+    for (int row = 1; row < 4; ++row)
+    {
+        const auto y = content.getY() + content.getHeight() * (static_cast<float> (row) / 4.0f);
+        g.drawHorizontalLine (juce::roundToInt (y), content.getX(), content.getRight());
+    }
+
+    const auto points = computeEnvelopePoints (content);
+    juce::Path path;
+    path.startNewSubPath (points.start);
+    path.lineTo (points.attackPeak);
+    path.lineTo (points.decaySustain);
+    path.lineTo (points.releaseEnd);
+
+    g.setColour (juce::Colours::orange.withAlpha (0.95f));
+    g.strokePath (path, juce::PathStrokeType (2.4f, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
+
+    const auto drawHandle = [&g] (juce::Point<float> center)
+    {
+        g.setColour (juce::Colours::orange.brighter (0.25f));
+        g.fillEllipse (juce::Rectangle<float> (8.0f, 8.0f).withCentre (center));
+    };
+
+    drawHandle (points.attackPeak);
+    drawHandle (points.decaySustain);
+
+    if (animate)
+    {
+        const auto progressX = content.getX() + content.getWidth() * animationProgress;
+        g.setColour (juce::Colours::yellow.withAlpha (0.65f));
+        g.drawVerticalLine (juce::roundToInt (progressX), content.getY(), content.getBottom());
+    }
+}
+
+void PolySynthAudioProcessorEditor::AdsrGraphPanel::mouseDown (const juce::MouseEvent& event)
+{
+    const auto content = getContentBounds();
+    const auto points = computeEnvelopePoints (content);
+    constexpr auto hitRadius = 14.0f;
+
+    if (event.position.getDistanceFrom (points.attackPeak) <= hitRadius)
+        dragHandle = DragHandle::attackPeak;
+    else if (event.position.getDistanceFrom (points.decaySustain) <= hitRadius)
+        dragHandle = DragHandle::decaySustain;
+    else
+        dragHandle = DragHandle::none;
+}
+
+void PolySynthAudioProcessorEditor::AdsrGraphPanel::mouseDrag (const juce::MouseEvent& event)
+{
+    const auto content = getContentBounds();
+    if (! content.contains (event.position))
+        return;
+
+    const auto points = computeEnvelopePoints (content);
+    const auto totalTime = juce::jmax (0.001f, attack + decay + release);
+
+    if (dragHandle == DragHandle::attackPeak)
+    {
+        const auto normalizedX = (event.position.x - content.getX()) / content.getWidth();
+        const auto newAttack = juce::jlimit (0.001f, 4.95f, totalTime * juce::jlimit (0.02f, 0.82f, normalizedX));
+        attack = newAttack;
+        release = juce::jmax (0.005f, totalTime - attack - decay);
+        notifyEnvelopeChangedIfNeeded();
+    }
+    else if (dragHandle == DragHandle::decaySustain)
+    {
+        const auto decayMinX = points.attackPeak.x + 8.0f;
+        const auto decayMaxX = content.getRight() - 18.0f;
+        const auto clippedX = juce::jlimit (decayMinX, decayMaxX, event.position.x);
+        const auto decayPortion = (clippedX - points.attackPeak.x) / content.getWidth();
+        decay = juce::jlimit (0.001f, 4.95f, decayPortion * totalTime);
+        release = juce::jmax (0.005f, totalTime - attack - decay);
+
+        const auto normalizedY = (event.position.y - content.getY()) / content.getHeight();
+        sustain = 1.0f - juce::jlimit (0.0f, 1.0f, normalizedY);
+        notifyEnvelopeChangedIfNeeded();
+    }
+}
+
+void PolySynthAudioProcessorEditor::AdsrGraphPanel::mouseUp (const juce::MouseEvent&)
+{
+    dragHandle = DragHandle::none;
+}
+
+void PolySynthAudioProcessorEditor::AdsrGraphPanel::notifyEnvelopeChangedIfNeeded()
+{
+    if (envelopeChangedCallback != nullptr)
+        envelopeChangedCallback (attack, decay, sustain, release);
+
+    repaint();
 }
 
 PolySynthAudioProcessorEditor::LayerRow::LayerRow()
@@ -194,6 +421,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     waveformSelector.addItem ("Triangle", 4);
     waveformSelector.setComponentID ("waveformSelector");
     addAndMakeVisible (waveformSelector);
+    addAndMakeVisible (waveformDisplayPanel);
 
     maxVoicesLabel.setText ("Voice Count", juce::dontSendNotification);
     maxVoicesLabel.setJustificationType (juce::Justification::centred);
@@ -244,6 +472,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     configurePrimaryKnob (releaseSlider, 0.005, 5.0, 0.001, 3, " s");
     releaseSlider.setComponentID ("releaseSlider");
     addAndMakeVisible (releaseSlider);
+    addAndMakeVisible (adsrGraphPanel);
 
     modDepthLabel.setText ("Mod Depth", juce::dontSendNotification);
     modDepthLabel.setJustificationType (juce::Justification::centred);
@@ -363,6 +592,19 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     decaySlider.onValueChange = updateAdsr;
     sustainSlider.onValueChange = updateAdsr;
     releaseSlider.onValueChange = updateAdsr;
+    adsrGraphPanel.setEnvelopeChangedCallback ([this] (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds)
+    {
+        if (suppressInspectorCallbacks)
+            return;
+
+        suppressInspectorCallbacks = true;
+        attackSlider.setValue (attackSeconds, juce::sendNotificationSync);
+        decaySlider.setValue (decaySeconds, juce::sendNotificationSync);
+        sustainSlider.setValue (sustainLevel, juce::sendNotificationSync);
+        releaseSlider.setValue (releaseSeconds, juce::sendNotificationSync);
+        suppressInspectorCallbacks = false;
+        processorRef.setLayerAdsrByVisualIndex (selectedLayerIndex, attackSeconds, decaySeconds, sustainLevel, releaseSeconds);
+    });
     auto updateModulation = [this]
     {
         if (! suppressInspectorCallbacks)
@@ -555,7 +797,9 @@ void PolySynthAudioProcessorEditor::resized()
 
     auto oscContent = oscillatorBounds.reduced (10, 26);
     placeCardTopRow (oscContent.removeFromTop (56), waveformLabel, waveformSelector, stealPolicyLabel, stealPolicySelector);
-    auto oscKnobArea = oscContent.reduced (6, 4);
+    waveformDisplayPanel.setBounds (oscContent.removeFromTop (88).reduced (4, 2));
+    oscContent.removeFromTop (4);
+    auto oscKnobArea = oscContent.reduced (6, 0);
     auto oscLeft = oscKnobArea.removeFromLeft (oscKnobArea.getWidth() / 2);
     auto oscRight = oscKnobArea;
     placeKnob (oscLeft.removeFromTop (108), maxVoicesLabel, maxVoicesSlider, false);
@@ -564,6 +808,8 @@ void PolySynthAudioProcessorEditor::resized()
     placeKnob (oscRight, absoluteRootNoteLabel, absoluteRootNoteSlider, false);
 
     auto envContent = envelopeBounds.reduced (10, 30);
+    adsrGraphPanel.setBounds (envContent.removeFromTop (108));
+    envContent.removeFromTop (6);
     auto envTop = envContent.removeFromTop (envContent.getHeight() / 2);
     auto envBottom = envContent;
     placeKnob (envTop.removeFromLeft (envTop.getWidth() / 2), attackLabel, attackSlider, true);
@@ -593,6 +839,22 @@ void PolySynthAudioProcessorEditor::timerCallback()
     syncInspectorControlsFromSelectedLayer();
     syncRootNoteControlsFromProcessor();
     refreshPresetControls();
+
+    const auto noteIsActive = processorRef.isLayerNoteActive (selectedLayerIndex);
+    if (noteIsActive)
+    {
+        waveformAnimationPhase += 0.022f;
+        adsrAnimationProgress += 0.03f;
+        if (adsrAnimationProgress > 1.0f)
+            adsrAnimationProgress -= 1.0f;
+    }
+    else
+    {
+        adsrAnimationProgress = 0.0f;
+    }
+
+    waveformDisplayPanel.setAnimatedMode (noteIsActive, waveformAnimationPhase);
+    adsrGraphPanel.setAnimatedMode (noteIsActive, adsrAnimationProgress);
 }
 
 void PolySynthAudioProcessorEditor::syncRootNoteControlsFromProcessor()
@@ -665,6 +927,22 @@ void PolySynthAudioProcessorEditor::syncInspectorControlsFromSelectedLayer()
     unisonDetuneCentsSlider.setValue (selectedLayerState->unisonDetuneCents, juce::dontSendNotification);
     outputStageSelector.setSelectedItemIndex (static_cast<int> (selectedLayerState->outputStage), juce::dontSendNotification);
     suppressInspectorCallbacks = false;
+
+    adsrGraphPanel.setEnvelope (selectedLayerState->attackSeconds,
+                                selectedLayerState->decaySeconds,
+                                selectedLayerState->sustainLevel,
+                                selectedLayerState->releaseSeconds);
+
+    std::vector<SynthVoice::Waveform> waveforms;
+    waveforms.push_back (selectedLayerState->waveform);
+    const auto allWaveforms = processorRef.getAllLayerWaveforms();
+    for (std::size_t i = 0; i < allWaveforms.size(); ++i)
+    {
+        if (i == selectedLayerIndex)
+            continue;
+        waveforms.push_back (allWaveforms[i]);
+    }
+    waveformDisplayPanel.setLayerWaveforms (waveforms);
 }
 
 void PolySynthAudioProcessorEditor::updateInspectorBindingState()
@@ -704,7 +982,9 @@ void PolySynthAudioProcessorEditor::updateInspectorBindingState()
                              static_cast<juce::Component*> (&absoluteRootNoteSlider),
                              static_cast<juce::Component*> (&relativeRootSemitoneLabel),
                              static_cast<juce::Component*> (&relativeRootSemitoneSlider),
-                             static_cast<juce::Component*> (&rootNoteFeedbackLabel) })
+                             static_cast<juce::Component*> (&rootNoteFeedbackLabel),
+                             static_cast<juce::Component*> (&waveformDisplayPanel),
+                             static_cast<juce::Component*> (&adsrGraphPanel) })
     {
         component->setEnabled (hasValidSelection);
     }

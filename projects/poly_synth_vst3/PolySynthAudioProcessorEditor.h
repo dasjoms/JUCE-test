@@ -2,6 +2,7 @@
 
 #include "PolySynthAudioProcessor.h"
 #include <array>
+#include <functional>
 
 //==============================================================================
 class PolySynthAudioProcessorEditor final : public juce::AudioProcessorEditor,
@@ -16,6 +17,65 @@ public:
     void resized() override;
 
 private:
+    class WaveformDisplayPanel final : public juce::Component
+    {
+    public:
+        void setLayerWaveforms (const std::vector<SynthVoice::Waveform>& waveformsToDraw);
+        void setAnimatedMode (bool shouldAnimate, float animationPhaseToUse);
+
+        void paint (juce::Graphics& g) override;
+
+    private:
+        static float evaluateWaveformSample (SynthVoice::Waveform waveformType, float phase) noexcept;
+        std::vector<SynthVoice::Waveform> waveforms;
+        bool animate = false;
+        float animationPhase = 0.0f;
+    };
+
+    class AdsrGraphPanel final : public juce::Component
+    {
+    public:
+        using EnvelopeChangedCallback = std::function<void (float, float, float, float)>;
+
+        void setEnvelope (float attackSeconds, float decaySeconds, float sustainLevel, float releaseSeconds);
+        void setAnimatedMode (bool shouldAnimate, float animationProgressToUse);
+        void setEnvelopeChangedCallback (EnvelopeChangedCallback callback);
+
+        void paint (juce::Graphics& g) override;
+        void mouseDown (const juce::MouseEvent& event) override;
+        void mouseDrag (const juce::MouseEvent& event) override;
+        void mouseUp (const juce::MouseEvent& event) override;
+
+    private:
+        enum class DragHandle
+        {
+            none = 0,
+            attackPeak,
+            decaySustain
+        };
+
+        struct EnvelopePoints
+        {
+            juce::Point<float> start;
+            juce::Point<float> attackPeak;
+            juce::Point<float> decaySustain;
+            juce::Point<float> releaseEnd;
+        };
+
+        EnvelopePoints computeEnvelopePoints (juce::Rectangle<float> area) const;
+        juce::Rectangle<float> getContentBounds() const;
+        void notifyEnvelopeChangedIfNeeded();
+
+        float attack = 0.005f;
+        float decay = 0.08f;
+        float sustain = 0.8f;
+        float release = 0.03f;
+        bool animate = false;
+        float animationProgress = 0.0f;
+        DragHandle dragHandle = DragHandle::none;
+        EnvelopeChangedCallback envelopeChangedCallback;
+    };
+
     struct LayerRow final : public juce::Component
     {
         LayerRow();
@@ -115,12 +175,16 @@ private:
     juce::Slider absoluteRootNoteSlider;
     juce::Slider relativeRootSemitoneSlider;
     juce::ComboBox outputStageSelector;
+    WaveformDisplayPanel waveformDisplayPanel;
+    AdsrGraphPanel adsrGraphPanel;
     static constexpr std::size_t maxLayerRows = InstrumentState::maxLayerCount;
     std::array<LayerRow, maxLayerRows> layerRows;
     std::size_t visibleLayerCount = 0;
     std::size_t selectedLayerIndex = 0;
     bool suppressRootNoteCallbacks = false;
     bool suppressInspectorCallbacks = false;
+    float waveformAnimationPhase = 0.0f;
+    float adsrAnimationProgress = 0.0f;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };
