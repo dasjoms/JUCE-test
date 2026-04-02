@@ -394,6 +394,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (workspaceContainer);
     addAndMakeVisible (libraryPageContainer);
     libraryPageContainer.setVisible (false);
+    libraryPageContainer.setEnabled (false);
 
     sidebarPanel.setText ("Sidebar");
     sidebarContainer.addAndMakeVisible (sidebarPanel);
@@ -432,15 +433,15 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     sidebarContainer.addAndMakeVisible (presetSaveAsNewButton);
 
     viewLibraryButton.setButtonText ("View Library");
-    viewLibraryButton.onClick = [this] { showLibraryPage (true); };
+    viewLibraryButton.onClick = [this] { showLibraryPage(); };
     sidebarContainer.addAndMakeVisible (viewLibraryButton);
 
     presetStatusLabel.setJustificationType (juce::Justification::centredLeft);
     presetStatusLabel.setColour (juce::Label::textColourId, juce::Colours::lightgoldenrodyellow);
     sidebarContainer.addAndMakeVisible (presetStatusLabel);
 
-    backToSynthPageButton.setButtonText ("Back to Synth");
-    backToSynthPageButton.onClick = [this] { showLibraryPage (false); };
+    backToSynthPageButton.setButtonText ("Back to Main");
+    backToSynthPageButton.onClick = [this] { showMainPage(); };
     libraryPageContainer.addAndMakeVisible (backToSynthPageButton);
 
     libraryMarketplacePanel.setText ("Marketplace");
@@ -807,16 +808,36 @@ PolySynthAudioProcessorEditor::~PolySynthAudioProcessorEditor()
 {
 }
 
-void PolySynthAudioProcessorEditor::showLibraryPage (bool shouldShowLibraryPage)
+void PolySynthAudioProcessorEditor::showMainPage()
 {
-    showingLibraryPage = shouldShowLibraryPage;
-    titleLabel.setVisible (! showingLibraryPage);
-    globalPanelToggle.setVisible (! showingLibraryPage);
-    globalPanel.setVisible (! showingLibraryPage && globalPanelToggle.getToggleState());
-    globalPanelPlaceholderLabel.setVisible (! showingLibraryPage && globalPanelToggle.getToggleState());
-    sidebarContainer.setVisible (! showingLibraryPage);
-    workspaceContainer.setVisible (! showingLibraryPage);
-    libraryPageContainer.setVisible (showingLibraryPage);
+    currentPage = EditorPage::main;
+    titleLabel.setVisible (true);
+    globalPanelToggle.setVisible (true);
+    const auto showGlobalPanel = globalPanelToggle.getToggleState();
+    globalPanel.setVisible (showGlobalPanel);
+    globalPanelPlaceholderLabel.setVisible (showGlobalPanel);
+    sidebarContainer.setVisible (true);
+    sidebarContainer.setEnabled (true);
+    workspaceContainer.setVisible (true);
+    workspaceContainer.setEnabled (true);
+    libraryPageContainer.setVisible (false);
+    libraryPageContainer.setEnabled (false);
+    resized();
+}
+
+void PolySynthAudioProcessorEditor::showLibraryPage()
+{
+    currentPage = EditorPage::library;
+    titleLabel.setVisible (false);
+    globalPanelToggle.setVisible (false);
+    globalPanel.setVisible (false);
+    globalPanelPlaceholderLabel.setVisible (false);
+    sidebarContainer.setVisible (false);
+    sidebarContainer.setEnabled (false);
+    workspaceContainer.setVisible (false);
+    workspaceContainer.setEnabled (false);
+    libraryPageContainer.setVisible (true);
+    libraryPageContainer.setEnabled (true);
     resized();
 }
 
@@ -827,7 +848,7 @@ void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
 
     const auto sidebarArea = sidebarContainer.getBounds().toFloat();
-    if (! sidebarArea.isEmpty())
+    if (sidebarContainer.isVisible() && ! sidebarArea.isEmpty())
     {
         g.setColour (juce::Colours::black.withAlpha (0.22f));
         g.fillRoundedRectangle (sidebarArea, 9.0f);
@@ -836,7 +857,7 @@ void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
     }
 
     const auto workspaceArea = workspaceContainer.getBounds().toFloat();
-    if (! workspaceArea.isEmpty())
+    if (workspaceContainer.isVisible() && ! workspaceArea.isEmpty())
     {
         g.setColour (juce::Colours::darkslategrey.withAlpha (0.14f));
         g.fillRoundedRectangle (workspaceArea, 9.0f);
@@ -848,22 +869,33 @@ void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
 void PolySynthAudioProcessorEditor::resized()
 {
     auto bounds = getLocalBounds().reduced (LayoutTokens::outerPadding);
+    const auto isMainPage = currentPage == EditorPage::main;
 
-    titleLabel.setBounds (bounds.removeFromTop (28));
-    bounds.removeFromTop (LayoutTokens::rowSpacing);
-
-    globalPanelToggle.setBounds (bounds.removeFromTop (26));
-    bounds.removeFromTop (LayoutTokens::rowSpacing);
-
-    if (globalPanelToggle.getToggleState())
+    if (isMainPage)
     {
-        auto globalBounds = bounds.removeFromTop (84);
-        globalPanel.setBounds (globalBounds);
-        globalPanelPlaceholderLabel.setBounds (globalBounds.reduced (12, 24));
-        bounds.removeFromTop (LayoutTokens::rowSpacing + 2);
+        titleLabel.setBounds (bounds.removeFromTop (28));
+        bounds.removeFromTop (LayoutTokens::rowSpacing);
+
+        globalPanelToggle.setBounds (bounds.removeFromTop (26));
+        bounds.removeFromTop (LayoutTokens::rowSpacing);
+
+        if (globalPanelToggle.getToggleState())
+        {
+            auto globalBounds = bounds.removeFromTop (84);
+            globalPanel.setBounds (globalBounds);
+            globalPanelPlaceholderLabel.setBounds (globalBounds.reduced (12, 24));
+            bounds.removeFromTop (LayoutTokens::rowSpacing + 2);
+        }
+        else
+        {
+            globalPanel.setBounds ({});
+            globalPanelPlaceholderLabel.setBounds ({});
+        }
     }
     else
     {
+        titleLabel.setBounds ({});
+        globalPanelToggle.setBounds ({});
         globalPanel.setBounds ({});
         globalPanelPlaceholderLabel.setBounds ({});
     }
@@ -880,14 +912,14 @@ void PolySynthAudioProcessorEditor::resized()
     mainArea.removeFromLeft (LayoutTokens::rowSpacing);
     auto workspaceBounds = mainArea;
 
-    sidebarContainer.setBounds (sidebarBounds);
-    workspaceContainer.setBounds (workspaceBounds);
-    libraryPageContainer.setBounds (mainArea);
+    sidebarContainer.setBounds (isMainPage ? sidebarBounds : juce::Rectangle<int> {});
+    workspaceContainer.setBounds (isMainPage ? workspaceBounds : juce::Rectangle<int> {});
+    libraryPageContainer.setBounds (! isMainPage ? bounds : juce::Rectangle<int> {});
 
-    if (showingLibraryPage)
+    if (! isMainPage)
     {
         auto libraryBounds = libraryPageContainer.getLocalBounds().reduced (LayoutTokens::rowSpacing, 16);
-        backToSynthPageButton.setBounds (libraryBounds.removeFromTop (30).removeFromLeft (140));
+        backToSynthPageButton.setBounds (libraryBounds.removeFromTop (30).removeFromLeft (160));
         libraryBounds.removeFromTop (LayoutTokens::rowSpacing);
         libraryMarketplacePanel.setBounds (libraryBounds);
 
