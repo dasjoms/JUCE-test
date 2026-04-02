@@ -17,6 +17,9 @@ constexpr auto rootNoteAbsolutePropertyId = "rootNoteAbsolute";
 constexpr auto mutePropertyId = "mute";
 constexpr auto soloPropertyId = "solo";
 constexpr auto layerVolumePropertyId = "layerVolume";
+constexpr auto uiDensityModePropertyId = "uiDensityMode";
+constexpr auto voiceAdvancedPanelExpandedPropertyId = "voiceAdvancedPanelExpanded";
+constexpr auto outputAdvancedPanelExpandedPropertyId = "outputAdvancedPanelExpanded";
 
 bool expect (bool condition, const char* message)
 {
@@ -56,6 +59,9 @@ bool validateLayeredStateRoundTripRetainsIdentityOrderSelectionAndParameters()
     processor.setLayerMute (2, true);
     processor.setLayerSolo (2, true);
     processor.setLayerVolume (2, 0.42f);
+    processor.setUiDensityMode (PolySynthAudioProcessor::UiDensityMode::advanced);
+    processor.setVoiceAdvancedPanelExpanded (true);
+    processor.setOutputAdvancedPanelExpanded (true);
 
     juce::MemoryBlock before;
     processor.getStateInformation (before);
@@ -102,8 +108,14 @@ bool validateLayeredStateRoundTripRetainsIdentityOrderSelectionAndParameters()
 
     const auto nextLayerIdOk = expect (static_cast<juce::int64> (afterLayers.getProperty (nextLayerIdPropertyId, 0)) == nextLayerId,
                                        "round-trip nextLayerId mismatch");
+    const auto uiPrefsOk = expect (static_cast<int> (afterState.getProperty (uiDensityModePropertyId, 0)) == 1,
+                                   "round-trip uiDensityMode mismatch")
+                        && expect (static_cast<bool> (afterState.getProperty (voiceAdvancedPanelExpandedPropertyId, false)),
+                                   "round-trip voiceAdvancedPanelExpanded mismatch")
+                        && expect (static_cast<bool> (afterState.getProperty (outputAdvancedPanelExpandedPropertyId, false)),
+                                   "round-trip outputAdvancedPanelExpanded mismatch");
 
-    return schemaOk && orderOk && paramsOk && nextLayerIdOk
+    return schemaOk && orderOk && paramsOk && nextLayerIdOk && uiPrefsOk
         && expect (afterSelected == selectedId, "round-trip selected layer mismatch");
 }
 

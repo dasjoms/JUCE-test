@@ -35,6 +35,9 @@ constexpr auto mutePropertyId = "mute";
 constexpr auto soloPropertyId = "solo";
 constexpr auto layerVolumePropertyId = "layerVolume";
 constexpr auto layerStateRevisionPropertyId = "layerStateRevision";
+constexpr auto uiDensityModePropertyId = "uiDensityMode";
+constexpr auto voiceAdvancedPanelExpandedPropertyId = "voiceAdvancedPanelExpanded";
+constexpr auto outputAdvancedPanelExpandedPropertyId = "outputAdvancedPanelExpanded";
 constexpr int currentStateSchemaVersion = 6;
 constexpr int minVoiceCount = 1;
 constexpr int maxVoiceCount = 16;
@@ -266,6 +269,36 @@ int PolySynthAudioProcessor::getLayerCount() const noexcept
 int PolySynthAudioProcessor::clampMidiNote (int midiNote) noexcept
 {
     return juce::jlimit (minimumMidiNote, maximumMidiNote, midiNote);
+}
+
+PolySynthAudioProcessor::UiDensityMode PolySynthAudioProcessor::getUiDensityMode() const noexcept
+{
+    return uiDensityMode;
+}
+
+void PolySynthAudioProcessor::setUiDensityMode (UiDensityMode mode) noexcept
+{
+    uiDensityMode = mode;
+}
+
+bool PolySynthAudioProcessor::getVoiceAdvancedPanelExpanded() const noexcept
+{
+    return voiceAdvancedPanelExpanded;
+}
+
+void PolySynthAudioProcessor::setVoiceAdvancedPanelExpanded (bool shouldExpand) noexcept
+{
+    voiceAdvancedPanelExpanded = shouldExpand;
+}
+
+bool PolySynthAudioProcessor::getOutputAdvancedPanelExpanded() const noexcept
+{
+    return outputAdvancedPanelExpanded;
+}
+
+void PolySynthAudioProcessor::setOutputAdvancedPanelExpanded (bool shouldExpand) noexcept
+{
+    outputAdvancedPanelExpanded = shouldExpand;
 }
 
 int PolySynthAudioProcessor::getLayerRootNoteAbsolute (std::size_t layerVisualIndex) const noexcept
@@ -1300,6 +1333,9 @@ void PolySynthAudioProcessor::getStateInformation (juce::MemoryBlock& destData)
 
     auto stateToSave = parameters.copyState();
     stateToSave.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
+    stateToSave.setProperty (uiDensityModePropertyId, static_cast<int> (uiDensityMode), nullptr);
+    stateToSave.setProperty (voiceAdvancedPanelExpandedPropertyId, voiceAdvancedPanelExpanded, nullptr);
+    stateToSave.setProperty (outputAdvancedPanelExpandedPropertyId, outputAdvancedPanelExpanded, nullptr);
     writeLayeredStateToTree (stateToSave);
 
     if (const auto xml = stateToSave.createXml())
@@ -1321,6 +1357,10 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
             {
                 parameters.replaceState (stateTree);
                 loadLayeredStateFromTree (stateTree);
+                uiDensityMode = static_cast<int> (stateTree.getProperty (uiDensityModePropertyId, 0)) > 0 ? UiDensityMode::advanced
+                                                                                                          : UiDensityMode::basic;
+                voiceAdvancedPanelExpanded = static_cast<bool> (stateTree.getProperty (voiceAdvancedPanelExpandedPropertyId, false));
+                outputAdvancedPanelExpanded = static_cast<bool> (stateTree.getProperty (outputAdvancedPanelExpandedPropertyId, false));
 
                 if (stateTree.getChildWithName (layersNodeId).isValid())
                 {
@@ -1335,6 +1375,9 @@ void PolySynthAudioProcessor::setStateInformation (const void* data, int sizeInB
             else
             {
                 restoreLegacyState (stateTree);
+                uiDensityMode = UiDensityMode::basic;
+                voiceAdvancedPanelExpanded = false;
+                outputAdvancedPanelExpanded = false;
             }
         }
     }
@@ -1350,6 +1393,9 @@ juce::ValueTree PolySynthAudioProcessor::createCurrentInstrumentStatePayload()
 
     auto state = parameters.copyState();
     state.setProperty (schemaVersionPropertyId, currentStateSchemaVersion, nullptr);
+    state.setProperty (uiDensityModePropertyId, static_cast<int> (uiDensityMode), nullptr);
+    state.setProperty (voiceAdvancedPanelExpandedPropertyId, voiceAdvancedPanelExpanded, nullptr);
+    state.setProperty (outputAdvancedPanelExpandedPropertyId, outputAdvancedPanelExpanded, nullptr);
     writeLayeredStateToTree (state);
     return state;
 }
@@ -1368,6 +1414,10 @@ void PolySynthAudioProcessor::applyInstrumentStatePayload (const juce::ValueTree
     {
         parameters.replaceState (payload);
         loadLayeredStateFromTree (payload);
+        uiDensityMode = static_cast<int> (payload.getProperty (uiDensityModePropertyId, 0)) > 0 ? UiDensityMode::advanced
+                                                                                                  : UiDensityMode::basic;
+        voiceAdvancedPanelExpanded = static_cast<bool> (payload.getProperty (voiceAdvancedPanelExpandedPropertyId, false));
+        outputAdvancedPanelExpanded = static_cast<bool> (payload.getProperty (outputAdvancedPanelExpandedPropertyId, false));
 
         if (payload.getChildWithName (layersNodeId).isValid())
         {

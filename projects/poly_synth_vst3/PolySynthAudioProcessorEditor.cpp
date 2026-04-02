@@ -446,6 +446,24 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     inspectorTitleLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (inspectorTitleLabel);
 
+    densityModeLabel.setText ("UI Density", juce::dontSendNotification);
+    densityModeLabel.setJustificationType (juce::Justification::centredRight);
+    addAndMakeVisible (densityModeLabel);
+
+    densityModeSelector.addItem ("Basic", 1);
+    densityModeSelector.addItem ("Advanced", 2);
+    densityModeSelector.onChange = [this]
+    {
+        const auto selected = densityModeSelector.getSelectedItemIndex() <= 0
+                                  ? PolySynthAudioProcessor::UiDensityMode::basic
+                                  : PolySynthAudioProcessor::UiDensityMode::advanced;
+        processorRef.setUiDensityMode (selected);
+        usingAdvancedDensity = selected == PolySynthAudioProcessor::UiDensityMode::advanced;
+        refreshDensityUiState();
+        resized();
+    };
+    addAndMakeVisible (densityModeSelector);
+
     emptyInspectorLabel.setText ("No layer selected.", juce::dontSendNotification);
     emptyInspectorLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (emptyInspectorLabel);
@@ -497,6 +515,16 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     stealPolicySelector.addItem ("Quietest", 3);
     stealPolicySelector.setComponentID ("stealPolicySelector");
     addAndMakeVisible (stealPolicySelector);
+
+    voiceAdvancedPanelToggle.setButtonText ("Voice & policy details");
+    voiceAdvancedPanelToggle.setClickingTogglesState (true);
+    voiceAdvancedPanelToggle.onClick = [this]
+    {
+        processorRef.setVoiceAdvancedPanelExpanded (voiceAdvancedPanelToggle.getToggleState());
+        refreshDensityUiState();
+        resized();
+    };
+    addAndMakeVisible (voiceAdvancedPanelToggle);
 
     attackLabel.setText ("Attack (s)", juce::dontSendNotification);
     attackLabel.setJustificationType (juce::Justification::centred);
@@ -589,6 +617,16 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     outputStageSelector.addItem ("Normalize Voice Sum", 2);
     outputStageSelector.addItem ("Soft Limit", 3);
     addAndMakeVisible (outputStageSelector);
+
+    outputAdvancedPanelToggle.setButtonText ("Output & tuning details");
+    outputAdvancedPanelToggle.setClickingTogglesState (true);
+    outputAdvancedPanelToggle.onClick = [this]
+    {
+        processorRef.setOutputAdvancedPanelExpanded (outputAdvancedPanelToggle.getToggleState());
+        refreshDensityUiState();
+        resized();
+    };
+    addAndMakeVisible (outputAdvancedPanelToggle);
 
     absoluteRootNoteLabel.setText ("Root Note", juce::dontSendNotification);
     absoluteRootNoteLabel.setJustificationType (juce::Justification::centred);
@@ -725,6 +763,12 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     syncInspectorControlsFromSelectedLayer();
     syncRootNoteControlsFromProcessor();
     refreshPresetControls();
+    densityModeSelector.setSelectedItemIndex (processorRef.getUiDensityMode() == PolySynthAudioProcessor::UiDensityMode::advanced ? 1 : 0,
+                                              juce::dontSendNotification);
+    usingAdvancedDensity = processorRef.getUiDensityMode() == PolySynthAudioProcessor::UiDensityMode::advanced;
+    voiceAdvancedPanelToggle.setToggleState (processorRef.getVoiceAdvancedPanelExpanded(), juce::dontSendNotification);
+    outputAdvancedPanelToggle.setToggleState (processorRef.getOutputAdvancedPanelExpanded(), juce::dontSendNotification);
+    refreshDensityUiState();
     updateInspectorBindingState();
     startTimerHz (15);
 }
@@ -815,7 +859,10 @@ void PolySynthAudioProcessorEditor::resized()
     marketplaceLoginStatusLabel.setBounds (marketplaceContent.removeFromTop (22));
 
     auto content = mainArea.reduced (12, 0);
-    inspectorTitleLabel.setBounds (content.removeFromTop (24));
+    auto inspectorHeader = content.removeFromTop (24);
+    densityModeSelector.setBounds (inspectorHeader.removeFromRight (160).reduced (2, 0));
+    densityModeLabel.setBounds (inspectorHeader.removeFromRight (82));
+    inspectorTitleLabel.setBounds (inspectorHeader);
     content.removeFromTop (LayoutTokens::controlGap);
 
     auto inspectorGrid = content;
@@ -835,11 +882,13 @@ void PolySynthAudioProcessorEditor::resized()
     }
 
     using SectionRef = std::reference_wrapper<SectionPanel>;
-    const auto sectionSets = std::array<std::array<SectionRef, 2>, 3> {
-        std::array<SectionRef, 2> { oscillatorSection, voiceUnisonSection },
-        std::array<SectionRef, 2> { envelopeSection, modulationSection },
-        std::array<SectionRef, 2> { outputSection, tuningAdvancedSection }
-    };
+    const auto sectionSets = usingAdvancedDensity
+                                 ? std::array<std::array<SectionRef, 2>, 3> { std::array<SectionRef, 2> { oscillatorSection, voiceUnisonSection },
+                                                                              std::array<SectionRef, 2> { envelopeSection, modulationSection },
+                                                                              std::array<SectionRef, 2> { outputSection, tuningAdvancedSection } }
+                                 : std::array<std::array<SectionRef, 2>, 3> { std::array<SectionRef, 2> { oscillatorSection, envelopeSection },
+                                                                              std::array<SectionRef, 2> { modulationSection, outputSection },
+                                                                              std::array<SectionRef, 2> { voiceUnisonSection, tuningAdvancedSection } };
 
     auto clearSection = [] (SectionPanel& panel) { panel.setBounds ({}); };
     for (auto& sectionSet : sectionSets)
@@ -885,17 +934,28 @@ void PolySynthAudioProcessorEditor::resized()
     };
 
     auto oscContent = oscillatorSection.getContentBounds();
-    placeCardTopRow (oscContent.removeFromTop (56), waveformLabel, waveformSelector, stealPolicyLabel, stealPolicySelector);
+    auto oscTop = oscContent.removeFromTop (56);
+    waveformLabel.setBounds (oscTop.removeFromTop (14));
+    waveformSelector.setBounds (oscTop.reduced (4, 0));
     oscContent.removeFromTop (LayoutTokens::controlGap);
     waveformDisplayPanel.setBounds (oscContent.removeFromTop (88).reduced (4, 2));
 
     auto voiceContent = voiceUnisonSection.getContentBounds().reduced (LayoutTokens::controlGap, 0);
-    auto voiceTop = voiceContent.removeFromTop (voiceContent.getHeight() / 2);
-    auto voiceBottom = voiceContent;
-    placeKnob (voiceTop.removeFromLeft (voiceTop.getWidth() / 2), maxVoicesLabel, maxVoicesSlider, false);
-    placeKnob (voiceTop, unisonVoicesLabel, unisonVoicesSlider, false);
-    placeKnob (voiceBottom.removeFromLeft (voiceBottom.getWidth() / 2), unisonDetuneCentsLabel, unisonDetuneCentsSlider, true);
-    placeKnob (voiceBottom, absoluteRootNoteLabel, absoluteRootNoteSlider, false);
+    voiceAdvancedPanelToggle.setBounds (voiceContent.removeFromTop (26));
+    voiceContent.removeFromTop (LayoutTokens::controlGap);
+    if (usingAdvancedDensity && voiceAdvancedPanelToggle.getToggleState())
+    {
+        auto voiceTop = voiceContent.removeFromTop (34);
+        stealPolicyLabel.setBounds (voiceTop.removeFromTop (14));
+        stealPolicySelector.setBounds (voiceTop.reduced (4, 0));
+        voiceContent.removeFromTop (LayoutTokens::controlGap);
+        auto voiceUpperKnobs = voiceContent.removeFromTop (voiceContent.getHeight() / 2);
+        auto voiceLowerKnobs = voiceContent;
+        placeKnob (voiceUpperKnobs.removeFromLeft (voiceUpperKnobs.getWidth() / 2), maxVoicesLabel, maxVoicesSlider, false);
+        placeKnob (voiceUpperKnobs, unisonVoicesLabel, unisonVoicesSlider, false);
+        placeKnob (voiceLowerKnobs.removeFromLeft (voiceLowerKnobs.getWidth() / 2), unisonDetuneCentsLabel, unisonDetuneCentsSlider, true);
+        placeKnob (voiceLowerKnobs, absoluteRootNoteLabel, absoluteRootNoteSlider, false);
+    }
 
     auto envContent = envelopeSection.getContentBounds();
     adsrGraphPanel.setBounds (envContent.removeFromTop (108));
@@ -915,19 +975,51 @@ void PolySynthAudioProcessorEditor::resized()
     placeKnob (modKnobs, modDepthLabel, modDepthSlider, true);
 
     auto outContent = outputSection.getContentBounds();
-    auto outputRow = outContent.removeFromTop (34);
-    outputStageLabel.setBounds (outputRow.removeFromTop (14));
-    outputStageSelector.setBounds (outputRow.reduced (4, 0));
-    outContent.removeFromTop (LayoutTokens::rowSpacing);
+    outputAdvancedPanelToggle.setBounds (outContent.removeFromTop (26));
+    outContent.removeFromTop (LayoutTokens::controlGap);
+    if (usingAdvancedDensity && outputAdvancedPanelToggle.getToggleState())
+    {
+        auto outputRow = outContent.removeFromTop (34);
+        outputStageLabel.setBounds (outputRow.removeFromTop (14));
+        outputStageSelector.setBounds (outputRow.reduced (4, 0));
+    }
+
     auto tuneContent = tuningAdvancedSection.getContentBounds().reduced (LayoutTokens::controlGap, 0);
-    auto tuneArea = tuneContent.removeFromTop (132);
-    placeKnob (tuneArea, relativeRootSemitoneLabel, relativeRootSemitoneSlider, false);
-    rootNoteFeedbackLabel.setBounds (tuneContent.removeFromTop (26));
+    if (usingAdvancedDensity && outputAdvancedPanelToggle.getToggleState())
+    {
+        auto tuneArea = tuneContent.removeFromTop (132);
+        placeKnob (tuneArea, relativeRootSemitoneLabel, relativeRootSemitoneSlider, false);
+        rootNoteFeedbackLabel.setBounds (tuneContent.removeFromTop (26));
+    }
     emptyInspectorLabel.setBounds (mainArea.reduced (12, 24));
 }
 
 void PolySynthAudioProcessorEditor::timerCallback()
 {
+    const auto latestMode = processorRef.getUiDensityMode();
+    const auto latestAdvanced = latestMode == PolySynthAudioProcessor::UiDensityMode::advanced;
+    if (latestAdvanced != usingAdvancedDensity)
+    {
+        densityModeSelector.setSelectedItemIndex (latestAdvanced ? 1 : 0, juce::dontSendNotification);
+        usingAdvancedDensity = latestAdvanced;
+        refreshDensityUiState();
+        resized();
+    }
+
+    if (voiceAdvancedPanelToggle.getToggleState() != processorRef.getVoiceAdvancedPanelExpanded())
+    {
+        voiceAdvancedPanelToggle.setToggleState (processorRef.getVoiceAdvancedPanelExpanded(), juce::dontSendNotification);
+        refreshDensityUiState();
+        resized();
+    }
+
+    if (outputAdvancedPanelToggle.getToggleState() != processorRef.getOutputAdvancedPanelExpanded())
+    {
+        outputAdvancedPanelToggle.setToggleState (processorRef.getOutputAdvancedPanelExpanded(), juce::dontSendNotification);
+        refreshDensityUiState();
+        resized();
+    }
+
     syncLayerListFromProcessor();
     syncInspectorControlsFromSelectedLayer();
     syncRootNoteControlsFromProcessor();
@@ -1038,6 +1130,43 @@ void PolySynthAudioProcessorEditor::syncInspectorControlsFromSelectedLayer()
     waveformDisplayPanel.setLayerWaveforms (waveforms);
 }
 
+void PolySynthAudioProcessorEditor::refreshDensityUiState()
+{
+    usingAdvancedDensity = processorRef.getUiDensityMode() == PolySynthAudioProcessor::UiDensityMode::advanced;
+    const auto showAdvancedContent = usingAdvancedDensity;
+    const auto showVoicePanelContent = showAdvancedContent && voiceAdvancedPanelToggle.getToggleState();
+    const auto showOutputPanelContent = showAdvancedContent && outputAdvancedPanelToggle.getToggleState();
+
+    voiceUnisonSection.setTitle (showAdvancedContent ? "Voice / Unison" : "Advanced (Voice / Unison)");
+    outputSection.setTitle (showAdvancedContent ? "Output" : "Advanced (Output)");
+    tuningAdvancedSection.setTitle (showAdvancedContent ? "Tuning / Advanced" : "Advanced (Tuning)");
+
+    voiceUnisonSection.setVisible (showAdvancedContent);
+    outputSection.setVisible (showAdvancedContent);
+    tuningAdvancedSection.setVisible (showAdvancedContent);
+    voiceAdvancedPanelToggle.setVisible (showAdvancedContent);
+    outputAdvancedPanelToggle.setVisible (showAdvancedContent);
+
+    for (auto* component : { static_cast<juce::Component*> (&stealPolicyLabel),
+                             static_cast<juce::Component*> (&stealPolicySelector),
+                             static_cast<juce::Component*> (&maxVoicesLabel),
+                             static_cast<juce::Component*> (&maxVoicesSlider),
+                             static_cast<juce::Component*> (&unisonVoicesLabel),
+                             static_cast<juce::Component*> (&unisonVoicesSlider),
+                             static_cast<juce::Component*> (&unisonDetuneCentsLabel),
+                             static_cast<juce::Component*> (&unisonDetuneCentsSlider),
+                             static_cast<juce::Component*> (&absoluteRootNoteLabel),
+                             static_cast<juce::Component*> (&absoluteRootNoteSlider) })
+        component->setVisible (showVoicePanelContent);
+
+    for (auto* component : { static_cast<juce::Component*> (&outputStageLabel),
+                             static_cast<juce::Component*> (&outputStageSelector),
+                             static_cast<juce::Component*> (&relativeRootSemitoneLabel),
+                             static_cast<juce::Component*> (&relativeRootSemitoneSlider),
+                             static_cast<juce::Component*> (&rootNoteFeedbackLabel) })
+        component->setVisible (showOutputPanelContent);
+}
+
 void PolySynthAudioProcessorEditor::updateInspectorBindingState()
 {
     const auto hasValidSelection = visibleLayerCount > 0 && selectedLayerIndex < visibleLayerCount;
@@ -1081,6 +1210,11 @@ void PolySynthAudioProcessorEditor::updateInspectorBindingState()
     {
         component->setEnabled (hasValidSelection);
     }
+
+    voiceAdvancedPanelToggle.setEnabled (hasValidSelection);
+    outputAdvancedPanelToggle.setEnabled (hasValidSelection);
+    densityModeSelector.setEnabled (true);
+    refreshDensityUiState();
 }
 
 void PolySynthAudioProcessorEditor::selectLayer (std::size_t layerIndex)
