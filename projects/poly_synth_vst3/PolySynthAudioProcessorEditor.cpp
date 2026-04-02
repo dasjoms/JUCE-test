@@ -31,7 +31,7 @@ struct SidebarLayoutTokens
     static constexpr int layerStatusGap = LayoutTokens::controlGap - 2;
 
     static constexpr int actionStatusRowHeight = 20;
-    static constexpr int layerRowHeight = 36;
+    static constexpr int layerRowHeight = 64;
     static constexpr int minimumVisibleLayerRows = 1;
 
     static constexpr int minimumPresetContentHeight = compactControlRowHeight
@@ -335,10 +335,10 @@ PolySynthAudioProcessorEditor::LayerRow::LayerRow()
     layerNameLabel.setJustificationType (juce::Justification::centredLeft);
     addAndMakeVisible (layerNameLabel);
 
-    moveUpButton.setButtonText ("↑");
+    moveUpButton.setButtonText ("Up");
     addAndMakeVisible (moveUpButton);
 
-    moveDownButton.setButtonText ("↓");
+    moveDownButton.setButtonText ("Down");
     addAndMakeVisible (moveDownButton);
 
     duplicateButton.setButtonText ("Dup");
@@ -347,10 +347,10 @@ PolySynthAudioProcessorEditor::LayerRow::LayerRow()
     deleteButton.setButtonText ("Del");
     addAndMakeVisible (deleteButton);
 
-    muteToggle.setButtonText ("M");
+    muteToggle.setButtonText ("Mute");
     addAndMakeVisible (muteToggle);
 
-    soloToggle.setButtonText ("S");
+    soloToggle.setButtonText ("Solo");
     addAndMakeVisible (soloToggle);
 
     volumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
@@ -364,15 +364,26 @@ void PolySynthAudioProcessorEditor::LayerRow::resized()
 {
     auto area = getLocalBounds().reduced (4, 2);
     selectButton.setBounds (area);
-    auto controls = area.reduced (6, 0);
-    layerNameLabel.setBounds (controls.removeFromLeft (54));
-    moveUpButton.setBounds (controls.removeFromLeft (32).reduced (2, 0));
-    moveDownButton.setBounds (controls.removeFromLeft (32).reduced (2, 0));
-    duplicateButton.setBounds (controls.removeFromLeft (44).reduced (2, 0));
-    deleteButton.setBounds (controls.removeFromLeft (40).reduced (2, 0));
-    muteToggle.setBounds (controls.removeFromLeft (34));
-    soloToggle.setBounds (controls.removeFromLeft (34));
-    volumeSlider.setBounds (controls.reduced (2, 0));
+    auto controls = area.reduced (6, 2);
+
+    auto topRow = controls.removeFromTop (28);
+    auto bottomRow = controls;
+
+    layerNameLabel.setBounds (topRow.removeFromLeft (64));
+    topRow.removeFromLeft (4);
+    muteToggle.setBounds (topRow.removeFromLeft (52));
+    topRow.removeFromLeft (4);
+    soloToggle.setBounds (topRow.removeFromLeft (52));
+    topRow.removeFromLeft (4);
+    volumeSlider.setBounds (topRow);
+
+    moveUpButton.setBounds (bottomRow.removeFromLeft (52).reduced (1, 0));
+    bottomRow.removeFromLeft (4);
+    moveDownButton.setBounds (bottomRow.removeFromLeft (62).reduced (1, 0));
+    bottomRow.removeFromLeft (4);
+    duplicateButton.setBounds (bottomRow.removeFromLeft (76).reduced (1, 0));
+    bottomRow.removeFromLeft (4);
+    deleteButton.setBounds (bottomRow.reduced (1, 0));
 }
 
 //==============================================================================
@@ -586,36 +597,40 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     };
     workspaceContainer.addAndMakeVisible (voiceAdvancedPanelToggle);
 
-    attackLabel.setText ("Attack (s)", juce::dontSendNotification);
+    attackLabel.setText ("Atk (s)", juce::dontSendNotification);
     attackLabel.setJustificationType (juce::Justification::centred);
     workspaceContainer.addAndMakeVisible (attackLabel);
 
     attackSlider.setComponentID ("attackSlider");
     configurePrimaryKnob (attackSlider, 0.001, 5.0, 0.001, 3, " s");
+    attackSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 56, 18);
     workspaceContainer.addAndMakeVisible (attackSlider);
 
-    decayLabel.setText ("Decay (s)", juce::dontSendNotification);
+    decayLabel.setText ("Dec (s)", juce::dontSendNotification);
     decayLabel.setJustificationType (juce::Justification::centred);
     workspaceContainer.addAndMakeVisible (decayLabel);
 
     decaySlider.setComponentID ("decaySlider");
     configurePrimaryKnob (decaySlider, 0.001, 5.0, 0.001, 3, " s");
+    decaySlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 56, 18);
     workspaceContainer.addAndMakeVisible (decaySlider);
 
-    sustainLabel.setText ("Sustain", juce::dontSendNotification);
+    sustainLabel.setText ("Sus", juce::dontSendNotification);
     sustainLabel.setJustificationType (juce::Justification::centred);
     workspaceContainer.addAndMakeVisible (sustainLabel);
 
     sustainSlider.setComponentID ("sustainSlider");
     configurePrimaryKnob (sustainSlider, 0.0, 1.0, 0.001, 3);
+    sustainSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 56, 18);
     workspaceContainer.addAndMakeVisible (sustainSlider);
 
-    releaseLabel.setText ("Release (s)", juce::dontSendNotification);
+    releaseLabel.setText ("Rel (s)", juce::dontSendNotification);
     releaseLabel.setJustificationType (juce::Justification::centred);
     workspaceContainer.addAndMakeVisible (releaseLabel);
 
     configurePrimaryKnob (releaseSlider, 0.005, 5.0, 0.001, 3, " s");
     releaseSlider.setComponentID ("releaseSlider");
+    releaseSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 56, 18);
     workspaceContainer.addAndMakeVisible (releaseSlider);
     workspaceContainer.addAndMakeVisible (adsrGraphPanel);
 
@@ -1240,6 +1255,14 @@ void PolySynthAudioProcessorEditor::resized()
         slider.setBounds (centered.removeFromTop (knobSize));
         label.setBounds (centered.removeFromTop (18));
     };
+    auto placeAdsrKnob = [] (juce::Rectangle<int> area, juce::Label& label, juce::Slider& slider)
+    {
+        constexpr int knobSize = 62;
+        auto centered = area.reduced (4, 0).withSizeKeepingCentre (knobSize + 10, 84);
+        label.setBounds (centered.removeFromTop (16));
+        centered.removeFromTop (2);
+        slider.setBounds (centered.removeFromTop (66));
+    };
 
     auto oscContent = mapSectionLocalBoundsToEditor (workspaceContainer, oscillatorSection, oscillatorSection.getContentBounds());
     auto oscTop = oscContent.removeFromTop (56);
@@ -1267,14 +1290,14 @@ void PolySynthAudioProcessorEditor::resized()
     }
 
     auto envContent = mapSectionLocalBoundsToEditor (workspaceContainer, envelopeSection, envelopeSection.getContentBounds());
-    adsrGraphPanel.setBounds (envContent.removeFromTop (108));
+    adsrGraphPanel.setBounds (envContent.removeFromTop (92));
     envContent.removeFromTop (LayoutTokens::controlGap);
-    auto envTop = envContent.removeFromTop (envContent.getHeight() / 2);
-    auto envBottom = envContent;
-    placeKnob (envTop.removeFromLeft (envTop.getWidth() / 2), attackLabel, attackSlider, true);
-    placeKnob (envTop, decayLabel, decaySlider, true);
-    placeKnob (envBottom.removeFromLeft (envBottom.getWidth() / 2), sustainLabel, sustainSlider, true);
-    placeKnob (envBottom, releaseLabel, releaseSlider, true);
+    auto envKnobRow = envContent.removeFromTop (juce::jmin (92, envContent.getHeight()));
+    const auto knobColumnWidth = envKnobRow.getWidth() / 4;
+    placeAdsrKnob (envKnobRow.removeFromLeft (knobColumnWidth), attackLabel, attackSlider);
+    placeAdsrKnob (envKnobRow.removeFromLeft (knobColumnWidth), decayLabel, decaySlider);
+    placeAdsrKnob (envKnobRow.removeFromLeft (knobColumnWidth), sustainLabel, sustainSlider);
+    placeAdsrKnob (envKnobRow, releaseLabel, releaseSlider);
 
     auto modContent = mapSectionLocalBoundsToEditor (workspaceContainer, modulationSection, modulationSection.getContentBounds());
     placeCardTopRow (modContent.removeFromTop (56), modDestinationLabel, modDestinationSelector, velocitySensitivityLabel, velocitySensitivitySlider);
