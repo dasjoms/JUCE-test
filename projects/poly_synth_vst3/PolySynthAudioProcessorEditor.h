@@ -32,6 +32,23 @@ private:
         library
     };
 
+    class PaneComponent final : public juce::Component
+    {
+    public:
+        enum class Style
+        {
+            sidebar = 0,
+            workspace
+        };
+
+        explicit PaneComponent (Style paneStyle);
+
+        void paint (juce::Graphics& g) override;
+
+    private:
+        Style style;
+    };
+
     class SectionPanel final : public juce::Component
     {
     public:
@@ -147,8 +164,8 @@ private:
     // access the processor object that created it.
     PolySynthAudioProcessor& processorRef;
     juce::Component libraryPageContainer;
-    juce::Component sidebarContainer;
-    juce::Component workspaceContainer;
+    PaneComponent sidebarContainer { PaneComponent::Style::sidebar };
+    PaneComponent workspaceContainer { PaneComponent::Style::workspace };
     juce::ToggleButton globalPanelToggle;
     juce::GroupComponent globalPanel;
     juce::Label globalPanelPlaceholderLabel;
