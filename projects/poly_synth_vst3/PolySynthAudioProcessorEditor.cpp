@@ -390,72 +390,75 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     globalPanelPlaceholderLabel.setVisible (false);
     addAndMakeVisible (globalPanelPlaceholderLabel);
 
+    addAndMakeVisible (sidebarContainer);
+    addAndMakeVisible (workspaceContainer);
+
     sidebarPanel.setText ("Sidebar");
-    addAndMakeVisible (sidebarPanel);
+    sidebarContainer.addAndMakeVisible (sidebarPanel);
 
     layerListPanel.setText ("Layers");
-    addAndMakeVisible (layerListPanel);
+    sidebarContainer.addAndMakeVisible (layerListPanel);
 
     presetPanel.setText ("Preset Browser");
-    addAndMakeVisible (presetPanel);
+    sidebarContainer.addAndMakeVisible (presetPanel);
 
     marketplacePanel.setText ("Marketplace");
-    addAndMakeVisible (marketplacePanel);
+    sidebarContainer.addAndMakeVisible (marketplacePanel);
 
     addLayerButton.setButtonText ("Add Layer");
     addLayerButton.onClick = [this] { showAddLayerMenu(); };
-    addAndMakeVisible (addLayerButton);
+    sidebarContainer.addAndMakeVisible (addLayerButton);
 
     actionStatusLabel.setJustificationType (juce::Justification::centredLeft);
     actionStatusLabel.setColour (juce::Label::textColourId, juce::Colours::orange);
-    addAndMakeVisible (actionStatusLabel);
+    sidebarContainer.addAndMakeVisible (actionStatusLabel);
 
     presetLabel.setText ("Preset", juce::dontSendNotification);
     presetLabel.setJustificationType (juce::Justification::centredLeft);
-    addAndMakeVisible (presetLabel);
+    sidebarContainer.addAndMakeVisible (presetLabel);
 
     presetSelector.setTextWhenNothingSelected ("No presets");
-    addAndMakeVisible (presetSelector);
+    sidebarContainer.addAndMakeVisible (presetSelector);
 
     presetLoadButton.setButtonText ("Load");
     presetLoadButton.onClick = [this] { loadSelectedPreset(); };
-    addAndMakeVisible (presetLoadButton);
+    sidebarContainer.addAndMakeVisible (presetLoadButton);
 
     presetSaveButton.setButtonText ("Save");
     presetSaveButton.onClick = [this] { savePresetOverwrite(); };
-    addAndMakeVisible (presetSaveButton);
+    sidebarContainer.addAndMakeVisible (presetSaveButton);
 
     presetSaveAsNewButton.setButtonText ("Save As New");
     presetSaveAsNewButton.onClick = [this] { savePresetAsNew(); };
-    addAndMakeVisible (presetSaveAsNewButton);
+    sidebarContainer.addAndMakeVisible (presetSaveAsNewButton);
 
     presetStatusLabel.setJustificationType (juce::Justification::centredLeft);
     presetStatusLabel.setColour (juce::Label::textColourId, juce::Colours::lightgoldenrodyellow);
-    addAndMakeVisible (presetStatusLabel);
+    sidebarContainer.addAndMakeVisible (presetStatusLabel);
 
     marketplaceBrowseButton.setButtonText ("Browse");
     marketplaceBrowseButton.setEnabled (false);
-    addAndMakeVisible (marketplaceBrowseButton);
+    sidebarContainer.addAndMakeVisible (marketplaceBrowseButton);
 
     marketplaceUploadButton.setButtonText ("Upload");
     marketplaceUploadButton.setEnabled (false);
-    addAndMakeVisible (marketplaceUploadButton);
+    sidebarContainer.addAndMakeVisible (marketplaceUploadButton);
 
     marketplaceSyncButton.setButtonText ("Sync");
     marketplaceSyncButton.setEnabled (false);
-    addAndMakeVisible (marketplaceSyncButton);
+    sidebarContainer.addAndMakeVisible (marketplaceSyncButton);
 
     marketplaceLoginStatusLabel.setText ("Login: Not connected", juce::dontSendNotification);
     marketplaceLoginStatusLabel.setJustificationType (juce::Justification::centredLeft);
-    addAndMakeVisible (marketplaceLoginStatusLabel);
+    sidebarContainer.addAndMakeVisible (marketplaceLoginStatusLabel);
 
     inspectorTitleLabel.setText ("Selected Layer Controls", juce::dontSendNotification);
     inspectorTitleLabel.setJustificationType (juce::Justification::centredLeft);
-    addAndMakeVisible (inspectorTitleLabel);
+    workspaceContainer.addAndMakeVisible (inspectorTitleLabel);
 
     densityModeLabel.setText ("UI Density", juce::dontSendNotification);
     densityModeLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (densityModeLabel);
+    workspaceContainer.addAndMakeVisible (densityModeLabel);
 
     densityModeSelector.addItem ("Basic", 1);
     densityModeSelector.addItem ("Advanced", 2);
@@ -470,65 +473,65 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
         refreshDensityUiState();
         resized();
     };
-    addAndMakeVisible (densityModeSelector);
+    workspaceContainer.addAndMakeVisible (densityModeSelector);
 
     emptyInspectorLabel.setText ("No layer selected.", juce::dontSendNotification);
     emptyInspectorLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (emptyInspectorLabel);
+    workspaceContainer.addAndMakeVisible (emptyInspectorLabel);
 
     oscillatorSection.setTitle ("Oscillator");
     oscillatorSection.setComponentID ("oscillatorSection");
-    addAndMakeVisible (oscillatorSection);
+    workspaceContainer.addAndMakeVisible (oscillatorSection);
 
     voiceUnisonSection.setTitle ("Voice / Unison");
     voiceUnisonSection.setComponentID ("voiceUnisonSection");
-    addAndMakeVisible (voiceUnisonSection);
+    workspaceContainer.addAndMakeVisible (voiceUnisonSection);
 
     envelopeSection.setTitle ("Envelope");
     envelopeSection.setComponentID ("envelopeSection");
-    addAndMakeVisible (envelopeSection);
+    workspaceContainer.addAndMakeVisible (envelopeSection);
 
     modulationSection.setTitle ("Modulation");
     modulationSection.setComponentID ("modulationSection");
-    addAndMakeVisible (modulationSection);
+    workspaceContainer.addAndMakeVisible (modulationSection);
 
     outputSection.setTitle ("Output");
     outputSection.setComponentID ("outputSection");
-    addAndMakeVisible (outputSection);
+    workspaceContainer.addAndMakeVisible (outputSection);
 
     tuningAdvancedSection.setTitle ("Tuning / Advanced");
     tuningAdvancedSection.setComponentID ("tuningAdvancedSection");
-    addAndMakeVisible (tuningAdvancedSection);
+    workspaceContainer.addAndMakeVisible (tuningAdvancedSection);
 
     waveformLabel.setText ("Waveform", juce::dontSendNotification);
     waveformLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (waveformLabel);
+    workspaceContainer.addAndMakeVisible (waveformLabel);
 
     waveformSelector.addItem ("Sine", 1);
     waveformSelector.addItem ("Saw", 2);
     waveformSelector.addItem ("Square", 3);
     waveformSelector.addItem ("Triangle", 4);
     waveformSelector.setComponentID ("waveformSelector");
-    addAndMakeVisible (waveformSelector);
-    addAndMakeVisible (waveformDisplayPanel);
+    workspaceContainer.addAndMakeVisible (waveformSelector);
+    workspaceContainer.addAndMakeVisible (waveformDisplayPanel);
 
     maxVoicesLabel.setText ("Voice Count", juce::dontSendNotification);
     maxVoicesLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (maxVoicesLabel);
+    workspaceContainer.addAndMakeVisible (maxVoicesLabel);
 
     configureSecondaryKnob (maxVoicesSlider, 1.0, 16.0, 1.0, 0);
     maxVoicesSlider.setComponentID ("maxVoicesSlider");
-    addAndMakeVisible (maxVoicesSlider);
+    workspaceContainer.addAndMakeVisible (maxVoicesSlider);
 
     stealPolicyLabel.setText ("Steal Policy", juce::dontSendNotification);
     stealPolicyLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (stealPolicyLabel);
+    workspaceContainer.addAndMakeVisible (stealPolicyLabel);
 
     stealPolicySelector.addItem ("Released First", 1);
     stealPolicySelector.addItem ("Oldest", 2);
     stealPolicySelector.addItem ("Quietest", 3);
     stealPolicySelector.setComponentID ("stealPolicySelector");
-    addAndMakeVisible (stealPolicySelector);
+    workspaceContainer.addAndMakeVisible (stealPolicySelector);
 
     voiceAdvancedPanelToggle.setButtonText ("Voice & policy details");
     voiceAdvancedPanelToggle.setComponentID ("voiceAdvancedPanelToggle");
@@ -539,99 +542,99 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
         refreshDensityUiState();
         resized();
     };
-    addAndMakeVisible (voiceAdvancedPanelToggle);
+    workspaceContainer.addAndMakeVisible (voiceAdvancedPanelToggle);
 
     attackLabel.setText ("Attack (s)", juce::dontSendNotification);
     attackLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (attackLabel);
+    workspaceContainer.addAndMakeVisible (attackLabel);
 
     attackSlider.setComponentID ("attackSlider");
     configurePrimaryKnob (attackSlider, 0.001, 5.0, 0.001, 3, " s");
-    addAndMakeVisible (attackSlider);
+    workspaceContainer.addAndMakeVisible (attackSlider);
 
     decayLabel.setText ("Decay (s)", juce::dontSendNotification);
     decayLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (decayLabel);
+    workspaceContainer.addAndMakeVisible (decayLabel);
 
     decaySlider.setComponentID ("decaySlider");
     configurePrimaryKnob (decaySlider, 0.001, 5.0, 0.001, 3, " s");
-    addAndMakeVisible (decaySlider);
+    workspaceContainer.addAndMakeVisible (decaySlider);
 
     sustainLabel.setText ("Sustain", juce::dontSendNotification);
     sustainLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (sustainLabel);
+    workspaceContainer.addAndMakeVisible (sustainLabel);
 
     sustainSlider.setComponentID ("sustainSlider");
     configurePrimaryKnob (sustainSlider, 0.0, 1.0, 0.001, 3);
-    addAndMakeVisible (sustainSlider);
+    workspaceContainer.addAndMakeVisible (sustainSlider);
 
     releaseLabel.setText ("Release (s)", juce::dontSendNotification);
     releaseLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (releaseLabel);
+    workspaceContainer.addAndMakeVisible (releaseLabel);
 
     configurePrimaryKnob (releaseSlider, 0.005, 5.0, 0.001, 3, " s");
     releaseSlider.setComponentID ("releaseSlider");
-    addAndMakeVisible (releaseSlider);
-    addAndMakeVisible (adsrGraphPanel);
+    workspaceContainer.addAndMakeVisible (releaseSlider);
+    workspaceContainer.addAndMakeVisible (adsrGraphPanel);
 
     modDepthLabel.setText ("Mod Depth", juce::dontSendNotification);
     modDepthLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (modDepthLabel);
+    workspaceContainer.addAndMakeVisible (modDepthLabel);
 
     configurePrimaryKnob (modDepthSlider, 0.0, 1.0, 0.001, 3);
-    addAndMakeVisible (modDepthSlider);
+    workspaceContainer.addAndMakeVisible (modDepthSlider);
 
     modRateLabel.setText ("Mod Rate", juce::dontSendNotification);
     modRateLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (modRateLabel);
+    workspaceContainer.addAndMakeVisible (modRateLabel);
 
     configurePrimaryKnob (modRateSlider, 0.05, 20.0, 0.01, 2, " Hz");
-    addAndMakeVisible (modRateSlider);
+    workspaceContainer.addAndMakeVisible (modRateSlider);
 
     velocitySensitivityLabel.setText ("Velocity Sensitivity", juce::dontSendNotification);
     velocitySensitivityLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (velocitySensitivityLabel);
+    workspaceContainer.addAndMakeVisible (velocitySensitivityLabel);
 
     velocitySensitivitySlider.setComponentID ("velocitySensitivitySlider");
     configureSecondaryKnob (velocitySensitivitySlider, 0.0, 1.0, 0.001, 3);
-    addAndMakeVisible (velocitySensitivitySlider);
+    workspaceContainer.addAndMakeVisible (velocitySensitivitySlider);
 
     modDestinationLabel.setText ("Mod Destination", juce::dontSendNotification);
     modDestinationLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (modDestinationLabel);
+    workspaceContainer.addAndMakeVisible (modDestinationLabel);
 
     modDestinationSelector.setComponentID ("modDestinationSelector");
     modDestinationSelector.addItem ("Off", 1);
     modDestinationSelector.addItem ("Amplitude", 2);
     modDestinationSelector.addItem ("Pitch", 3);
     modDestinationSelector.addItem ("Pulse Width", 4);
-    addAndMakeVisible (modDestinationSelector);
+    workspaceContainer.addAndMakeVisible (modDestinationSelector);
 
     unisonVoicesLabel.setText ("Unison Voices", juce::dontSendNotification);
     unisonVoicesLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (unisonVoicesLabel);
+    workspaceContainer.addAndMakeVisible (unisonVoicesLabel);
 
     unisonVoicesSlider.setComponentID ("unisonVoicesSlider");
     configureSecondaryKnob (unisonVoicesSlider, 1.0, 8.0, 1.0, 0);
-    addAndMakeVisible (unisonVoicesSlider);
+    workspaceContainer.addAndMakeVisible (unisonVoicesSlider);
 
     unisonDetuneCentsLabel.setText ("Unison Detune (cents)", juce::dontSendNotification);
     unisonDetuneCentsLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (unisonDetuneCentsLabel);
+    workspaceContainer.addAndMakeVisible (unisonDetuneCentsLabel);
 
     unisonDetuneCentsSlider.setComponentID ("unisonDetuneCentsSlider");
     configurePrimaryKnob (unisonDetuneCentsSlider, 0.0, 50.0, 0.01, 2, " cents");
-    addAndMakeVisible (unisonDetuneCentsSlider);
+    workspaceContainer.addAndMakeVisible (unisonDetuneCentsSlider);
 
     outputStageLabel.setText ("Output Stage", juce::dontSendNotification);
     outputStageLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (outputStageLabel);
+    workspaceContainer.addAndMakeVisible (outputStageLabel);
 
     outputStageSelector.setComponentID ("outputStageSelector");
     outputStageSelector.addItem ("None", 1);
     outputStageSelector.addItem ("Normalize Voice Sum", 2);
     outputStageSelector.addItem ("Soft Limit", 3);
-    addAndMakeVisible (outputStageSelector);
+    workspaceContainer.addAndMakeVisible (outputStageSelector);
 
     outputAdvancedPanelToggle.setButtonText ("Output & tuning details");
     outputAdvancedPanelToggle.setComponentID ("outputAdvancedPanelToggle");
@@ -642,11 +645,11 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
         refreshDensityUiState();
         resized();
     };
-    addAndMakeVisible (outputAdvancedPanelToggle);
+    workspaceContainer.addAndMakeVisible (outputAdvancedPanelToggle);
 
     absoluteRootNoteLabel.setText ("Root Note", juce::dontSendNotification);
     absoluteRootNoteLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (absoluteRootNoteLabel);
+    workspaceContainer.addAndMakeVisible (absoluteRootNoteLabel);
 
     absoluteRootNoteSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     absoluteRootNoteSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 96, 18);
@@ -658,11 +661,11 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
         return midiNoteToDisplayString (juce::roundToInt (value));
     };
     absoluteRootNoteSlider.onValueChange = [this] { handleAbsoluteRootNoteChange(); };
-    addAndMakeVisible (absoluteRootNoteSlider);
+    workspaceContainer.addAndMakeVisible (absoluteRootNoteSlider);
 
     relativeRootSemitoneLabel.setText ("Relative (st)", juce::dontSendNotification);
     relativeRootSemitoneLabel.setJustificationType (juce::Justification::centred);
-    addAndMakeVisible (relativeRootSemitoneLabel);
+    workspaceContainer.addAndMakeVisible (relativeRootSemitoneLabel);
 
     relativeRootSemitoneSlider.setSliderStyle (juce::Slider::RotaryHorizontalVerticalDrag);
     relativeRootSemitoneSlider.setTextBoxStyle (juce::Slider::TextBoxBelow, false, 80, 18);
@@ -671,10 +674,10 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     relativeRootSemitoneSlider.setNumDecimalPlacesToDisplay (0);
     relativeRootSemitoneSlider.setTextValueSuffix (" st");
     relativeRootSemitoneSlider.onValueChange = [this] { handleRelativeRootSemitoneChange(); };
-    addAndMakeVisible (relativeRootSemitoneSlider);
+    workspaceContainer.addAndMakeVisible (relativeRootSemitoneSlider);
 
     rootNoteFeedbackLabel.setJustificationType (juce::Justification::centredRight);
-    addAndMakeVisible (rootNoteFeedbackLabel);
+    workspaceContainer.addAndMakeVisible (rootNoteFeedbackLabel);
 
     waveformSelector.onChange = [this]
     {
@@ -769,7 +772,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
             processorRef.setLayerVolume (i, static_cast<float> (row.volumeSlider.getValue()));
         };
         row.setVisible (false);
-        addAndMakeVisible (row);
+        sidebarContainer.addAndMakeVisible (row);
     }
 
     setResizable (true, false);
@@ -799,6 +802,24 @@ void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+
+    const auto sidebarArea = sidebarContainer.getBounds().toFloat();
+    if (! sidebarArea.isEmpty())
+    {
+        g.setColour (juce::Colours::black.withAlpha (0.22f));
+        g.fillRoundedRectangle (sidebarArea, 9.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.18f));
+        g.drawRoundedRectangle (sidebarArea, 9.0f, 1.0f);
+    }
+
+    const auto workspaceArea = workspaceContainer.getBounds().toFloat();
+    if (! workspaceArea.isEmpty())
+    {
+        g.setColour (juce::Colours::darkslategrey.withAlpha (0.14f));
+        g.fillRoundedRectangle (workspaceArea, 9.0f);
+        g.setColour (juce::Colours::white.withAlpha (0.08f));
+        g.drawRoundedRectangle (workspaceArea, 9.0f, 1.0f);
+    }
 }
 
 void PolySynthAudioProcessorEditor::resized()
@@ -825,14 +846,24 @@ void PolySynthAudioProcessorEditor::resized()
     }
 
     auto mainArea = bounds;
-    constexpr int sidebarMinWidth = 250;
-    constexpr int sidebarMaxWidth = 340;
-    constexpr int sidebarFixedWidth = 290;
-    const auto sidebarWidth = juce::jlimit (sidebarMinWidth, sidebarMaxWidth, sidebarFixedWidth);
-    auto sidebarBounds = mainArea.removeFromLeft (juce::jmin (sidebarWidth, mainArea.getWidth() - 220));
-    sidebarPanel.setBounds (sidebarBounds);
+    constexpr int sidebarMinWidth = 320;
+    constexpr int sidebarMaxWidth = 380;
+    constexpr int sidebarFixedWidth = 336;
+    constexpr int workspaceMinWidth = 300;
+    const auto desiredSidebarWidth = juce::jlimit (sidebarMinWidth, sidebarMaxWidth, sidebarFixedWidth);
+    const auto maxSidebarWidthForWindow = juce::jmax (sidebarMinWidth, mainArea.getWidth() - workspaceMinWidth);
+    const auto resolvedSidebarWidth = juce::jmin (desiredSidebarWidth, maxSidebarWidthForWindow);
+    auto sidebarBounds = mainArea.removeFromLeft (resolvedSidebarWidth);
+    mainArea.removeFromLeft (LayoutTokens::rowSpacing);
+    auto workspaceBounds = mainArea;
 
-    auto sidebarContent = sidebarBounds.reduced (LayoutTokens::rowSpacing, 28);
+    sidebarContainer.setBounds (sidebarBounds);
+    workspaceContainer.setBounds (workspaceBounds);
+
+    auto sidebarLayout = sidebarContainer.getLocalBounds();
+    sidebarPanel.setBounds (sidebarLayout);
+
+    auto sidebarContent = sidebarLayout.reduced (LayoutTokens::rowSpacing, 28);
     auto layersBounds = sidebarContent.removeFromTop (juce::jmin (300, sidebarContent.getHeight() / 2));
     layerListPanel.setBounds (layersBounds);
 
@@ -875,7 +906,7 @@ void PolySynthAudioProcessorEditor::resized()
     marketplaceContent.removeFromTop (LayoutTokens::controlGap);
     marketplaceLoginStatusLabel.setBounds (marketplaceContent.removeFromTop (22));
 
-    auto content = mainArea.reduced (12, 0);
+    auto content = workspaceContainer.getLocalBounds().reduced (12, 0);
     auto inspectorHeader = content.removeFromTop (24);
     densityModeSelector.setBounds (inspectorHeader.removeFromRight (160).reduced (2, 0));
     densityModeLabel.setBounds (inspectorHeader.removeFromRight (82));
@@ -950,14 +981,14 @@ void PolySynthAudioProcessorEditor::resized()
         label.setBounds (centered.removeFromTop (18));
     };
 
-    auto oscContent = mapSectionLocalBoundsToEditor (*this, oscillatorSection, oscillatorSection.getContentBounds());
+    auto oscContent = mapSectionLocalBoundsToEditor (workspaceContainer, oscillatorSection, oscillatorSection.getContentBounds());
     auto oscTop = oscContent.removeFromTop (56);
     waveformLabel.setBounds (oscTop.removeFromTop (14));
     waveformSelector.setBounds (oscTop.reduced (4, 0));
     oscContent.removeFromTop (LayoutTokens::controlGap);
     waveformDisplayPanel.setBounds (oscContent.removeFromTop (88).reduced (4, 2));
 
-    auto voiceContent = mapSectionLocalBoundsToEditor (*this, voiceUnisonSection, voiceUnisonSection.getContentBounds())
+    auto voiceContent = mapSectionLocalBoundsToEditor (workspaceContainer, voiceUnisonSection, voiceUnisonSection.getContentBounds())
                             .reduced (LayoutTokens::controlGap, 0);
     voiceAdvancedPanelToggle.setBounds (voiceContent.removeFromTop (26));
     voiceContent.removeFromTop (LayoutTokens::controlGap);
@@ -975,7 +1006,7 @@ void PolySynthAudioProcessorEditor::resized()
         placeKnob (voiceLowerKnobs, absoluteRootNoteLabel, absoluteRootNoteSlider, false);
     }
 
-    auto envContent = mapSectionLocalBoundsToEditor (*this, envelopeSection, envelopeSection.getContentBounds());
+    auto envContent = mapSectionLocalBoundsToEditor (workspaceContainer, envelopeSection, envelopeSection.getContentBounds());
     adsrGraphPanel.setBounds (envContent.removeFromTop (108));
     envContent.removeFromTop (LayoutTokens::controlGap);
     auto envTop = envContent.removeFromTop (envContent.getHeight() / 2);
@@ -985,14 +1016,14 @@ void PolySynthAudioProcessorEditor::resized()
     placeKnob (envBottom.removeFromLeft (envBottom.getWidth() / 2), sustainLabel, sustainSlider, true);
     placeKnob (envBottom, releaseLabel, releaseSlider, true);
 
-    auto modContent = mapSectionLocalBoundsToEditor (*this, modulationSection, modulationSection.getContentBounds());
+    auto modContent = mapSectionLocalBoundsToEditor (workspaceContainer, modulationSection, modulationSection.getContentBounds());
     placeCardTopRow (modContent.removeFromTop (56), modDestinationLabel, modDestinationSelector, velocitySensitivityLabel, velocitySensitivitySlider);
     modContent.removeFromTop (LayoutTokens::controlGap);
     auto modKnobs = modContent.reduced (6, 4);
     placeKnob (modKnobs.removeFromLeft (modKnobs.getWidth() / 2), modRateLabel, modRateSlider, true);
     placeKnob (modKnobs, modDepthLabel, modDepthSlider, true);
 
-    auto outContent = mapSectionLocalBoundsToEditor (*this, outputSection, outputSection.getContentBounds());
+    auto outContent = mapSectionLocalBoundsToEditor (workspaceContainer, outputSection, outputSection.getContentBounds());
     outputAdvancedPanelToggle.setBounds (outContent.removeFromTop (26));
     outContent.removeFromTop (LayoutTokens::controlGap);
     if (usingAdvancedDensity && outputAdvancedPanelToggle.getToggleState())
@@ -1002,7 +1033,7 @@ void PolySynthAudioProcessorEditor::resized()
         outputStageSelector.setBounds (outputRow.reduced (4, 0));
     }
 
-    auto tuneContent = mapSectionLocalBoundsToEditor (*this, tuningAdvancedSection, tuningAdvancedSection.getContentBounds())
+    auto tuneContent = mapSectionLocalBoundsToEditor (workspaceContainer, tuningAdvancedSection, tuningAdvancedSection.getContentBounds())
                            .reduced (LayoutTokens::controlGap, 0);
     if (usingAdvancedDensity && outputAdvancedPanelToggle.getToggleState())
     {
@@ -1010,7 +1041,7 @@ void PolySynthAudioProcessorEditor::resized()
         placeKnob (tuneArea, relativeRootSemitoneLabel, relativeRootSemitoneSlider, false);
         rootNoteFeedbackLabel.setBounds (tuneContent.removeFromTop (26));
     }
-    emptyInspectorLabel.setBounds (mainArea.reduced (12, 24));
+    emptyInspectorLabel.setBounds (workspaceContainer.getLocalBounds().reduced (12, 24));
 }
 
 void PolySynthAudioProcessorEditor::timerCallback()

@@ -16,7 +16,17 @@ bool expect (bool condition, const char* message)
 template <typename ComponentType>
 ComponentType* findById (juce::Component& parent, const char* componentId)
 {
-    return dynamic_cast<ComponentType*> (parent.findChildWithID (componentId));
+    if (auto* directMatch = dynamic_cast<ComponentType*> (&parent); directMatch != nullptr && directMatch->getComponentID() == componentId)
+        return directMatch;
+
+    if (auto* directChild = dynamic_cast<ComponentType*> (parent.findChildWithID (componentId)))
+        return directChild;
+
+    for (auto* child : parent.getChildren())
+        if (auto* nestedMatch = findById<ComponentType> (*child, componentId))
+            return nestedMatch;
+
+    return nullptr;
 }
 
 bool expectControlInsideSection (PolySynthAudioProcessorEditor& editor,
