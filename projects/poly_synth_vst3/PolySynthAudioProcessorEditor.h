@@ -123,6 +123,7 @@ private:
     void savePresetOverwrite();
     void savePresetAsNew();
     void loadSelectedPreset();
+    void refreshDensityUiState();
     static juce::String midiNoteToDisplayString (int midiNote);
 
     // This reference is provided as a quick way for your editor to
@@ -148,6 +149,8 @@ private:
     juce::TextButton marketplaceSyncButton;
     juce::Label marketplaceLoginStatusLabel;
     juce::Label inspectorTitleLabel;
+    juce::Label densityModeLabel;
+    juce::ComboBox densityModeSelector;
     juce::Label emptyInspectorLabel;
     juce::Label titleLabel;
     SectionPanel oscillatorSection;
@@ -175,6 +178,7 @@ private:
     juce::Label rootNoteFeedbackLabel;
     juce::ComboBox waveformSelector;
     juce::ComboBox stealPolicySelector;
+    juce::ToggleButton voiceAdvancedPanelToggle;
     juce::Slider maxVoicesSlider;
     juce::Slider attackSlider;
     juce::Slider decaySlider;
@@ -189,6 +193,7 @@ private:
     juce::Slider absoluteRootNoteSlider;
     juce::Slider relativeRootSemitoneSlider;
     juce::ComboBox outputStageSelector;
+    juce::ToggleButton outputAdvancedPanelToggle;
     WaveformDisplayPanel waveformDisplayPanel;
     AdsrGraphPanel adsrGraphPanel;
     static constexpr std::size_t maxLayerRows = InstrumentState::maxLayerCount;
@@ -199,6 +204,7 @@ private:
     bool suppressInspectorCallbacks = false;
     float waveformAnimationPhase = 0.0f;
     float adsrAnimationProgress = 0.0f;
+    bool usingAdvancedDensity = false;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };

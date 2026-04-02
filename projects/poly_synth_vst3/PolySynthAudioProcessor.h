@@ -109,6 +109,17 @@ public:
     bool setLayerUnisonById (uint64_t layerId, int unisonVoices, float unisonDetuneCents) noexcept;
     bool setLayerOutputStageByVisualIndex (std::size_t layerVisualIndex, SynthEngine::OutputStage outputStage) noexcept;
     bool setLayerOutputStageById (uint64_t layerId, SynthEngine::OutputStage outputStage) noexcept;
+    enum class UiDensityMode
+    {
+        basic = 0,
+        advanced
+    };
+    UiDensityMode getUiDensityMode() const noexcept;
+    void setUiDensityMode (UiDensityMode mode) noexcept;
+    bool getVoiceAdvancedPanelExpanded() const noexcept;
+    void setVoiceAdvancedPanelExpanded (bool shouldExpand) noexcept;
+    bool getOutputAdvancedPanelExpanded() const noexcept;
+    void setOutputAdvancedPanelExpanded (bool shouldExpand) noexcept;
     static int clampMidiNote (int midiNote) noexcept;
 
 private:
@@ -233,6 +244,9 @@ private:
     PresetLibrary presetLibrary;
     juce::String currentPresetName;
     juce::String lastPresetWarningMessage;
+    UiDensityMode uiDensityMode = UiDensityMode::basic;
+    bool voiceAdvancedPanelExpanded = false;
+    bool outputAdvancedPanelExpanded = false;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessor)
