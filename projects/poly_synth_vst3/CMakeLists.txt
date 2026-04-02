@@ -257,6 +257,17 @@ target_link_libraries(LayerSelectionEditingTest
 
 add_test(NAME LayerSelectionEditingTest COMMAND LayerSelectionEditingTest)
 
+add_executable(EditorSectionLayoutRegressionTest
+    tests/EditorSectionLayoutRegressionTest.cpp)
+
+target_link_libraries(EditorSectionLayoutRegressionTest
+    PRIVATE
+        PolySynthPlugin
+        juce::juce_audio_processors
+        juce::juce_audio_utils)
+
+add_test(NAME EditorSectionLayoutRegressionTest COMMAND EditorSectionLayoutRegressionTest)
+
 
 add_executable(SynthEngineUnisonTest
     tests/SynthEngineUnisonTest.cpp
