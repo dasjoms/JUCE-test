@@ -2,10 +2,61 @@
 #include "PolySynthAudioProcessorEditor.h"
 #include <array>
 #include <cmath>
+#include <utility>
 
 namespace
 {
 constexpr std::array<const char*, 12> pitchClassNames { "C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B" };
+
+struct LayoutTokens
+{
+    static constexpr int outerPadding = 16;
+    static constexpr int sectionPadding = 10;
+    static constexpr int rowSpacing = 8;
+    static constexpr int controlGap = 6;
+    static constexpr int sectionHeaderHeight = 26;
+    static constexpr int sectionFooterPadding = 10;
+};
+}
+
+void PolySynthAudioProcessorEditor::SectionPanel::setTitle (juce::String newTitle)
+{
+    title = std::move (newTitle);
+    repaint();
+}
+
+juce::Rectangle<int> PolySynthAudioProcessorEditor::SectionPanel::getContentBounds() const
+{
+    auto bounds = getLocalBounds().reduced (LayoutTokens::sectionPadding);
+    bounds.removeFromTop (LayoutTokens::sectionHeaderHeight);
+    bounds.removeFromBottom (LayoutTokens::sectionFooterPadding);
+    return bounds;
+}
+
+void PolySynthAudioProcessorEditor::SectionPanel::paint (juce::Graphics& g)
+{
+    const auto area = getLocalBounds().toFloat();
+    auto background = juce::Colours::darkslategrey.withAlpha (0.24f);
+    g.setColour (background);
+    g.fillRoundedRectangle (area, 9.0f);
+
+    auto headerArea = area.withHeight (static_cast<float> (LayoutTokens::sectionHeaderHeight + LayoutTokens::sectionPadding / 2));
+    g.setColour (juce::Colours::white.withAlpha (0.045f));
+    g.fillRoundedRectangle (headerArea, 9.0f);
+
+    const auto dividerY = LayoutTokens::sectionHeaderHeight + LayoutTokens::sectionPadding / 2;
+    g.setColour (juce::Colours::white.withAlpha (0.16f));
+    g.drawHorizontalLine (dividerY, area.getX() + LayoutTokens::sectionPadding, area.getRight() - LayoutTokens::sectionPadding);
+
+    g.setColour (juce::Colours::white.withAlpha (0.8f));
+    g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
+    g.drawText (title,
+                LayoutTokens::sectionPadding,
+                LayoutTokens::sectionPadding / 2,
+                getWidth() - (LayoutTokens::sectionPadding * 2),
+                LayoutTokens::sectionHeaderHeight - 2,
+                juce::Justification::centredLeft,
+                true);
 }
 
 void PolySynthAudioProcessorEditor::WaveformDisplayPanel::setLayerWaveforms (const std::vector<SynthVoice::Waveform>& waveformsToDraw)
@@ -399,17 +450,23 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     emptyInspectorLabel.setJustificationType (juce::Justification::centred);
     addAndMakeVisible (emptyInspectorLabel);
 
-    oscillatorCard.setText ("Oscillator");
-    addAndMakeVisible (oscillatorCard);
+    oscillatorSection.setTitle ("Oscillator");
+    addAndMakeVisible (oscillatorSection);
 
-    envelopeCard.setText ("Envelope");
-    addAndMakeVisible (envelopeCard);
+    voiceUnisonSection.setTitle ("Voice / Unison");
+    addAndMakeVisible (voiceUnisonSection);
 
-    modulationCard.setText ("Modulation");
-    addAndMakeVisible (modulationCard);
+    envelopeSection.setTitle ("Envelope");
+    addAndMakeVisible (envelopeSection);
 
-    outputVoicingCard.setText ("Output / Voicing");
-    addAndMakeVisible (outputVoicingCard);
+    modulationSection.setTitle ("Modulation");
+    addAndMakeVisible (modulationSection);
+
+    outputSection.setTitle ("Output");
+    addAndMakeVisible (outputSection);
+
+    tuningAdvancedSection.setTitle ("Tuning / Advanced");
+    addAndMakeVisible (tuningAdvancedSection);
 
     waveformLabel.setText ("Waveform", juce::dontSendNotification);
     waveformLabel.setJustificationType (juce::Justification::centred);
@@ -685,20 +742,20 @@ void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
 
 void PolySynthAudioProcessorEditor::resized()
 {
-    auto bounds = getLocalBounds().reduced (16);
+    auto bounds = getLocalBounds().reduced (LayoutTokens::outerPadding);
 
     titleLabel.setBounds (bounds.removeFromTop (28));
-    bounds.removeFromTop (8);
+    bounds.removeFromTop (LayoutTokens::rowSpacing);
 
     globalPanelToggle.setBounds (bounds.removeFromTop (26));
-    bounds.removeFromTop (8);
+    bounds.removeFromTop (LayoutTokens::rowSpacing);
 
     if (globalPanelToggle.getToggleState())
     {
         auto globalBounds = bounds.removeFromTop (84);
         globalPanel.setBounds (globalBounds);
         globalPanelPlaceholderLabel.setBounds (globalBounds.reduced (12, 24));
-        bounds.removeFromTop (10);
+        bounds.removeFromTop (LayoutTokens::rowSpacing + 2);
     }
     else
     {
@@ -714,15 +771,15 @@ void PolySynthAudioProcessorEditor::resized()
     auto sidebarBounds = mainArea.removeFromLeft (juce::jmin (sidebarWidth, mainArea.getWidth() - 220));
     sidebarPanel.setBounds (sidebarBounds);
 
-    auto sidebarContent = sidebarBounds.reduced (8, 28);
+    auto sidebarContent = sidebarBounds.reduced (LayoutTokens::rowSpacing, 28);
     auto layersBounds = sidebarContent.removeFromTop (juce::jmin (300, sidebarContent.getHeight() / 2));
     layerListPanel.setBounds (layersBounds);
 
     auto rowArea = layersBounds.reduced (8, 28);
     addLayerButton.setBounds (rowArea.removeFromTop (28));
-    rowArea.removeFromTop (4);
+    rowArea.removeFromTop (LayoutTokens::controlGap - 2);
     actionStatusLabel.setBounds (rowArea.removeFromTop (20));
-    rowArea.removeFromTop (4);
+    rowArea.removeFromTop (LayoutTokens::controlGap - 2);
     for (std::size_t i = 0; i < layerRows.size(); ++i)
     {
         auto& row = layerRows[i];
@@ -732,48 +789,80 @@ void PolySynthAudioProcessorEditor::resized()
             row.setBounds ({});
     }
 
-    sidebarContent.removeFromTop (8);
+    sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
     auto presetBounds = sidebarContent.removeFromTop (124);
     presetPanel.setBounds (presetBounds);
     auto presetContent = presetBounds.reduced (8, 28);
     auto presetRow = presetContent.removeFromTop (28);
     presetLabel.setBounds (presetRow.removeFromLeft (54));
     presetSelector.setBounds (presetRow);
-    presetContent.removeFromTop (4);
+    presetContent.removeFromTop (LayoutTokens::controlGap - 2);
     auto presetButtonsRow = presetContent.removeFromTop (28);
     presetLoadButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
     presetSaveButton.setBounds (presetButtonsRow.removeFromLeft (56).reduced (1, 0));
     presetSaveAsNewButton.setBounds (presetButtonsRow.reduced (1, 0));
-    presetContent.removeFromTop (4);
+    presetContent.removeFromTop (LayoutTokens::controlGap - 2);
     presetStatusLabel.setBounds (presetContent.removeFromTop (34));
 
-    sidebarContent.removeFromTop (8);
+    sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
     marketplacePanel.setBounds (sidebarContent);
     auto marketplaceContent = sidebarContent.reduced (8, 28);
     auto marketplaceButtonsRow = marketplaceContent.removeFromTop (28);
     marketplaceBrowseButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
     marketplaceUploadButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
     marketplaceSyncButton.setBounds (marketplaceButtonsRow.removeFromLeft (74).reduced (1, 0));
-    marketplaceContent.removeFromTop (6);
+    marketplaceContent.removeFromTop (LayoutTokens::controlGap);
     marketplaceLoginStatusLabel.setBounds (marketplaceContent.removeFromTop (22));
 
     auto content = mainArea.reduced (12, 0);
     inspectorTitleLabel.setBounds (content.removeFromTop (24));
-    content.removeFromTop (6);
+    content.removeFromTop (LayoutTokens::controlGap);
 
-    auto cardRowTop = content.removeFromTop (juce::jmax (256, (content.getHeight() - 34) / 2));
-    content.removeFromTop (10);
-    auto cardRowBottom = content;
+    auto inspectorGrid = content;
+    constexpr int minColumnWidth = 230;
+    const auto maxColumnCount = juce::jlimit (1, 3, inspectorGrid.getWidth() / minColumnWidth);
+    const auto activeColumnCount = juce::jmax (1, maxColumnCount);
+    const auto totalColumnGap = LayoutTokens::rowSpacing * (activeColumnCount - 1);
+    const auto columnWidth = (inspectorGrid.getWidth() - totalColumnGap) / activeColumnCount;
 
-    auto oscillatorBounds = cardRowTop.removeFromLeft (cardRowTop.getWidth() / 2).reduced (4);
-    auto envelopeBounds = cardRowTop.reduced (4);
-    auto modulationBounds = cardRowBottom.removeFromLeft (cardRowBottom.getWidth() / 2).reduced (4);
-    auto outputVoicingBounds = cardRowBottom.reduced (4);
+    std::array<juce::Rectangle<int>, 3> columnBounds {};
+    for (int columnIndex = 0; columnIndex < activeColumnCount; ++columnIndex)
+    {
+        auto nextColumn = inspectorGrid.removeFromLeft (columnWidth);
+        if (columnIndex + 1 < activeColumnCount)
+            inspectorGrid.removeFromLeft (LayoutTokens::rowSpacing);
+        columnBounds[static_cast<std::size_t> (columnIndex)] = nextColumn;
+    }
 
-    oscillatorCard.setBounds (oscillatorBounds);
-    envelopeCard.setBounds (envelopeBounds);
-    modulationCard.setBounds (modulationBounds);
-    outputVoicingCard.setBounds (outputVoicingBounds);
+    using SectionRef = std::reference_wrapper<SectionPanel>;
+    const auto sectionSets = std::array<std::array<SectionRef, 2>, 3> {
+        std::array<SectionRef, 2> { oscillatorSection, voiceUnisonSection },
+        std::array<SectionRef, 2> { envelopeSection, modulationSection },
+        std::array<SectionRef, 2> { outputSection, tuningAdvancedSection }
+    };
+
+    auto clearSection = [] (SectionPanel& panel) { panel.setBounds ({}); };
+    for (auto& sectionSet : sectionSets)
+        for (auto& section : sectionSet)
+            clearSection (section.get());
+
+    for (std::size_t setIndex = 0; setIndex < sectionSets.size(); ++setIndex)
+    {
+        const auto columnIndex = static_cast<int> (setIndex % static_cast<std::size_t> (activeColumnCount));
+        auto& column = columnBounds[static_cast<std::size_t> (columnIndex)];
+        if (column.isEmpty())
+            continue;
+
+        const auto availableHeight = column.getHeight();
+        const auto sectionHeight = (availableHeight - LayoutTokens::rowSpacing) / 2;
+        for (std::size_t sectionIndex = 0; sectionIndex < sectionSets[setIndex].size(); ++sectionIndex)
+        {
+            auto& section = sectionSets[setIndex][sectionIndex];
+            section.get().setBounds (column.removeFromTop (sectionHeight));
+            if (sectionIndex + 1 < sectionSets[setIndex].size())
+                column.removeFromTop (LayoutTokens::rowSpacing);
+        }
+    }
 
     auto placeCardTopRow = [] (juce::Rectangle<int> area, juce::Label& leftLabel, juce::Component& leftControl, juce::Label& rightLabel, juce::Component& rightControl)
     {
@@ -795,21 +884,22 @@ void PolySynthAudioProcessorEditor::resized()
         label.setBounds (centered.removeFromTop (18));
     };
 
-    auto oscContent = oscillatorBounds.reduced (10, 26);
+    auto oscContent = oscillatorSection.getContentBounds();
     placeCardTopRow (oscContent.removeFromTop (56), waveformLabel, waveformSelector, stealPolicyLabel, stealPolicySelector);
+    oscContent.removeFromTop (LayoutTokens::controlGap);
     waveformDisplayPanel.setBounds (oscContent.removeFromTop (88).reduced (4, 2));
-    oscContent.removeFromTop (4);
-    auto oscKnobArea = oscContent.reduced (6, 0);
-    auto oscLeft = oscKnobArea.removeFromLeft (oscKnobArea.getWidth() / 2);
-    auto oscRight = oscKnobArea;
-    placeKnob (oscLeft.removeFromTop (108), maxVoicesLabel, maxVoicesSlider, false);
-    placeKnob (oscLeft, unisonVoicesLabel, unisonVoicesSlider, false);
-    placeKnob (oscRight.removeFromTop (108), unisonDetuneCentsLabel, unisonDetuneCentsSlider, true);
-    placeKnob (oscRight, absoluteRootNoteLabel, absoluteRootNoteSlider, false);
 
-    auto envContent = envelopeBounds.reduced (10, 30);
+    auto voiceContent = voiceUnisonSection.getContentBounds().reduced (LayoutTokens::controlGap, 0);
+    auto voiceTop = voiceContent.removeFromTop (voiceContent.getHeight() / 2);
+    auto voiceBottom = voiceContent;
+    placeKnob (voiceTop.removeFromLeft (voiceTop.getWidth() / 2), maxVoicesLabel, maxVoicesSlider, false);
+    placeKnob (voiceTop, unisonVoicesLabel, unisonVoicesSlider, false);
+    placeKnob (voiceBottom.removeFromLeft (voiceBottom.getWidth() / 2), unisonDetuneCentsLabel, unisonDetuneCentsSlider, true);
+    placeKnob (voiceBottom, absoluteRootNoteLabel, absoluteRootNoteSlider, false);
+
+    auto envContent = envelopeSection.getContentBounds();
     adsrGraphPanel.setBounds (envContent.removeFromTop (108));
-    envContent.removeFromTop (6);
+    envContent.removeFromTop (LayoutTokens::controlGap);
     auto envTop = envContent.removeFromTop (envContent.getHeight() / 2);
     auto envBottom = envContent;
     placeKnob (envTop.removeFromLeft (envTop.getWidth() / 2), attackLabel, attackSlider, true);
@@ -817,19 +907,22 @@ void PolySynthAudioProcessorEditor::resized()
     placeKnob (envBottom.removeFromLeft (envBottom.getWidth() / 2), sustainLabel, sustainSlider, true);
     placeKnob (envBottom, releaseLabel, releaseSlider, true);
 
-    auto modContent = modulationBounds.reduced (10, 26);
+    auto modContent = modulationSection.getContentBounds();
     placeCardTopRow (modContent.removeFromTop (56), modDestinationLabel, modDestinationSelector, velocitySensitivityLabel, velocitySensitivitySlider);
+    modContent.removeFromTop (LayoutTokens::controlGap);
     auto modKnobs = modContent.reduced (6, 4);
     placeKnob (modKnobs.removeFromLeft (modKnobs.getWidth() / 2), modRateLabel, modRateSlider, true);
     placeKnob (modKnobs, modDepthLabel, modDepthSlider, true);
 
-    auto outContent = outputVoicingBounds.reduced (10, 26);
+    auto outContent = outputSection.getContentBounds();
     auto outputRow = outContent.removeFromTop (34);
     outputStageLabel.setBounds (outputRow.removeFromTop (14));
     outputStageSelector.setBounds (outputRow.reduced (4, 0));
-    auto tuneArea = outContent.removeFromTop (132);
+    outContent.removeFromTop (LayoutTokens::rowSpacing);
+    auto tuneContent = tuningAdvancedSection.getContentBounds().reduced (LayoutTokens::controlGap, 0);
+    auto tuneArea = tuneContent.removeFromTop (132);
     placeKnob (tuneArea, relativeRootSemitoneLabel, relativeRootSemitoneSlider, false);
-    rootNoteFeedbackLabel.setBounds (outContent.removeFromTop (26));
+    rootNoteFeedbackLabel.setBounds (tuneContent.removeFromTop (26));
     emptyInspectorLabel.setBounds (mainArea.reduced (12, 24));
 }
 

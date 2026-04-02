@@ -17,6 +17,18 @@ public:
     void resized() override;
 
 private:
+    class SectionPanel final : public juce::Component
+    {
+    public:
+        void setTitle (juce::String newTitle);
+        juce::Rectangle<int> getContentBounds() const;
+
+        void paint (juce::Graphics& g) override;
+
+    private:
+        juce::String title;
+    };
+
     class WaveformDisplayPanel final : public juce::Component
     {
     public:
@@ -138,10 +150,12 @@ private:
     juce::Label inspectorTitleLabel;
     juce::Label emptyInspectorLabel;
     juce::Label titleLabel;
-    juce::GroupComponent oscillatorCard;
-    juce::GroupComponent envelopeCard;
-    juce::GroupComponent modulationCard;
-    juce::GroupComponent outputVoicingCard;
+    SectionPanel oscillatorSection;
+    SectionPanel voiceUnisonSection;
+    SectionPanel envelopeSection;
+    SectionPanel modulationSection;
+    SectionPanel outputSection;
+    SectionPanel tuningAdvancedSection;
     juce::Label waveformLabel;
     juce::Label maxVoicesLabel;
     juce::Label stealPolicyLabel;
