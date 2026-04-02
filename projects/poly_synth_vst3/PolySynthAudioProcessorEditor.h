@@ -17,6 +17,12 @@ public:
     void resized() override;
 
 private:
+    enum class EditorPage
+    {
+        main = 0,
+        library
+    };
+
     class SectionPanel final : public juce::Component
     {
     public:
@@ -123,7 +129,8 @@ private:
     void savePresetOverwrite();
     void savePresetAsNew();
     void loadSelectedPreset();
-    void showLibraryPage (bool shouldShowLibraryPage);
+    void showMainPage();
+    void showLibraryPage();
     void refreshDensityUiState();
     static juce::String midiNoteToDisplayString (int midiNote);
 
@@ -211,7 +218,7 @@ private:
     float waveformAnimationPhase = 0.0f;
     float adsrAnimationProgress = 0.0f;
     bool usingAdvancedDensity = false;
-    bool showingLibraryPage = false;
+    EditorPage currentPage = EditorPage::main;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
 };
