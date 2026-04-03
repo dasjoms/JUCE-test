@@ -356,6 +356,7 @@ PolySynthAudioProcessorEditor::LayerRow::LayerRow()
     addAndMakeVisible (selectButton);
 
     layerNameLabel.setJustificationType (juce::Justification::centredLeft);
+    layerNameLabel.setColour (juce::Label::textColourId, juce::Colours::black);
     addAndMakeVisible (layerNameLabel);
 
     moveUpButton.setButtonText ("Up");
@@ -460,9 +461,6 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     addAndMakeVisible (libraryPageContainer);
     libraryPageContainer.setVisible (false);
     libraryPageContainer.setEnabled (false);
-
-    sidebarPanel.setText ("Sidebar");
-    sidebarContainer.addAndMakeVisible (sidebarPanel);
 
     layerListPanel.setText ("Layers");
     sidebarContainer.addAndMakeVisible (layerListPanel);
@@ -758,6 +756,46 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     rootNoteFeedbackLabel.setJustificationType (juce::Justification::centredRight);
     workspaceContainer.addAndMakeVisible (rootNoteFeedbackLabel);
+
+    auto setLabelTextBlack = [] (juce::Label& label)
+    {
+        label.setColour (juce::Label::textColourId, juce::Colours::black);
+    };
+    auto setGroupTextBlack = [] (juce::GroupComponent& group)
+    {
+        group.setColour (juce::GroupComponent::textColourId, juce::Colours::black);
+    };
+
+    for (auto* label : { &titleLabel,
+                         &globalPanelPlaceholderLabel,
+                         &presetLabel,
+                         &libraryMarketplaceLoginStatusLabel,
+                         &inspectorTitleLabel,
+                         &densityModeLabel,
+                         &emptyInspectorLabel,
+                         &waveformLabel,
+                         &maxVoicesLabel,
+                         &stealPolicyLabel,
+                         &attackLabel,
+                         &decayLabel,
+                         &sustainLabel,
+                         &releaseLabel,
+                         &modDepthLabel,
+                         &modRateLabel,
+                         &velocitySensitivityLabel,
+                         &modDestinationLabel,
+                         &unisonVoicesLabel,
+                         &unisonDetuneCentsLabel,
+                         &outputStageLabel,
+                         &absoluteRootNoteLabel,
+                         &relativeRootSemitoneLabel,
+                         &rootNoteFeedbackLabel })
+        setLabelTextBlack (*label);
+
+    setGroupTextBlack (globalPanel);
+    setGroupTextBlack (layerListPanel);
+    setGroupTextBlack (presetPanel);
+    setGroupTextBlack (libraryMarketplacePanel);
 
     waveformSelector.onChange = [this]
     {
@@ -1137,7 +1175,6 @@ void PolySynthAudioProcessorEditor::resized()
     }
 
     auto sidebarLayout = sidebarContainer.getLocalBounds();
-    sidebarPanel.setBounds (sidebarLayout);
 
     auto sidebarContent = sidebarLayout.reduced (LayoutTokens::rowSpacing, SidebarLayoutTokens::panelVerticalInset);
 
