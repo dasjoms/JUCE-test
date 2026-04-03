@@ -1339,16 +1339,6 @@ void PolySynthAudioProcessorEditor::resized()
         }
     }
 
-    auto placeCardTopRow = [] (juce::Rectangle<int> area, juce::Label& leftLabel, juce::Component& leftControl, juce::Label& rightLabel, juce::Component& rightControl)
-    {
-        auto row = area.removeFromTop (34);
-        auto left = row.removeFromLeft (row.getWidth() / 2).reduced (4, 0);
-        auto right = row.reduced (4, 0);
-        leftLabel.setBounds (left.removeFromTop (14));
-        leftControl.setBounds (left);
-        rightLabel.setBounds (right.removeFromTop (14));
-        rightControl.setBounds (right);
-    };
     auto placeKnob = [] (juce::Rectangle<int> area, juce::Label& label, juce::Slider& slider, bool primary)
     {
         constexpr int primaryKnobSize = 84;
@@ -1403,9 +1393,18 @@ void PolySynthAudioProcessorEditor::resized()
     placeAdsrKnob (envKnobRow, releaseLabel, releaseSlider);
 
     auto modContent = mapSectionLocalBoundsToEditor (workspaceContainer, modulationSection, modulationSection.getContentBounds());
-    placeCardTopRow (modContent.removeFromTop (56), modDestinationLabel, modDestinationSelector, velocitySensitivityLabel, velocitySensitivitySlider);
+    auto modDestinationArea = modContent.removeFromTop (52).reduced (4, 0);
+    modDestinationLabel.setBounds (modDestinationArea.removeFromTop (14));
+    modDestinationSelector.setBounds (modDestinationArea);
     modContent.removeFromTop (LayoutTokens::controlGap);
-    auto modKnobs = modContent.reduced (6, 4);
+
+    auto velocityArea = modContent.removeFromTop (108).reduced (4, 0);
+    velocitySensitivityLabel.setBounds (velocityArea.removeFromTop (16));
+    velocityArea.removeFromTop (2);
+    velocitySensitivitySlider.setBounds (velocityArea.withSizeKeepingCentre (72, 90));
+    modContent.removeFromTop (LayoutTokens::controlGap);
+
+    auto modKnobs = modContent.removeFromTop (juce::jmin (120, modContent.getHeight())).reduced (6, 0);
     placeKnob (modKnobs.removeFromLeft (modKnobs.getWidth() / 2), modRateLabel, modRateSlider, true);
     placeKnob (modKnobs, modDepthLabel, modDepthSlider, true);
 
