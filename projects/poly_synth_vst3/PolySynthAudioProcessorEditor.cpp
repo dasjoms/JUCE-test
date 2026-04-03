@@ -389,11 +389,13 @@ PolySynthAudioProcessorEditor::LayerRow::LayerRow()
     muteToggle.setButtonText ("Mute");
     muteToggle.setColour (juce::ToggleButton::textColourId, juce::Colours::black);
     muteToggle.setColour (juce::ToggleButton::tickColourId, juce::Colours::black);
+    muteToggle.setColour (juce::ToggleButton::tickDisabledColourId, juce::Colours::black);
     addAndMakeVisible (muteToggle);
 
     soloToggle.setButtonText ("Solo");
     soloToggle.setColour (juce::ToggleButton::textColourId, juce::Colours::black);
     soloToggle.setColour (juce::ToggleButton::tickColourId, juce::Colours::black);
+    soloToggle.setColour (juce::ToggleButton::tickDisabledColourId, juce::Colours::black);
     addAndMakeVisible (soloToggle);
 
     volumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
