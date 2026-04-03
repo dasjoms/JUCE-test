@@ -13,10 +13,13 @@ struct LayoutTokens
     static constexpr int outerPadding = 0;
     static constexpr int sectionPadding = 10;
     static constexpr int rowSpacing = 8;
+    static constexpr int majorPaneGap = rowSpacing;
     static constexpr int controlGap = 6;
     static constexpr int sectionHeaderHeight = 26;
     static constexpr int sectionFooterPadding = 10;
-    static constexpr int separatorThickness = 2;
+    static constexpr int majorSeparatorThickness = 2;
+    static constexpr int sidebarPaneGapThickness = majorPaneGap;
+    static juce::Colour majorSeparatorColour() noexcept { return juce::Colours::lightgrey; }
 };
 
 struct SidebarLayoutTokens
@@ -70,31 +73,25 @@ PolySynthAudioProcessorEditor::PaneComponent::PaneComponent (Style paneStyle)
     setOpaque (true);
 }
 
-void PolySynthAudioProcessorEditor::PaneComponent::setSectionSeparatorYLocal (int newSeparatorYLocal)
-{
-    if (sectionSeparatorYLocal == newSeparatorYLocal)
-        return;
-
-    sectionSeparatorYLocal = newSeparatorYLocal;
-    repaint();
-}
-
 void PolySynthAudioProcessorEditor::PaneComponent::paint (juce::Graphics& g)
 {
     const auto area = getLocalBounds();
+
+    if (style == Style::separatorFill)
+    {
+        g.fillAll (LayoutTokens::majorSeparatorColour());
+        return;
+    }
 
     if (style == Style::sidebar)
     {
         g.fillAll (juce::Colours::white);
 
-        g.setColour (juce::Colours::lightgrey);
-        g.fillRect (juce::Rectangle<int> (area.getRight() - LayoutTokens::separatorThickness,
+        g.setColour (LayoutTokens::majorSeparatorColour());
+        g.fillRect (juce::Rectangle<int> (area.getRight() - LayoutTokens::majorSeparatorThickness,
                                           area.getY(),
-                                          LayoutTokens::separatorThickness,
+                                          LayoutTokens::majorSeparatorThickness,
                                           area.getHeight()));
-
-        if (sectionSeparatorYLocal >= 0)
-            g.fillRect (area.getX(), sectionSeparatorYLocal, area.getWidth(), LayoutTokens::separatorThickness);
         return;
     }
 
@@ -485,19 +482,12 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     libraryPageContainer.setVisible (false);
     libraryPageContainer.setEnabled (false);
 
-    layerListPanel.setText ("Layers");
-    sidebarContainer.addAndMakeVisible (layerListPanel);
-    layerPanelTitleLabel.setText ("Layers", juce::dontSendNotification);
-    layerPanelTitleLabel.setJustificationType (juce::Justification::centredLeft);
-    sidebarContainer.addAndMakeVisible (layerPanelTitleLabel);
+    layersPane.setTitle ("Layers");
+    sidebarContainer.addAndMakeVisible (layersPane);
 
-    presetPanel.setText ("Preset Browser");
-    sidebarContainer.addAndMakeVisible (presetPanel);
-    presetPanelTitleLabel.setText ("Preset Browser", juce::dontSendNotification);
-    presetPanelTitleLabel.setJustificationType (juce::Justification::centredLeft);
-    sidebarContainer.addAndMakeVisible (presetPanelTitleLabel);
-    layerListPanel.setText ({});
-    presetPanel.setText ({});
+    presetBrowserPane.setTitle ("Preset Browser");
+    sidebarContainer.addAndMakeVisible (presetBrowserPane);
+    sidebarContainer.addAndMakeVisible (sidebarPaneGap);
 
     addLayerButton.setButtonText ("Add Layer");
     addLayerButton.onClick = [this] { showAddLayerMenu(); };
@@ -803,8 +793,6 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     for (auto* label : { &titleLabel,
                          &globalPanelPlaceholderLabel,
-                         &presetPanelTitleLabel,
-                         &layerPanelTitleLabel,
                          &presetLabel,
                          &libraryMarketplaceLoginStatusLabel,
                          &inspectorTitleLabel,
@@ -830,11 +818,7 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
         setLabelTextBlack (*label);
 
     setGroupTextBlack (globalPanel);
-    setGroupTextBlack (layerListPanel);
-    setGroupTextBlack (presetPanel);
     setGroupTextBlack (libraryMarketplacePanel);
-    layerListPanel.setColour (juce::GroupComponent::outlineColourId, juce::Colours::transparentBlack);
-    presetPanel.setColour (juce::GroupComponent::outlineColourId, juce::Colours::transparentBlack);
 
     for (auto* slider : { &maxVoicesSlider,
                           &attackSlider,
@@ -1205,7 +1189,7 @@ void PolySynthAudioProcessorEditor::resized()
         const auto maxSidebarWidthForWindow = juce::jmax (sidebarMinWidth, mainArea.getWidth() - workspaceMinWidth);
         const auto resolvedSidebarWidth = juce::jmin (desiredSidebarWidth, maxSidebarWidthForWindow);
         sidebarBounds = mainArea.removeFromLeft (resolvedSidebarWidth);
-        mainArea.removeFromLeft (LayoutTokens::rowSpacing);
+        mainArea.removeFromLeft (LayoutTokens::majorPaneGap);
         workspaceBounds = mainArea;
     }
 
@@ -1215,11 +1199,9 @@ void PolySynthAudioProcessorEditor::resized()
 
     if (! isMainPage)
     {
-        sidebarSectionSeparatorY = -1;
-        sidebarContainer.setSectionSeparatorYLocal (-1);
-        auto libraryBounds = libraryPageContainer.getLocalBounds().reduced (LayoutTokens::rowSpacing, 16);
+        auto libraryBounds = libraryPageContainer.getLocalBounds().reduced (LayoutTokens::majorPaneGap, 16);
         backToSynthPageButton.setBounds (libraryBounds.removeFromTop (30).removeFromLeft (160));
-        libraryBounds.removeFromTop (LayoutTokens::rowSpacing);
+        libraryBounds.removeFromTop (LayoutTokens::majorPaneGap);
         libraryMarketplacePanel.setBounds (libraryBounds);
 
         auto marketplaceContent = libraryBounds.reduced (8, 28);
@@ -1234,19 +1216,18 @@ void PolySynthAudioProcessorEditor::resized()
 
     auto sidebarLayout = sidebarContainer.getLocalBounds();
 
-    auto sidebarContent = sidebarLayout.reduced (LayoutTokens::rowSpacing, SidebarLayoutTokens::panelVerticalInset);
+    auto sidebarContent = sidebarLayout.reduced (LayoutTokens::majorPaneGap, SidebarLayoutTokens::panelVerticalInset);
 
     const auto availableSidebarHeight = sidebarContent.getHeight();
     const auto minimumSidebarContentHeight = SidebarLayoutTokens::minimumPresetBlockHeight
-                                           + LayoutTokens::rowSpacing
+                                           + LayoutTokens::sidebarPaneGapThickness
                                            + SidebarLayoutTokens::minimumLayerBlockHeight;
     const auto sidebarExtraHeight = juce::jmax (0, availableSidebarHeight - minimumSidebarContentHeight);
     const auto presetBlockHeight = SidebarLayoutTokens::minimumPresetBlockHeight;
     const auto layerBlockHeight = SidebarLayoutTokens::minimumLayerBlockHeight + sidebarExtraHeight;
 
     auto presetBounds = sidebarContent.removeFromTop (juce::jmin (presetBlockHeight, sidebarContent.getHeight()));
-    presetPanel.setBounds (presetBounds);
-    presetPanelTitleLabel.setBounds (presetBounds.getX() + 12, presetBounds.getY() - 10, presetBounds.getWidth() - 12, 20);
+    presetBrowserPane.setBounds (presetBounds);
     auto presetContent = presetBounds.reduced (SidebarLayoutTokens::panelHorizontalInset, SidebarLayoutTokens::panelVerticalInset);
     auto presetRow = presetContent.removeFromTop (SidebarLayoutTokens::compactControlRowHeight);
     presetLabel.setBounds (presetRow.removeFromLeft (SidebarLayoutTokens::presetLabelWidth));
@@ -1261,16 +1242,13 @@ void PolySynthAudioProcessorEditor::resized()
     presetContent.removeFromTop (LayoutTokens::controlGap);
     presetStatusLabel.setBounds (presetContent);
 
-    sidebarSectionSeparatorY = sidebarContainer.getY()
-                            + presetBounds.getBottom()
-                            + (LayoutTokens::rowSpacing / 2)
-                            - (LayoutTokens::separatorThickness / 2);
-    sidebarContainer.setSectionSeparatorYLocal (sidebarSectionSeparatorY - sidebarContainer.getY());
-    sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
-    layerListPanel.setBounds (sidebarContent.removeFromTop (juce::jmin (layerBlockHeight, sidebarContent.getHeight())));
-    layerPanelTitleLabel.setBounds (layerListPanel.getX() + 12, layerListPanel.getY() - 10, layerListPanel.getWidth() - 12, 20);
+    auto sidebarGapBounds = sidebarContent.removeFromTop (LayoutTokens::sidebarPaneGapThickness);
+    sidebarGapBounds.setX (sidebarLayout.getX());
+    sidebarGapBounds.setWidth (sidebarLayout.getWidth());
+    sidebarPaneGap.setBounds (sidebarGapBounds);
+    layersPane.setBounds (sidebarContent.removeFromTop (juce::jmin (layerBlockHeight, sidebarContent.getHeight())));
 
-    auto rowArea = layerListPanel.getBounds().reduced (SidebarLayoutTokens::panelHorizontalInset, SidebarLayoutTokens::panelVerticalInset);
+    auto rowArea = layersPane.getBounds().reduced (SidebarLayoutTokens::panelHorizontalInset, SidebarLayoutTokens::panelVerticalInset);
     actionStatusLabel.setBounds (rowArea.removeFromTop (SidebarLayoutTokens::actionStatusRowHeight));
     rowArea.removeFromTop (SidebarLayoutTokens::layerStatusGap);
     for (std::size_t i = 0; i < layerRows.size(); ++i)
