@@ -28,6 +28,22 @@ bool expect (bool condition, const char* message)
     return condition;
 }
 
+template <typename ComponentType>
+ComponentType* findById (juce::Component& parent, const char* componentId)
+{
+    if (auto* directMatch = dynamic_cast<ComponentType*> (&parent); directMatch != nullptr && directMatch->getComponentID() == componentId)
+        return directMatch;
+
+    if (auto* directChild = dynamic_cast<ComponentType*> (parent.findChildWithID (componentId)))
+        return directChild;
+
+    for (auto* child : parent.getChildren())
+        if (auto* nestedMatch = findById<ComponentType> (*child, componentId))
+            return nestedMatch;
+
+    return nullptr;
+}
+
 juce::ValueTree getLayerNodeByVisualIndex (juce::ValueTree& layersNode, juce::ValueTree& orderNode, int visualIndex)
 {
     const auto layerId = static_cast<juce::int64> (orderNode.getChild (visualIndex).getProperty (layerIdPropertyId, 0));
@@ -166,8 +182,8 @@ bool validateInspectorSelectionMirrorsSelectedLayerValues()
     PolySynthAudioProcessorEditor layer1Editor (processor);
     layer1Editor.setSize (960, 720);
     layer1Editor.resized();
-    auto* layer1WaveformSelector = dynamic_cast<juce::ComboBox*> (layer1Editor.findChildWithID ("waveformSelector"));
-    auto* layer1AttackSlider = dynamic_cast<juce::Slider*> (layer1Editor.findChildWithID ("attackSlider"));
+    auto* layer1WaveformSelector = findById<juce::ComboBox> (layer1Editor, "waveformSelector");
+    auto* layer1AttackSlider = findById<juce::Slider> (layer1Editor, "attackSlider");
 
     if (layer1WaveformSelector == nullptr || layer1AttackSlider == nullptr)
     {
@@ -184,8 +200,8 @@ bool validateInspectorSelectionMirrorsSelectedLayerValues()
     PolySynthAudioProcessorEditor layer2Editor (processor);
     layer2Editor.setSize (960, 720);
     layer2Editor.resized();
-    auto* layer2WaveformSelector = dynamic_cast<juce::ComboBox*> (layer2Editor.findChildWithID ("waveformSelector"));
-    auto* layer2AttackSlider = dynamic_cast<juce::Slider*> (layer2Editor.findChildWithID ("attackSlider"));
+    auto* layer2WaveformSelector = findById<juce::ComboBox> (layer2Editor, "waveformSelector");
+    auto* layer2AttackSlider = findById<juce::Slider> (layer2Editor, "attackSlider");
 
     if (layer2WaveformSelector == nullptr || layer2AttackSlider == nullptr)
     {

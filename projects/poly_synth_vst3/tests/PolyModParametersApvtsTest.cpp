@@ -15,6 +15,22 @@ constexpr auto unisonVoicesParameterId = "unisonVoices";
 constexpr auto unisonDetuneCentsParameterId = "unisonDetuneCents";
 constexpr auto outputStageParameterId = "outputStage";
 
+template <typename ComponentType>
+ComponentType* findById (juce::Component& parent, const char* componentId)
+{
+    if (auto* directMatch = dynamic_cast<ComponentType*> (&parent); directMatch != nullptr && directMatch->getComponentID() == componentId)
+        return directMatch;
+
+    if (auto* directChild = dynamic_cast<ComponentType*> (parent.findChildWithID (componentId)))
+        return directChild;
+
+    for (auto* child : parent.getChildren())
+        if (auto* nestedMatch = findById<ComponentType> (*child, componentId))
+            return nestedMatch;
+
+    return nullptr;
+}
+
 bool setRawParameterValue (PolySynthAudioProcessor& processor, juce::StringRef parameterId, float rawValue)
 {
     if (auto* parameter = processor.getValueTreeState().getParameter (parameterId))
@@ -159,13 +175,13 @@ bool validateEditorControlAttachmentsForEngineParameters()
     editor.setSize (520, 540);
     editor.resized();
 
-    auto* decayControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("decaySlider"));
-    auto* sustainControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("sustainSlider"));
-    auto* velocityControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("velocitySensitivitySlider"));
-    auto* destinationControl = dynamic_cast<juce::ComboBox*> (editor.findChildWithID ("modDestinationSelector"));
-    auto* unisonVoicesControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("unisonVoicesSlider"));
-    auto* unisonDetuneControl = dynamic_cast<juce::Slider*> (editor.findChildWithID ("unisonDetuneCentsSlider"));
-    auto* outputStageControl = dynamic_cast<juce::ComboBox*> (editor.findChildWithID ("outputStageSelector"));
+    auto* decayControl = findById<juce::Slider> (editor, "decaySlider");
+    auto* sustainControl = findById<juce::Slider> (editor, "sustainSlider");
+    auto* velocityControl = findById<juce::Slider> (editor, "velocitySensitivitySlider");
+    auto* destinationControl = findById<juce::ComboBox> (editor, "modDestinationSelector");
+    auto* unisonVoicesControl = findById<juce::Slider> (editor, "unisonVoicesSlider");
+    auto* unisonDetuneControl = findById<juce::Slider> (editor, "unisonDetuneCentsSlider");
+    auto* outputStageControl = findById<juce::ComboBox> (editor, "outputStageSelector");
 
     if (decayControl == nullptr || sustainControl == nullptr || velocityControl == nullptr
         || destinationControl == nullptr || unisonVoicesControl == nullptr || unisonDetuneControl == nullptr
