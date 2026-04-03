@@ -70,6 +70,15 @@ PolySynthAudioProcessorEditor::PaneComponent::PaneComponent (Style paneStyle)
     setOpaque (true);
 }
 
+void PolySynthAudioProcessorEditor::PaneComponent::setSectionSeparatorYLocal (int newSeparatorYLocal)
+{
+    if (sectionSeparatorYLocal == newSeparatorYLocal)
+        return;
+
+    sectionSeparatorYLocal = newSeparatorYLocal;
+    repaint();
+}
+
 void PolySynthAudioProcessorEditor::PaneComponent::paint (juce::Graphics& g)
 {
     const auto area = getLocalBounds();
@@ -83,6 +92,9 @@ void PolySynthAudioProcessorEditor::PaneComponent::paint (juce::Graphics& g)
                                           area.getY(),
                                           LayoutTokens::separatorThickness,
                                           area.getHeight()));
+
+        if (sectionSeparatorYLocal >= 0)
+            g.fillRect (area.getX(), sectionSeparatorYLocal, area.getWidth(), LayoutTokens::separatorThickness);
         return;
     }
 
@@ -1151,15 +1163,6 @@ void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
-
-    if (currentPage == EditorPage::main && sidebarSectionSeparatorY >= 0)
-    {
-        g.setColour (juce::Colours::lightgrey);
-        g.fillRect (sidebarContainer.getX(),
-                    sidebarSectionSeparatorY,
-                    sidebarContainer.getWidth(),
-                    LayoutTokens::separatorThickness);
-    }
 }
 
 void PolySynthAudioProcessorEditor::resized()
@@ -1211,6 +1214,7 @@ void PolySynthAudioProcessorEditor::resized()
     if (! isMainPage)
     {
         sidebarSectionSeparatorY = -1;
+        sidebarContainer.setSectionSeparatorYLocal (-1);
         auto libraryBounds = libraryPageContainer.getLocalBounds().reduced (LayoutTokens::rowSpacing, 16);
         backToSynthPageButton.setBounds (libraryBounds.removeFromTop (30).removeFromLeft (160));
         libraryBounds.removeFromTop (LayoutTokens::rowSpacing);
@@ -1259,6 +1263,7 @@ void PolySynthAudioProcessorEditor::resized()
                             + presetBounds.getBottom()
                             + (LayoutTokens::rowSpacing / 2)
                             - (LayoutTokens::separatorThickness / 2);
+    sidebarContainer.setSectionSeparatorYLocal (sidebarSectionSeparatorY - sidebarContainer.getY());
     sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
     layerListPanel.setBounds (sidebarContent.removeFromTop (juce::jmin (layerBlockHeight, sidebarContent.getHeight())));
     layerPanelTitleLabel.setBounds (layerListPanel.getX() + 12, layerListPanel.getY() - 10, layerListPanel.getWidth() - 12, 20);

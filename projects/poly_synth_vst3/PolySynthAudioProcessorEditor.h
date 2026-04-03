@@ -43,10 +43,12 @@ private:
 
         explicit PaneComponent (Style paneStyle);
 
+        void setSectionSeparatorYLocal (int newSeparatorYLocal);
         void paint (juce::Graphics& g) override;
 
     private:
         Style style;
+        int sectionSeparatorYLocal = -1;
     };
 
     class SectionPanel final : public juce::Component
