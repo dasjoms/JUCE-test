@@ -172,6 +172,8 @@ private:
     juce::GroupComponent sidebarPanel;
     juce::GroupComponent layerListPanel;
     juce::GroupComponent presetPanel;
+    juce::Label presetPanelTitleLabel;
+    juce::Label layerPanelTitleLabel;
     juce::TextButton viewLibraryButton;
     juce::TextButton addLayerButton;
     juce::Label actionStatusLabel;
@@ -244,6 +246,7 @@ private:
     float waveformAnimationPhase = 0.0f;
     float adsrAnimationProgress = 0.0f;
     bool usingAdvancedDensity = false;
+    int sidebarSectionSeparatorY = -1;
     EditorPage currentPage = EditorPage::main;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)

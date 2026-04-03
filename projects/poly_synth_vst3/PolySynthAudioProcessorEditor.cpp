@@ -16,6 +16,7 @@ struct LayoutTokens
     static constexpr int controlGap = 6;
     static constexpr int sectionHeaderHeight = 26;
     static constexpr int sectionFooterPadding = 10;
+    static constexpr int separatorThickness = 2;
 };
 
 struct SidebarLayoutTokens
@@ -77,9 +78,11 @@ void PolySynthAudioProcessorEditor::PaneComponent::paint (juce::Graphics& g)
     {
         g.fillAll (juce::Colours::white);
 
-        constexpr int separatorWidth = 2;
         g.setColour (juce::Colours::lightgrey);
-        g.fillRect (juce::Rectangle<int> (area.getRight() - separatorWidth, area.getY(), separatorWidth, area.getHeight()));
+        g.fillRect (juce::Rectangle<int> (area.getRight() - LayoutTokens::separatorThickness,
+                                          area.getY(),
+                                          LayoutTokens::separatorThickness,
+                                          area.getHeight()));
         return;
     }
 
@@ -106,10 +109,10 @@ void PolySynthAudioProcessorEditor::SectionPanel::paint (juce::Graphics& g)
     g.fillRoundedRectangle (headerArea, 9.0f);
 
     const auto dividerY = LayoutTokens::sectionHeaderHeight + LayoutTokens::sectionPadding / 2;
-    g.setColour (juce::Colours::white.withAlpha (0.16f));
+    g.setColour (juce::Colours::black.withAlpha (0.18f));
     g.drawHorizontalLine (dividerY, area.getX() + LayoutTokens::sectionPadding, area.getRight() - LayoutTokens::sectionPadding);
 
-    g.setColour (juce::Colours::white.withAlpha (0.8f));
+    g.setColour (juce::Colours::black.withAlpha (0.85f));
     g.setFont (juce::FontOptions (13.0f, juce::Font::bold));
     g.drawText (title,
                 LayoutTokens::sectionPadding,
@@ -372,15 +375,21 @@ PolySynthAudioProcessorEditor::LayerRow::LayerRow()
     addAndMakeVisible (deleteButton);
 
     muteToggle.setButtonText ("Mute");
+    muteToggle.setColour (juce::ToggleButton::textColourId, juce::Colours::black);
+    muteToggle.setColour (juce::ToggleButton::tickColourId, juce::Colours::black);
     addAndMakeVisible (muteToggle);
 
     soloToggle.setButtonText ("Solo");
+    soloToggle.setColour (juce::ToggleButton::textColourId, juce::Colours::black);
+    soloToggle.setColour (juce::ToggleButton::tickColourId, juce::Colours::black);
     addAndMakeVisible (soloToggle);
 
     volumeSlider.setSliderStyle (juce::Slider::LinearHorizontal);
     volumeSlider.setTextBoxStyle (juce::Slider::TextBoxLeft, false, 48, 20);
     volumeSlider.setRange (0.0, 1.0, 0.01);
     volumeSlider.setNumDecimalPlacesToDisplay (2);
+    volumeSlider.setColour (juce::Slider::textBoxTextColourId, juce::Colours::black);
+    volumeSlider.setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::black);
     addAndMakeVisible (volumeSlider);
 }
 
@@ -464,9 +473,17 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     layerListPanel.setText ("Layers");
     sidebarContainer.addAndMakeVisible (layerListPanel);
+    layerPanelTitleLabel.setText ("Layers", juce::dontSendNotification);
+    layerPanelTitleLabel.setJustificationType (juce::Justification::centredLeft);
+    sidebarContainer.addAndMakeVisible (layerPanelTitleLabel);
 
     presetPanel.setText ("Preset Browser");
     sidebarContainer.addAndMakeVisible (presetPanel);
+    presetPanelTitleLabel.setText ("Preset Browser", juce::dontSendNotification);
+    presetPanelTitleLabel.setJustificationType (juce::Justification::centredLeft);
+    sidebarContainer.addAndMakeVisible (presetPanelTitleLabel);
+    layerListPanel.setText ({});
+    presetPanel.setText ({});
 
     addLayerButton.setButtonText ("Add Layer");
     addLayerButton.onClick = [this] { showAddLayerMenu(); };
@@ -609,6 +626,8 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     voiceAdvancedPanelToggle.setButtonText ("Voice & policy details");
     voiceAdvancedPanelToggle.setComponentID ("voiceAdvancedPanelToggle");
+    voiceAdvancedPanelToggle.setColour (juce::ToggleButton::textColourId, juce::Colours::black);
+    voiceAdvancedPanelToggle.setColour (juce::ToggleButton::tickColourId, juce::Colours::black);
     voiceAdvancedPanelToggle.setClickingTogglesState (true);
     voiceAdvancedPanelToggle.onClick = [this]
     {
@@ -716,6 +735,8 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     outputAdvancedPanelToggle.setButtonText ("Output & tuning details");
     outputAdvancedPanelToggle.setComponentID ("outputAdvancedPanelToggle");
+    outputAdvancedPanelToggle.setColour (juce::ToggleButton::textColourId, juce::Colours::black);
+    outputAdvancedPanelToggle.setColour (juce::ToggleButton::tickColourId, juce::Colours::black);
     outputAdvancedPanelToggle.setClickingTogglesState (true);
     outputAdvancedPanelToggle.onClick = [this]
     {
@@ -768,6 +789,8 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
 
     for (auto* label : { &titleLabel,
                          &globalPanelPlaceholderLabel,
+                         &presetPanelTitleLabel,
+                         &layerPanelTitleLabel,
                          &presetLabel,
                          &libraryMarketplaceLoginStatusLabel,
                          &inspectorTitleLabel,
@@ -796,6 +819,25 @@ PolySynthAudioProcessorEditor::PolySynthAudioProcessorEditor (PolySynthAudioProc
     setGroupTextBlack (layerListPanel);
     setGroupTextBlack (presetPanel);
     setGroupTextBlack (libraryMarketplacePanel);
+    layerListPanel.setColour (juce::GroupComponent::outlineColourId, juce::Colours::transparentBlack);
+    presetPanel.setColour (juce::GroupComponent::outlineColourId, juce::Colours::transparentBlack);
+
+    for (auto* slider : { &maxVoicesSlider,
+                          &attackSlider,
+                          &decaySlider,
+                          &sustainSlider,
+                          &releaseSlider,
+                          &modDepthSlider,
+                          &modRateSlider,
+                          &velocitySensitivitySlider,
+                          &unisonVoicesSlider,
+                          &unisonDetuneCentsSlider,
+                          &absoluteRootNoteSlider,
+                          &relativeRootSemitoneSlider })
+    {
+        slider->setColour (juce::Slider::textBoxTextColourId, juce::Colours::black);
+        slider->setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::black);
+    }
 
     waveformSelector.onChange = [this]
     {
@@ -1109,6 +1151,15 @@ void PolySynthAudioProcessorEditor::paint (juce::Graphics& g)
 {
     // (Our component is opaque, so we must completely fill the background with a solid colour)
     g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+
+    if (currentPage == EditorPage::main && sidebarSectionSeparatorY >= 0)
+    {
+        g.setColour (juce::Colours::lightgrey);
+        g.fillRect (sidebarContainer.getX(),
+                    sidebarSectionSeparatorY,
+                    sidebarContainer.getWidth(),
+                    LayoutTokens::separatorThickness);
+    }
 }
 
 void PolySynthAudioProcessorEditor::resized()
@@ -1159,6 +1210,7 @@ void PolySynthAudioProcessorEditor::resized()
 
     if (! isMainPage)
     {
+        sidebarSectionSeparatorY = -1;
         auto libraryBounds = libraryPageContainer.getLocalBounds().reduced (LayoutTokens::rowSpacing, 16);
         backToSynthPageButton.setBounds (libraryBounds.removeFromTop (30).removeFromLeft (160));
         libraryBounds.removeFromTop (LayoutTokens::rowSpacing);
@@ -1188,6 +1240,7 @@ void PolySynthAudioProcessorEditor::resized()
 
     auto presetBounds = sidebarContent.removeFromTop (juce::jmin (presetBlockHeight, sidebarContent.getHeight()));
     presetPanel.setBounds (presetBounds);
+    presetPanelTitleLabel.setBounds (presetBounds.getX() + 12, presetBounds.getY() - 10, presetBounds.getWidth() - 12, 20);
     auto presetContent = presetBounds.reduced (SidebarLayoutTokens::panelHorizontalInset, SidebarLayoutTokens::panelVerticalInset);
     auto presetRow = presetContent.removeFromTop (SidebarLayoutTokens::compactControlRowHeight);
     presetLabel.setBounds (presetRow.removeFromLeft (SidebarLayoutTokens::presetLabelWidth));
@@ -1202,12 +1255,15 @@ void PolySynthAudioProcessorEditor::resized()
     presetContent.removeFromTop (LayoutTokens::controlGap);
     presetStatusLabel.setBounds (presetContent);
 
+    sidebarSectionSeparatorY = sidebarContainer.getY()
+                            + presetBounds.getBottom()
+                            + (LayoutTokens::rowSpacing / 2)
+                            - (LayoutTokens::separatorThickness / 2);
     sidebarContent.removeFromTop (LayoutTokens::rowSpacing);
     layerListPanel.setBounds (sidebarContent.removeFromTop (juce::jmin (layerBlockHeight, sidebarContent.getHeight())));
+    layerPanelTitleLabel.setBounds (layerListPanel.getX() + 12, layerListPanel.getY() - 10, layerListPanel.getWidth() - 12, 20);
 
     auto rowArea = layerListPanel.getBounds().reduced (SidebarLayoutTokens::panelHorizontalInset, SidebarLayoutTokens::panelVerticalInset);
-    addLayerButton.setBounds (rowArea.removeFromTop (SidebarLayoutTokens::compactControlRowHeight));
-    rowArea.removeFromTop (SidebarLayoutTokens::layerHeaderGap);
     actionStatusLabel.setBounds (rowArea.removeFromTop (SidebarLayoutTokens::actionStatusRowHeight));
     rowArea.removeFromTop (SidebarLayoutTokens::layerStatusGap);
     for (std::size_t i = 0; i < layerRows.size(); ++i)
@@ -1218,6 +1274,8 @@ void PolySynthAudioProcessorEditor::resized()
         else
             row.setBounds ({});
     }
+    rowArea.removeFromTop (SidebarLayoutTokens::layerHeaderGap);
+    addLayerButton.setBounds (rowArea.removeFromTop (SidebarLayoutTokens::compactControlRowHeight));
 
     auto content = workspaceContainer.getLocalBounds().reduced (12, 0);
     auto inspectorHeader = content.removeFromTop (24);
