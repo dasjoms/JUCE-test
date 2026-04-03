@@ -38,17 +38,16 @@ private:
         enum class Style
         {
             sidebar = 0,
-            workspace
+            workspace,
+            separatorFill
         };
 
         explicit PaneComponent (Style paneStyle);
 
-        void setSectionSeparatorYLocal (int newSeparatorYLocal);
         void paint (juce::Graphics& g) override;
 
     private:
         Style style;
-        int sectionSeparatorYLocal = -1;
     };
 
     class SectionPanel final : public juce::Component
@@ -172,10 +171,9 @@ private:
     juce::GroupComponent globalPanel;
     juce::Label globalPanelPlaceholderLabel;
     juce::GroupComponent sidebarPanel;
-    juce::GroupComponent layerListPanel;
-    juce::GroupComponent presetPanel;
-    juce::Label presetPanelTitleLabel;
-    juce::Label layerPanelTitleLabel;
+    SectionPanel layersPane;
+    SectionPanel presetBrowserPane;
+    PaneComponent sidebarPaneGap { PaneComponent::Style::separatorFill };
     juce::TextButton viewLibraryButton;
     juce::TextButton addLayerButton;
     juce::Label actionStatusLabel;
@@ -248,7 +246,6 @@ private:
     float waveformAnimationPhase = 0.0f;
     float adsrAnimationProgress = 0.0f;
     bool usingAdvancedDensity = false;
-    int sidebarSectionSeparatorY = -1;
     EditorPage currentPage = EditorPage::main;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (PolySynthAudioProcessorEditor)
